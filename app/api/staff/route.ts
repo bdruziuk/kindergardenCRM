@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
+  jobTitles,
   lessons,
   salaryPayments,
   staff,
@@ -31,12 +32,20 @@ const rateValues = (body: RateFields): RateFields => ({
 
 async function snapshot(branchId: number, month: string) {
   const { info, rows } = await staffWithAttendance(branchId, month);
+  // Посади філії — вони наповнюють випадайку замість колишнього списку,
+  // зашитого в сторінку.
+  const titles = await getDb()
+    .select({ name: jobTitles.name })
+    .from(jobTitles)
+    .where(eq(jobTitles.branchId, branchId))
+    .orderBy(asc(jobTitles.id));
   // Lesson-paid staff may still carry attendance rows from before they were
   // switched over, but their pay ignores those and the grid shows lessons in
   // their cells — so counting them here would show days nobody can see.
   const onAttendance = rows.filter((row) => row.salaryType !== "lesson");
   return {
     ...info,
+    jobTitles: titles.map((row) => row.name),
     rows,
     summary: {
       staffCount: rows.length,

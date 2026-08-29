@@ -1,6 +1,6 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { branches, children, staff, users } from "@/db/schema";
+import { branches, children, jobTitles, staff, users } from "@/db/schema";
 import {
   type BranchesSnapshot,
   branchRequest,
@@ -98,12 +98,35 @@ export async function POST(request: Request) {
     const body = parsed.data;
 
     if (body.kind === "create") {
-      await db.insert(branches).values({
-        kindergartenId,
-        name: body.name,
-        address: body.address || null,
-        monthlyFee: body.monthlyFee,
-      });
+      const [branch] = await db
+        .insert(branches)
+        .values({
+          kindergartenId,
+          name: body.name,
+          address: body.address || null,
+          monthlyFee: body.monthlyFee,
+        })
+        .returning({ id: branches.id });
+
+      // Філія переймає бібліотеку посад садочка — інакше випадайка
+      // працівників у ній була б порожня.
+      const library = await db
+        .select({ name: jobTitles.name })
+        .from(jobTitles)
+        .where(
+          and(
+            eq(jobTitles.kindergartenId, kindergartenId),
+            isNull(jobTitles.branchId),
+          ),
+        );
+      if (library.length)
+        await db.insert(jobTitles).values(
+          library.map((title) => ({
+            kindergartenId,
+            branchId: branch.id,
+            name: title.name,
+          })),
+        );
     } else if (body.kind === "rename") {
       // Умова по садочку, а не лише по id: чужу філію не перейменувати навіть
       // підставивши її номер руками.

@@ -29,6 +29,7 @@ const EMPTY: SettingsSnapshot = {
   personalTheme: null,
   activeTheme: "green",
   branches: [],
+  jobTitles: [],
   invites: [],
 };
 
@@ -107,6 +108,8 @@ export default function SettingsPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  /** Нова посада: окремо для бібліотеки й для кожної філії. */
+  const [titleDraft, setTitleDraft] = useState<Record<string, string>>({});
 
   /** Чернетки полів заводимо від знімка, щоб недописане не зникало. */
   const apply = (next: SettingsSnapshot) => {
@@ -192,6 +195,69 @@ export default function SettingsPage() {
   const draftName = (account: AccountDto) => names[account.id] ?? "";
   const nameUnchanged = (account: AccountDto) =>
     !draftName(account).trim() || draftName(account).trim() === account.name;
+
+  /** Список посад із додаванням і видаленням. `slot` — ключ поля вводу й
+   *  ознака, що зараз зберігається: у власника таких списків кілька на
+   *  сторінці, і вони не мають блимати всі разом. */
+  const titleList = (
+    slot: string,
+    titles: SettingsSnapshot["jobTitles"],
+    branchId: number | null,
+    canRemove: (title: SettingsSnapshot["jobTitles"][number]) => boolean,
+  ) => (
+    <div className="title-block">
+      <div className="title-chips">
+        {titles.map((title) => (
+          <span className="title-chip" key={title.id}>
+            {title.name}
+            {canRemove(title) ? (
+              <button
+                type="button"
+                aria-label={`Прибрати посаду ${title.name}`}
+                disabled={saving === `title-${title.id}`}
+                onClick={() =>
+                  send(`title-${title.id}`, {
+                    kind: "job_title_remove",
+                    titleId: title.id,
+                  })
+                }
+              >
+                ×
+              </button>
+            ) : (
+              <em title="Посаду додав власник">🔒</em>
+            )}
+          </span>
+        ))}
+        {!titles.length && (
+          <span className="title-empty">Посад ще немає</span>
+        )}
+      </div>
+      <div className="title-add">
+        <input
+          value={titleDraft[slot] ?? ""}
+          placeholder="Нова посада"
+          onChange={(event) =>
+            setTitleDraft({ ...titleDraft, [slot]: event.target.value })
+          }
+        />
+        <button
+          className="account-save ghost"
+          disabled={saving === slot || !(titleDraft[slot] ?? "").trim()}
+          onClick={async () => {
+            const next = await send(slot, {
+              kind: "job_title_add",
+              name: titleDraft[slot],
+              branchId,
+            });
+            if (next) setTitleDraft({ ...titleDraft, [slot]: "" });
+          }}
+        >
+          {saving === slot ? "Додаємо…" : "Додати"}
+        </button>
+      </div>
+    </div>
+  );
 
   const swatches = (
     current: ColorTheme | null,
@@ -299,6 +365,38 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+
+        <div className="theme-block">
+          <span className="theme-title">Посади у філії</span>
+          {titleList(
+            `title-branch-${branch.id}`,
+            branch.jobTitles,
+            branch.id,
+            // Керуючий прибирає лише свої; спущені власником — під замком.
+            (title) => me.role === "admin" || !title.addedByOwner,
+          )}
+          {me.role === "admin" && (
+            <button
+              className="account-save ghost title-apply"
+              disabled={saving === `apply-${branch.id}`}
+              onClick={() =>
+                send(`apply-${branch.id}`, {
+                  kind: "job_titles_apply",
+                  branchId: branch.id,
+                })
+              }
+            >
+              {saving === `apply-${branch.id}`
+                ? "Переносимо…"
+                : "Додати посади з бібліотеки"}
+            </button>
+          )}
+          <small>
+            {me.role === "admin"
+              ? "Ці посади бачить керуючий у випадайці працівників. Перенесення додає з бібліотеки, нічого не затираючи."
+              : "Свої посади можна прибирати; ті, що додав власник, — ні."}
+          </small>
+        </div>
 
         <div className="theme-block">
           <span className="theme-title">Кольорова схема філії</span>
@@ -540,6 +638,21 @@ export default function SettingsPage() {
             </div>
           )}
         </article>
+
+        {me.role === "admin" && (
+          <article className="panel settings-panel">
+            <div className="section-heading">
+              <div>
+                <h2>Посади</h2>
+                <span>
+                  Зразок для всіх філій: звідси посади переносяться в філію
+                  кнопкою в її картці
+                </span>
+              </div>
+            </div>
+            {titleList("title-library", data.jobTitles, null, () => true)}
+          </article>
+        )}
 
         {me.role === "admin" && (
           <article className="panel settings-panel">

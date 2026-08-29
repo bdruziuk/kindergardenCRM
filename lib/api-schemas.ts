@@ -406,6 +406,8 @@ export type BirthdayDto = {
 };
 
 export type StaffSnapshot = {
+  /** Посади, доступні у випадайці цієї філії. */
+  jobTitles: string[];
   month: string;
   calendar: CalendarDay[];
   workdays: number;
@@ -552,6 +554,15 @@ export const settingsRequest = z.discriminatedUnion("kind", [
   }),
   z.object({ kind: z.literal("avatar_clear") }),
   z.object({
+    kind: z.literal("job_title_add"),
+    name: z.string().trim().min(1, "Назва посади обов’язкова").max(80),
+    /** null — у бібліотеку садочка (лише власник); інакше — у філію. */
+    branchId: id.nullable().default(null),
+  }),
+  z.object({ kind: z.literal("job_title_remove"), titleId: id }),
+  /** Переносить бібліотеку садочка у філію, не чіпаючи вже наявних там. */
+  z.object({ kind: z.literal("job_titles_apply"), branchId: id }),
+  z.object({
     // Без id: власник перейменовує рівно свій садочок, і взятися чужому
     // номеру тут просто нізвідки.
     kind: z.literal("kindergarten_rename"),
@@ -688,6 +699,13 @@ export type AdminSnapshot = {
   error?: string;
 };
 
+export type JobTitleDto = {
+  id: number;
+  name: string;
+  /** Посаду спустив власник — керуючий її не прибирає. */
+  addedByOwner: boolean;
+};
+
 export type BranchSettingsDto = {
   id: number;
   name: string;
@@ -700,6 +718,8 @@ export type BranchSettingsDto = {
   canEditTheme: boolean;
   /** Чи може він міняти назву й адресу — це робота власника. */
   canEditDetails: boolean;
+  /** Посади, доступні у випадайці працівників цієї філії. */
+  jobTitles: JobTitleDto[];
 };
 
 export type SettingsSnapshot = {
@@ -715,6 +735,9 @@ export type SettingsSnapshot = {
   activeTheme: ColorTheme;
   /** Філії, доступні для налаштування: власнику — усі, керуючому — його одна. */
   branches: BranchSettingsDto[];
+  /** Бібліотека посад садочка — зразок, який власник розкладає по філіях.
+   *  Керуючий її не бачить: вона не його. */
+  jobTitles: JobTitleDto[];
   /** Запрошення — лише для власника; у керуючого список завжди порожній. */
   invites: InviteDto[];
   /** Посилання щойно створеного запрошення. Повертається рівно один раз:

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -126,6 +127,47 @@ export const groupStaff = pgTable(
       .references(() => staff.id, { onDelete: "cascade" }),
   },
   (t) => [uniqueIndex("idx_group_staff").on(t.groupId, t.staffId)],
+);
+
+/**
+ * Посади працівників.
+ *
+ * Один рядок — або **зразок** у бібліотеці садочка (`branchId` порожній), або
+ * посада, доступна в конкретній філії. Дві ролі в одній таблиці, бо різниця
+ * між ними лише в тому, чи прив'язані вони до філії, а поля однакові.
+ *
+ * `addedByOwner` розрізняє, хто додав посаду в філію: керуючий може прибирати
+ * свої, але не ті, що спустив власник.
+ *
+ * У `staff.role` лишається текст, а не посилання сюди: інакше видалення
+ * посади ламало б картки вже заведених працівників. Ця таблиця наповнює
+ * випадайку, а не володіє тим, що вже обрано.
+ */
+export const jobTitles = pgTable(
+  "job_titles",
+  {
+    id: serial("id").primaryKey(),
+    kindergartenId: integer("kindergarten_id")
+      .notNull()
+      .references(() => kindergartens.id, { onDelete: "cascade" }),
+    /** null — зразок у бібліотеці власника; інакше посада саме цієї філії. */
+    branchId: integer("branch_id").references(() => branches.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    addedByOwner: boolean("added_by_owner").notNull().default(true),
+  },
+  (t) => [
+    // Два часткові індекси, а не один спільний: у Postgres NULL не дорівнює
+    // NULL, тож звичайний унікальний індекс пропустив би дублікати в
+    // бібліотеці, де branch_id порожній.
+    uniqueIndex("idx_job_titles_library")
+      .on(t.kindergartenId, t.name)
+      .where(sql`${t.branchId} is null`),
+    uniqueIndex("idx_job_titles_branch")
+      .on(t.branchId, t.name)
+      .where(sql`${t.branchId} is not null`),
+  ],
 );
 
 export const children = pgTable(

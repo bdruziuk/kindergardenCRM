@@ -26,13 +26,6 @@ const months = [
   ["2026-08", "Серпень 2026"],
   ["2026-09", "Вересень 2026"],
 ];
-const roles = [
-  "Вихователь",
-  "Помічник вихователя",
-  "Вчитель",
-  "Кухар",
-  "Помічник кухаря",
-];
 const money = (value: number) =>
   value.toLocaleString("uk-UA", { maximumFractionDigits: 2 }) + " ₴";
 
@@ -81,6 +74,7 @@ export default function StaffPage() {
   const branch = branchName;
   const [month, setMonth] = useState("2026-08");
   const [data, setData] = useState<StaffSnapshot>({
+    jobTitles: [],
     month: "",
     calendar: [],
     workdays: 0,
@@ -868,9 +862,9 @@ export default function StaffPage() {
                     setEditing({ ...editing, role: event.target.value })
                   }
                 >
-                  {(roles.includes(editing.role)
-                    ? roles
-                    : [editing.role, ...roles]
+                  {(data.jobTitles.includes(editing.role)
+                    ? data.jobTitles
+                    : [editing.role, ...data.jobTitles]
                   ).map((role) => (
                     <option key={role}>{role}</option>
                   ))}
@@ -1046,12 +1040,18 @@ export default function StaffPage() {
               <label>
                 Посада
                 <select
-                  value={newStaff.role}
+                  value={
+                    // Посада за замовчуванням може бути відсутня у філії —
+                    // тоді беремо першу наявну, щоб поле не лишалось порожнім.
+                    data.jobTitles.includes(newStaff.role)
+                      ? newStaff.role
+                      : (data.jobTitles[0] ?? "")
+                  }
                   onChange={(event) =>
                     setNewStaff({ ...newStaff, role: event.target.value })
                   }
                 >
-                  {roles.map((role) => (
+                  {data.jobTitles.map((role) => (
                     <option key={role}>{role}</option>
                   ))}
                 </select>
@@ -1166,6 +1166,11 @@ export default function StaffPage() {
                       month,
                       branch,
                       ...newStaff,
+                      // Те саме вирівнювання, що й у полі: інакше на сервер
+                      // пішла б посада, якої у філії немає.
+                      role: data.jobTitles.includes(newStaff.role)
+                        ? newStaff.role
+                        : (data.jobTitles[0] ?? newStaff.role),
                       birthDate: newStaff.birthDate || null,
                     }),
                   });

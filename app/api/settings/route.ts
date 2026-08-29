@@ -1,11 +1,18 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
-import { branches, invites, kindergartens, users } from "@/db/schema";
+import {
+  branches,
+  invites,
+  jobTitles,
+  kindergartens,
+  users,
+} from "@/db/schema";
 import {
   type AccountDto,
   type BranchSettingsDto,
   type InviteDto,
+  type JobTitleDto,
   type SettingsSnapshot,
   firstIssue,
   settingsRequest,
@@ -59,12 +66,35 @@ async function viewer() {
 
 type Viewer = Awaited<ReturnType<typeof viewer>>;
 
+/** Філія має належати садочку того, хто дивиться, а керуючому — бути його
+ *  власною. Без цього посаду можна було б підкинути в чужу філію. */
+async function assertBranch(
+  db: ReturnType<typeof getDb>,
+  me: Viewer,
+  branchId: number,
+) {
+  if (!me.isOwner && branchId !== me.branchId)
+    throw new ScopeError("Немає доступу до цієї філії", 403);
+
+  const [branch] = await db
+    .select({ id: branches.id })
+    .from(branches)
+    .where(
+      and(
+        eq(branches.id, branchId),
+        eq(branches.kindergartenId, me.kindergartenId),
+      ),
+    );
+  if (!branch) throw new ScopeError("Немає доступу до цієї філії", 403);
+}
+
 async function snapshot(
   me: Viewer,
   extra?: { newInviteUrl?: string; passwordMail?: "sent" | "logged" },
 ): Promise<SettingsSnapshot> {
   const db = getDb();
-  const [userRows, branchRows, gardenRows, inviteRows] = await Promise.all([
+  const [userRows, branchRows, gardenRows, titleRows, inviteRows] =
+    await Promise.all([
     db
       .select({
         id: users.id,
@@ -93,6 +123,16 @@ async function snapshot(
       .select({ name: kindergartens.name })
       .from(kindergartens)
       .where(eq(kindergartens.id, me.kindergartenId)),
+    db
+      .select({
+        id: jobTitles.id,
+        name: jobTitles.name,
+        branchId: jobTitles.branchId,
+        addedByOwner: jobTitles.addedByOwner,
+      })
+      .from(jobTitles)
+      .where(eq(jobTitles.kindergartenId, me.kindergartenId))
+      .orderBy(asc(jobTitles.id)),
     // Запрошення бачить лише власник, тож керуючому їх навіть не читаємо.
     me.isOwner
       ? db
@@ -145,6 +185,9 @@ async function snapshot(
     // Схему філії керуючий міняє, лише поки її не зайняв власник.
     canEditTheme: me.isOwner || !branch.themeByOwner,
     canEditDetails: me.isOwner,
+    jobTitles: titleRows
+      .filter((row) => row.branchId === branch.id)
+      .map(({ id, name, addedByOwner }) => ({ id, name, addedByOwner })),
   }));
 
   const now = Date.now();
@@ -162,9 +205,16 @@ async function snapshot(
         : "waiting",
   }));
 
+  const library: JobTitleDto[] = me.isOwner
+    ? titleRows
+        .filter((row) => row.branchId === null)
+        .map(({ id, name, addedByOwner }) => ({ id, name, addedByOwner }))
+    : [];
+
   return {
     me: toAccount(self),
     kindergartenName: gardenRows[0]?.name ?? "",
+    jobTitles: library,
     others: me.isOwner
       ? userRows.filter((row) => row.id !== me.id).map(toAccount)
       : [],
@@ -289,6 +339,83 @@ export async function POST(request: Request) {
         .update(users)
         .set({ avatar: data, avatarMime: meta })
         .where(eq(users.id, me.id));
+    } else if (body.kind === "job_title_add") {
+      if (body.branchId === null) {
+        // Бібліотека — власникова: керуючому нема чого розкладати по чужих
+        // філіях, у нього є своя.
+        if (!me.isOwner)
+          throw new ScopeError("Бібліотеку посад веде власник", 403);
+        await db
+          .insert(jobTitles)
+          .values({ kindergartenId: me.kindergartenId, name: body.name })
+          .onConflictDoNothing();
+      } else {
+        await assertBranch(db, me, body.branchId);
+        await db
+          .insert(jobTitles)
+          .values({
+            kindergartenId: me.kindergartenId,
+            branchId: body.branchId,
+            name: body.name,
+            addedByOwner: me.isOwner,
+          })
+          .onConflictDoNothing();
+      }
+    } else if (body.kind === "job_title_remove") {
+      const [title] = await db
+        .select({
+          id: jobTitles.id,
+          branchId: jobTitles.branchId,
+          addedByOwner: jobTitles.addedByOwner,
+        })
+        .from(jobTitles)
+        .where(
+          and(
+            eq(jobTitles.id, body.titleId),
+            eq(jobTitles.kindergartenId, me.kindergartenId),
+          ),
+        );
+      if (!title) throw new ScopeError("Посаду не знайдено", 404);
+
+      if (!me.isOwner) {
+        if (title.branchId === null)
+          throw new ScopeError("Бібліотеку посад веде власник", 403);
+        await assertBranch(db, me, title.branchId);
+        // Ту саму межу, що й у кольорових схемах: своє прибирає, спущене
+        // власником — ні.
+        if (title.addedByOwner)
+          throw new ScopeError("Цю посаду додав власник", 403);
+      }
+
+      await db.delete(jobTitles).where(eq(jobTitles.id, body.titleId));
+    } else if (body.kind === "job_titles_apply") {
+      if (!me.isOwner)
+        throw new ScopeError("Бібліотеку розкладає власник", 403);
+      await assertBranch(db, me, body.branchId);
+
+      const library = await db
+        .select({ name: jobTitles.name })
+        .from(jobTitles)
+        .where(
+          and(
+            eq(jobTitles.kindergartenId, me.kindergartenId),
+            isNull(jobTitles.branchId),
+          ),
+        );
+      if (library.length)
+        await db
+          .insert(jobTitles)
+          .values(
+            library.map((title) => ({
+              kindergartenId: me.kindergartenId,
+              branchId: body.branchId,
+              name: title.name,
+              addedByOwner: true,
+            })),
+          )
+          // Наявні у філії лишаємо як є: «застосувати» доповнює, а не
+          // затирає те, що керуючий додав собі сам.
+          .onConflictDoNothing();
     } else if (body.kind === "avatar_clear") {
       await db
         .update(users)

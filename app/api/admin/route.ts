@@ -7,6 +7,7 @@ import {
   children,
   groups,
   invites,
+  jobTitles,
   kindergartens,
   lessons,
   payments,
@@ -119,6 +120,16 @@ async function purgeBranches(tx: Tx, branchIds: number[]) {
 
   await tx.delete(branches).where(inArray(branches.id, branchIds));
 }
+
+/** Посади, з якими садочок починає життя — той самий набір, що колись був
+ *  зашитий у сторінку «Колектив». Далі власник править їх у себе. */
+const STARTER_TITLES = [
+  "Вихователь",
+  "Помічник вихователя",
+  "Вчитель",
+  "Кухар",
+  "Помічник кухаря",
+];
 
 async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
   const db = getDb();
@@ -321,7 +332,17 @@ export async function POST(request: Request) {
       if (existing)
         throw new ScopeError("Садочок із такою назвою вже є", 409);
 
-      await db.insert(kindergartens).values({ name: body.name });
+      const [created] = await db
+        .insert(kindergartens)
+        .values({ name: body.name })
+        .returning({ id: kindergartens.id });
+      // Без цього власник відкрив би налаштування з порожньою бібліотекою.
+      await db.insert(jobTitles).values(
+        STARTER_TITLES.map((name) => ({
+          kindergartenId: created.id,
+          name,
+        })),
+      );
     } else if (body.kind === "kindergarten_rename") {
       const [clash] = await db
         .select({ id: kindergartens.id })
@@ -393,12 +414,35 @@ export async function POST(request: Request) {
       if (clash)
         throw new ScopeError("У цьому садочку вже є філія з такою назвою", 409);
 
-      await db.insert(branches).values({
-        kindergartenId: body.kindergartenId,
-        name: body.name,
-        address: body.address || null,
-        monthlyFee: body.monthlyFee,
-      });
+      const [branch] = await db
+        .insert(branches)
+        .values({
+          kindergartenId: body.kindergartenId,
+          name: body.name,
+          address: body.address || null,
+          monthlyFee: body.monthlyFee,
+        })
+        .returning({ id: branches.id });
+
+      // Нова філія переймає бібліотеку садочка: інакше в керуючого була б
+      // порожня випадайка посад і жодного способу її наповнити.
+      const library = await db
+        .select({ name: jobTitles.name })
+        .from(jobTitles)
+        .where(
+          and(
+            eq(jobTitles.kindergartenId, body.kindergartenId),
+            isNull(jobTitles.branchId),
+          ),
+        );
+      if (library.length)
+        await db.insert(jobTitles).values(
+          library.map((title) => ({
+            kindergartenId: body.kindergartenId,
+            branchId: branch.id,
+            name: title.name,
+          })),
+        );
     } else if (body.kind === "branch_delete") {
       const [branch] = await db
         .select({ id: branches.id })
