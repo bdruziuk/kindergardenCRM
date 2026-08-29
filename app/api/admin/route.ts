@@ -1,14 +1,19 @@
-import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
 import {
+  ageCategories,
   branches,
   children,
   groups,
   invites,
   kindergartens,
+  lessons,
+  payments,
+  relatives,
+  salaryPayments,
   staff,
+  staffAttendance,
   transactions,
   users,
   waitlist,
@@ -22,7 +27,6 @@ import {
   firstIssue,
 } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
-import { plural } from "@/lib/format";
 import {
   hashInviteToken,
   inviteUrl,
@@ -53,19 +57,67 @@ async function requireSuperadmin() {
   return row;
 }
 
-/** Скільки рядків таблиці посилається на цю філію, вже підписаних відмінком. */
-async function countRows(
-  table: PgTable,
-  column: PgColumn,
-  branchId: number,
-  forms: [string, string, string],
-) {
-  const [row] = await getDb()
-    .select({ count: sql<number>`count(*)::int` })
-    .from(table)
-    .where(eq(column, branchId));
-  const count = row?.count ?? 0;
-  return { count, label: `${count} ${plural(count, ...forms)}` };
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+/**
+ * Зносить філії разом з усім, що на них тримається.
+ *
+ * Порядок тут не косметичний: спершу йде те, що посилається на дітей і
+ * персонал, потім самі діти й персонал, і аж тоді філії. Частина зв'язків має
+ * `on delete cascade` і прибралася б сама, але покладатися на це означало б,
+ * що зміна однієї властивості в схемі мовчки змінює поведінку видалення —
+ * тому кожна таблиця названа явно.
+ */
+async function purgeBranches(tx: Tx, branchIds: number[]) {
+  if (!branchIds.length) return;
+
+  const childIds = (
+    await tx
+      .select({ id: children.id })
+      .from(children)
+      .where(inArray(children.branchId, branchIds))
+  ).map((row) => row.id);
+  const staffIds = (
+    await tx
+      .select({ id: staff.id })
+      .from(staff)
+      .where(inArray(staff.branchId, branchIds))
+  ).map((row) => row.id);
+
+  if (childIds.length) {
+    await tx.delete(payments).where(inArray(payments.childId, childIds));
+    await tx.delete(relatives).where(inArray(relatives.childId, childIds));
+  }
+  if (staffIds.length) {
+    await tx
+      .delete(staffAttendance)
+      .where(inArray(staffAttendance.staffId, staffIds));
+    await tx.delete(lessons).where(inArray(lessons.staffId, staffIds));
+    await tx
+      .delete(salaryPayments)
+      .where(inArray(salaryPayments.staffId, staffIds));
+  }
+
+  await tx.delete(children).where(inArray(children.branchId, branchIds));
+  await tx.delete(staff).where(inArray(staff.branchId, branchIds));
+  await tx
+    .delete(transactions)
+    .where(inArray(transactions.branchId, branchIds));
+  await tx.delete(waitlist).where(inArray(waitlist.branchId, branchIds));
+  await tx
+    .delete(ageCategories)
+    .where(inArray(ageCategories.branchId, branchIds));
+  await tx.delete(groups).where(inArray(groups.branchId, branchIds));
+  await tx.delete(invites).where(inArray(invites.branchId, branchIds));
+
+  // Керуючих цих філій відв'язуємо, а не видаляємо: філію можуть зносити
+  // окремо від садочка, і людина має лишитися при своєму записі.
+  await tx
+    .update(users)
+    .set({ branchId: null })
+    .where(inArray(users.branchId, branchIds));
+
+  await tx.delete(branches).where(inArray(branches.id, branchIds));
 }
 
 async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
@@ -78,8 +130,6 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
     childCounts,
     allChildCounts,
     staffCounts,
-    transactionCounts,
-    waitlistCounts,
     peopleRows,
     inviteRows,
   ] = await Promise.all([
@@ -119,9 +169,9 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       .from(children)
       .where(ne(children.status, "left"))
       .groupBy(children.branchId),
-    // Що тримає філію від видалення. Діти тут рахуються **всі**, включно з
-    // вибулими: у лічильнику вгорі вони не показані, але запис лишається й
-    // видалити філію під ним не можна.
+    // Діти тут рахуються **всі**, включно з вибулими: у лічильнику вгорі їх
+    // не видно, але при видаленні зникнуть і вони, тож попередження має
+    // називати справжнє число.
     db
       .select({
         branchId: children.branchId,
@@ -136,20 +186,6 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       })
       .from(staff)
       .groupBy(staff.branchId),
-    db
-      .select({
-        branchId: transactions.branchId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(transactions)
-      .groupBy(transactions.branchId),
-    db
-      .select({
-        branchId: waitlist.branchId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(waitlist)
-      .groupBy(waitlist.branchId),
     db
       .select({
         id: users.id,
@@ -201,12 +237,8 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       address: branch.address ?? "",
       groups: countFor(groupCounts, branch.id),
       children: countFor(childCounts, branch.id),
-      removable:
-        countFor(groupCounts, branch.id) === 0 &&
-        countFor(allChildCounts, branch.id) === 0 &&
-        countFor(staffCounts, branch.id) === 0 &&
-        countFor(transactionCounts, branch.id) === 0 &&
-        countFor(waitlistCounts, branch.id) === 0,
+      childrenTotal: countFor(allChildCounts, branch.id),
+      staff: countFor(staffCounts, branch.id),
     }));
 
     return {
@@ -221,12 +253,10 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       totals: {
         branches: branchDtos.length,
         groups: branchDtos.reduce((sum, b) => sum + b.groups, 0),
-        children: branchDtos.reduce((sum, b) => sum + b.children, 0),
+        children: branchDtos.reduce((sum, b) => sum + b.childrenTotal, 0),
+        staff: branchDtos.reduce((sum, b) => sum + b.staff, 0),
         people: people.length,
       },
-      // Порожній садочок: ні філій, ні людей. Запрошення не рахуємо — вони
-      // зникнуть разом із ним каскадом і нічого цінного не тримають.
-      removable: branchDtos.length === 0 && people.length === 0,
       invites: inviteRows
         .filter((row) => row.kindergartenId === garden.id)
         .map((row) => ({
@@ -368,77 +398,41 @@ export async function POST(request: Request) {
         monthlyFee: body.monthlyFee,
       });
     } else if (body.kind === "branch_delete") {
-      // Видаляємо лише порожню філію. Каскад тут знищив би дітей, персонал і
-      // гроші одним кліком, а в системі з даними дітей така кнопка не має
-      // права існувати — тому спершу перелічуємо, що саме тримає.
-      const blocking = await Promise.all([
-        countRows(children, children.branchId, body.branchId, [
-          "дитина",
-          "дитини",
-          "дітей",
-        ]),
-        countRows(groups, groups.branchId, body.branchId, [
-          "група",
-          "групи",
-          "груп",
-        ]),
-        countRows(staff, staff.branchId, body.branchId, [
-          "працівник",
-          "працівники",
-          "працівників",
-        ]),
-        countRows(transactions, transactions.branchId, body.branchId, [
-          "операція",
-          "операції",
-          "операцій",
-        ]),
-        countRows(waitlist, waitlist.branchId, body.branchId, [
-          "заявка",
-          "заявки",
-          "заявок",
-        ]),
-      ]);
-      const held = blocking.filter((item) => item.count > 0);
-      if (held.length)
-        throw new ScopeError(
-          `Філія не порожня: ${held
-            .map((item) => item.label)
-            .join(", ")}. Спершу приберіть ці записи.`,
-          409,
-        );
+      const [branch] = await db
+        .select({ id: branches.id })
+        .from(branches)
+        .where(eq(branches.id, body.branchId));
+      if (!branch) throw new ScopeError("Філію не знайдено", 404);
 
-      await db.delete(branches).where(eq(branches.id, body.branchId));
+      await db.transaction((tx) => purgeBranches(tx, [body.branchId]));
     } else {
-      const [branchCount, userCount] = await Promise.all([
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(branches)
-          .where(eq(branches.kindergartenId, body.kindergartenId)),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(users)
-          .where(eq(users.kindergartenId, body.kindergartenId)),
-      ]);
-      const branchesLeft = branchCount[0]?.count ?? 0;
-      const usersLeft = userCount[0]?.count ?? 0;
-      const held = [
-        branchesLeft
-          ? `${branchesLeft} ${plural(branchesLeft, "філія", "філії", "філій")}`
-          : "",
-        usersLeft
-          ? `${usersLeft} ${plural(usersLeft, "обліковий запис", "облікові записи", "облікових записів")}`
-          : "",
-      ].filter(Boolean);
-      if (held.length)
-        throw new ScopeError(
-          `Садочок не порожній: ${held.join(", ")}. Спершу приберіть їх.`,
-          409,
-        );
-
-      // Невикористані запрошення підуть каскадом — вони нічого не тримають.
-      await db
-        .delete(kindergartens)
+      const [garden] = await db
+        .select({ id: kindergartens.id })
+        .from(kindergartens)
         .where(eq(kindergartens.id, body.kindergartenId));
+      if (!garden) throw new ScopeError("Садочок не знайдено", 404);
+
+      const branchIds = (
+        await db
+          .select({ id: branches.id })
+          .from(branches)
+          .where(eq(branches.kindergartenId, body.kindergartenId))
+      ).map((row) => row.id);
+
+      await db.transaction(async (tx) => {
+        await purgeBranches(tx, branchIds);
+        // Супер-адміністратора це не зачепить: він не належить жодному
+        // садочку, тож у цю вибірку не потрапляє.
+        await tx
+          .delete(users)
+          .where(eq(users.kindergartenId, body.kindergartenId));
+        await tx
+          .delete(invites)
+          .where(eq(invites.kindergartenId, body.kindergartenId));
+        await tx
+          .delete(kindergartens)
+          .where(eq(kindergartens.id, body.kindergartenId));
+      });
     }
 
     return Response.json(await snapshot());

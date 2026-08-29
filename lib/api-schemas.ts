@@ -603,10 +603,11 @@ export type AdminBranchDto = {
   name: string;
   address: string;
   groups: number;
-  /** Діти, які не вибули. */
+  /** Діти, які не вибули — те саме число, що й на решті екранів. */
   children: number;
-  /** Порожня філія — таку можна видалити, решту тримають її записи. */
-  removable: boolean;
+  /** Усі записи дітей, разом із вибулими: саме стільки зникне при видаленні. */
+  childrenTotal: number;
+  staff: number;
 };
 
 export type AdminKindergartenDto = {
@@ -619,13 +620,13 @@ export type AdminKindergartenDto = {
   totals: {
     branches: number;
     groups: number;
+    /** Усі записи дітей — число для попередження перед видаленням. */
     children: number;
+    staff: number;
     people: number;
   };
   /** Запрошення власників саме цього садочка. */
   invites: InviteDto[];
-  /** Садочок без філій і без людей — лише такий видаляється. */
-  removable: boolean;
 };
 
 export type AdminSnapshot = {

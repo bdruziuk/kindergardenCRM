@@ -1,5 +1,4 @@
 "use client";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
@@ -42,7 +41,6 @@ const today = () =>
     .toUpperCase();
 
 export default function Home() {
-  const { data: session } = useSession();
   const { scope, branchId, choose, branchQuery } = useBranch();
   const [month, setMonth] = useState("2026-08");
   const [data, setData] = useState<DashboardDto | null>(null);
@@ -63,7 +61,6 @@ export default function Home() {
       .catch(() => setError("Немає зв’язку із сервером"));
   }, [month, branchQuery]);
 
-  const firstName = (session?.user?.name ?? "").split(" ")[0];
   const monthIndex = months.findIndex((item) => item[0] === month);
   const step = (delta: number) =>
     setMonth(
@@ -77,7 +74,7 @@ export default function Home() {
         <header>
           <div>
             <p className="eyebrow">{date}</p>
-            <h1>Добрий день{firstName ? `, ${firstName}` : ""} 👋</h1>
+            <h1>Огляд</h1>
           </div>
           <div className="actions">
             <button className="bell">♢</button>

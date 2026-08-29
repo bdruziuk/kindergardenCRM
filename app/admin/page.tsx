@@ -2,12 +2,19 @@
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import type { AdminKindergartenDto, AdminSnapshot } from "@/lib/api-schemas";
-import { USER_ROLE_LABELS, dayLabel, initialsOf } from "@/lib/format";
+import { USER_ROLE_LABELS, dayLabel, initialsOf, plural } from "@/lib/format";
 
 const EMPTY: AdminSnapshot = {
   kindergartens: [],
   totals: { kindergartens: 0, branches: 0, groups: 0, children: 0 },
 };
+
+/** Перелік того, що зникне разом із записом — у називному, через кому. */
+const damage = (parts: [number, string, string, string][]) =>
+  parts
+    .filter(([count]) => count > 0)
+    .map(([count, one, few, many]) => `${count} ${plural(count, one, few, many)}`)
+    .join(", ");
 
 const INVITE_STATUS_LABELS = {
   waiting: "Чекає",
@@ -34,6 +41,9 @@ export default function AdminPage() {
     Record<number, { name: string; address: string; fee: string }>
   >({});
   const [renaming, setRenaming] = useState<Record<number, string>>({});
+  /** Назва садочка, передрукована для підтвердження. Видалення зносить дітей,
+   *  персонал і гроші, тож одного кліку по кнопці для нього замало. */
+  const [typed, setTyped] = useState("");
 
   const draftOf = (id: number) =>
     branchDraft[id] ?? { name: "", address: "", fee: "0" };
@@ -104,34 +114,75 @@ export default function AdminPage() {
         {expanded && (
           <div className="garden-danger">
             {confirming === `garden-${garden.id}` ? (
-              <>
-                <span>Видалити садочок «{garden.name}» без вороття?</span>
-                <button
-                  className="danger-confirm"
-                  disabled={busy === `del-garden-${garden.id}`}
-                  onClick={async () => {
-                    await send(`del-garden-${garden.id}`, {
-                      kind: "kindergarten_delete",
-                      kindergartenId: garden.id,
-                    });
-                    setConfirming(null);
-                  }}
-                >
-                  Так, видалити
-                </button>
-                <button onClick={() => setConfirming(null)}>Скасувати</button>
-              </>
+              <div className="danger-confirm-box">
+                <b>
+                  Разом із садочком назавжди зникне:{" "}
+                  {damage([
+                    [garden.totals.branches, "філія", "філії", "філій"],
+                    [garden.totals.groups, "група", "групи", "груп"],
+                    [garden.totals.children, "дитина", "дитини", "дітей"],
+                    [
+                      garden.totals.staff,
+                      "працівник",
+                      "працівники",
+                      "працівників",
+                    ],
+                    [
+                      garden.totals.people,
+                      "обліковий запис",
+                      "облікові записи",
+                      "облікових записів",
+                    ],
+                  ]) || "нічого — садочок порожній"}
+                  . Разом з оплатами, табелем і чергою. Дію не скасувати.
+                </b>
+                <div>
+                  <input
+                    value={typed}
+                    placeholder={`Введіть «${garden.name}» для підтвердження`}
+                    onChange={(event) => setTyped(event.target.value)}
+                  />
+                  <button
+                    className="danger-confirm"
+                    disabled={
+                      busy === `del-garden-${garden.id}` ||
+                      typed.trim() !== garden.name
+                    }
+                    onClick={async () => {
+                      await send(`del-garden-${garden.id}`, {
+                        kind: "kindergarten_delete",
+                        kindergartenId: garden.id,
+                      });
+                      setConfirming(null);
+                      setTyped("");
+                    }}
+                  >
+                    {busy === `del-garden-${garden.id}`
+                      ? "Видаляємо…"
+                      : "Видалити назавжди"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirming(null);
+                      setTyped("");
+                    }}
+                  >
+                    Скасувати
+                  </button>
+                </div>
+              </div>
             ) : (
               <>
                 <span>
-                  {garden.removable
-                    ? "Садочок порожній — його можна видалити."
-                    : "Видалити можна лише порожній садочок: без філій і без облікових записів."}
+                  Видалення зносить садочок разом з усіма філіями, дітьми,
+                  персоналом і обліковими записами.
                 </span>
                 <button
                   className="danger"
-                  disabled={!garden.removable}
-                  onClick={() => setConfirming(`garden-${garden.id}`)}
+                  onClick={() => {
+                    setConfirming(`garden-${garden.id}`);
+                    setTyped("");
+                  }}
                 >
                   Видалити садочок
                 </button>
@@ -190,6 +241,25 @@ export default function AdminPage() {
                   <span className="garden-pill">{branch.children} дітей</span>
                   {confirming === `branch-${branch.id}` ? (
                     <>
+                      <span className="danger-note">
+                        Зникне{" "}
+                        {damage([
+                          [branch.groups, "група", "групи", "груп"],
+                          [
+                            branch.childrenTotal,
+                            "дитина",
+                            "дитини",
+                            "дітей",
+                          ],
+                          [
+                            branch.staff,
+                            "працівник",
+                            "працівники",
+                            "працівників",
+                          ],
+                        ]) || "порожня філія"}
+                        .
+                      </span>
                       <button
                         className="danger-confirm"
                         disabled={busy === `del-branch-${branch.id}`}
@@ -201,19 +271,16 @@ export default function AdminPage() {
                           setConfirming(null);
                         }}
                       >
-                        Видалити
+                        {busy === `del-branch-${branch.id}`
+                          ? "…"
+                          : "Видалити"}
                       </button>
                       <button onClick={() => setConfirming(null)}>×</button>
                     </>
                   ) : (
                     <button
                       className="remove-relative"
-                      title={
-                        branch.removable
-                          ? "Видалити філію"
-                          : "Філія не порожня — спершу приберіть її записи"
-                      }
-                      disabled={!branch.removable}
+                      title="Видалити філію з усіма її записами"
                       aria-label={`Видалити філію ${branch.name}`}
                       onClick={() => setConfirming(`branch-${branch.id}`)}
                     >

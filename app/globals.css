@@ -418,3 +418,10 @@
 .garden-danger .danger-confirm:hover:not(:disabled){background:#b44a41}
 .garden-row .danger-confirm{height:28px;padding:0 11px;border:0;border-radius:8px;background:#c9564c;color:#fff;font:inherit;font-size:9px;font-weight:700;cursor:pointer}
 .garden-row .remove-relative:disabled{opacity:.3;cursor:not-allowed}
+
+.danger-confirm-box{display:flex;flex-direction:column;gap:10px;width:100%}
+.danger-confirm-box b{font-size:10px;font-weight:600;line-height:1.6;color:#8f322b}
+.danger-confirm-box>div{display:flex;gap:9px}
+.danger-confirm-box input{flex:1;height:32px;padding:0 11px;border:1px solid #e8c3bf;border-radius:9px;background:#fff;font:inherit;font-size:11px;outline:none}
+.danger-confirm-box input:focus{border-color:#c9564c}
+.danger-note{font-size:9px;color:#a8433b;white-space:nowrap}
