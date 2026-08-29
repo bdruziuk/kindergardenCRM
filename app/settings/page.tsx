@@ -622,11 +622,7 @@ export default function SettingsPage() {
             </div>
 
             {!data.others.length && (
-              <div className="empty">
-                Інших облікових записів ще немає. Створити їх можна командою{" "}
-                <code>npm run user:create</code>, а призначити на філію — на
-                сторінці «Філії».
-              </div>
+              <div className="empty">Інших облікових записів ще немає.</div>
             )}
           </article>
         )}

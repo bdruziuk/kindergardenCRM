@@ -286,7 +286,6 @@
 .account-row input{height:34px;margin-top:5px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:11px;outline:none}
 .account-row input:focus{border-color:var(--accent-focus)}
 
-.settings-page code{background:#f1f4f3;border-radius:6px;padding:2px 6px;font-size:10px}
 @media(max-width:720px){
 .settings-panel{padding:18px}
 .profile-hero{flex-wrap:wrap}
