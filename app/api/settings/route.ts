@@ -24,11 +24,26 @@ async function viewer() {
   if (!session?.user) throw new ScopeError("Потрібна авторизація", 401);
 
   const [row] = await getDb()
-    .select({ id: users.id, role: users.role, branchId: users.branchId })
+    .select({
+      id: users.id,
+      role: users.role,
+      branchId: users.branchId,
+      kindergartenId: users.kindergartenId,
+    })
     .from(users)
     .where(eq(users.id, Number(session.user.id)));
   if (!row) throw new ScopeError("Користувача не знайдено", 401);
-  return { ...row, isOwner: row.role === "admin" };
+  // Супер-адміністратор не належить садочку — його налаштування живуть у
+  // кабінеті, а тут йому нема чого показувати.
+  if (row.role === "superadmin")
+    throw new ScopeError("Супер-адміністратор працює в кабінеті", 403);
+  if (!row.kindergartenId)
+    throw new ScopeError("Вам не призначено садочок", 403);
+  return {
+    ...row,
+    kindergartenId: row.kindergartenId,
+    isOwner: row.role === "admin",
+  };
 }
 
 type Viewer = Awaited<ReturnType<typeof viewer>>;
@@ -49,6 +64,7 @@ async function snapshot(
         theme: users.theme,
       })
       .from(users)
+      .where(eq(users.kindergartenId, me.kindergartenId))
       .orderBy(asc(users.id)),
     db
       .select({
@@ -59,6 +75,7 @@ async function snapshot(
         themeByOwner: branches.themeByOwner,
       })
       .from(branches)
+      .where(eq(branches.kindergartenId, me.kindergartenId))
       .orderBy(asc(branches.id)),
     // Запрошення бачить лише власник, тож керуючому їх навіть не читаємо.
     me.isOwner
@@ -72,6 +89,7 @@ async function snapshot(
             acceptedAt: invites.acceptedAt,
           })
           .from(invites)
+          .where(eq(invites.kindergartenId, me.kindergartenId))
           .orderBy(desc(invites.createdAt))
       : Promise.resolve([]),
   ]);
@@ -176,6 +194,19 @@ export async function POST(request: Request) {
       if (body.role === "manager" && !body.branchId)
         throw new ScopeError("Керуючому потрібна філія", 400);
 
+      if (body.branchId) {
+        const [branch] = await db
+          .select({ id: branches.id })
+          .from(branches)
+          .where(
+            and(
+              eq(branches.id, body.branchId),
+              eq(branches.kindergartenId, me.kindergartenId),
+            ),
+          );
+        if (!branch) throw new ScopeError("Немає доступу до цієї філії", 403);
+      }
+
       // Чинні запрошення на ту саму пошту скасовуємо: два робочі посилання на
       // одну людину — це просто зайвий ключ, який десь лишиться.
       await db
@@ -187,6 +218,7 @@ export async function POST(request: Request) {
         tokenHash: hashInviteToken(token),
         email: body.email,
         role: body.role,
+        kindergartenId: me.kindergartenId,
         branchId: body.role === "manager" ? body.branchId : null,
         invitedBy: me.id,
         expiresAt: sql`now() + make_interval(days => ${body.days})`,
@@ -200,7 +232,13 @@ export async function POST(request: Request) {
       // Прийняті не чіпаємо: це вже слід у журналі, а не діючий ключ.
       await db
         .delete(invites)
-        .where(and(eq(invites.id, body.inviteId), isNull(invites.acceptedAt)));
+        .where(
+          and(
+            eq(invites.id, body.inviteId),
+            eq(invites.kindergartenId, me.kindergartenId),
+            isNull(invites.acceptedAt),
+          ),
+        );
     } else if (body.kind === "name") {
       // Чуже ПІБ міняє тільки власник; спроба керуючого — помилка, а не тиха
       // підміна на власний запис, щоб хиба в інтерфейсі не лишилась непоміченою.
@@ -240,14 +278,24 @@ export async function POST(request: Request) {
           // Скидання схеми знімає й замок: філія знову вільна для керуючого.
           themeByOwner: me.isOwner && body.theme !== null,
         })
-        .where(eq(branches.id, body.branchId));
+        .where(
+          and(
+            eq(branches.id, body.branchId),
+            eq(branches.kindergartenId, me.kindergartenId),
+          ),
+        );
     } else {
       if (!me.isOwner)
         throw new ScopeError("Філії редагує лише власник", 403);
       await db
         .update(branches)
         .set({ name: body.name, address: body.address || null })
-        .where(eq(branches.id, body.branchId));
+        .where(
+          and(
+            eq(branches.id, body.branchId),
+            eq(branches.kindergartenId, me.kindergartenId),
+          ),
+        );
     }
 
     return Response.json(await snapshot(me));

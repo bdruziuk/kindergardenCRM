@@ -38,7 +38,14 @@ export const waitlistStatus = pgEnum("waitlist_status", [
   "enrolled",
   "declined",
 ]);
-export const userRole = pgEnum("user_role", ["admin", "manager", "teacher"]);
+export const userRole = pgEnum("user_role", [
+  // `superadmin` стоїть над садочками й не належить жодному: він веде реєстр
+  // і роздає запрошення власникам, але в операційні розділи не заходить.
+  "superadmin",
+  "admin",
+  "manager",
+  "teacher",
+]);
 export const colorTheme = pgEnum("color_theme", [
   "green",
   "blue",
@@ -46,10 +53,30 @@ export const colorTheme = pgEnum("color_theme", [
   "yellow",
 ]);
 
+/**
+ * Садочок — орендар. Усе операційне (філії, групи, діти, персонал, гроші)
+ * належить рівно одному садочку, і саме тут проходить межа ізоляції: власник
+ * одного садочка не має бачити дітей іншого.
+ */
+export const kindergartens = pgTable(
+  "kindergartens",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("idx_kindergartens_name").on(t.name)],
+);
+
 export const branches = pgTable(
   "branches",
   {
     id: serial("id").primaryKey(),
+    kindergartenId: integer("kindergarten_id")
+      .notNull()
+      .references(() => kindergartens.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     address: text("address"),
     monthlyFee: money("monthly_fee").notNull().default(0),
@@ -59,7 +86,7 @@ export const branches = pgTable(
      *  потрібен саме тому, що за самим `theme` не видно, хто його виставив. */
     themeByOwner: boolean("theme_by_owner").notNull().default(false),
   },
-  (t) => [uniqueIndex("idx_branches_name").on(t.name)],
+  (t) => [uniqueIndex("idx_branches_name").on(t.kindergartenId, t.name)],
 );
 
 export const groups = pgTable(
@@ -277,6 +304,12 @@ export const invites = pgTable(
     tokenHash: text("token_hash").notNull(),
     email: text("email").notNull(),
     role: userRole("role").notNull().default("manager"),
+    /** Садочок, у який запрошують. null лише в запрошеннях від супер-
+     *  адміністратора до створення садочка — таких зараз немає. */
+    kindergartenId: integer("kindergarten_id").references(
+      () => kindergartens.id,
+      { onDelete: "cascade" },
+    ),
     /** Філія майбутнього керуючого; у власника null. */
     branchId: integer("branch_id").references(() => branches.id, {
       onDelete: "set null",
@@ -322,6 +355,11 @@ export const users = pgTable(
     /** `admin` is the owner: sees every branch and creates new ones.
      *  `manager` runs exactly one, named by `branchId` below. */
     role: userRole("role").notNull().default("admin"),
+    /** Садочок, у якому людина працює; null лише в супер-адміністратора. */
+    kindergartenId: integer("kindergarten_id").references(
+      () => kindergartens.id,
+      { onDelete: "restrict" },
+    ),
     /** null for the owner — they are not tied to a single branch. */
     branchId: integer("branch_id").references(() => branches.id, {
       onDelete: "set null",

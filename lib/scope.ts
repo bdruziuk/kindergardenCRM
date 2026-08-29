@@ -1,4 +1,4 @@
-import { asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
 import { branches, users } from "@/db/schema";
@@ -7,6 +7,9 @@ import { authOptions } from "./auth";
 export type BranchRef = { id: number; name: string };
 
 export type Scope = {
+  /** Садочок, якому належить усе в цьому запиті. Зовнішня межа ізоляції:
+   *  філії з інших садочків не потрапляють сюди навіть до власника. */
+  kindergartenId: number;
   /** The branch every query in this request must be restricted to. */
   branchId: number;
   branchName: string;
@@ -34,7 +37,11 @@ export class ScopeError extends Error {
  * A manager is pinned to their own branch and a `branch` parameter from them
  * is refused rather than ignored, so a mistake surfaces instead of quietly
  * showing the wrong data. The owner may switch, but only among branches that
- * actually exist.
+ * actually exist — і лише в межах свого садочка.
+ *
+ * Ізоляція садочків тримається тут, а не в кожному маршруті: запит філій уже
+ * звужений до `users.kindergarten_id`, тож «усі філії» для власника означає
+ * усі його власні, а чужих він не побачить навіть підставивши їхній id.
  */
 export async function resolveScope(requested?: string | null): Promise<Scope> {
   const session = await getServerSession(authOptions);
@@ -43,22 +50,42 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
   const db = getDb();
   const userId = Number(session.user.id);
 
-  const [[viewer], all, managed] = await Promise.all([
-    db
-      .select({ role: users.role, branchId: users.branchId })
-      .from(users)
-      .where(eq(users.id, userId)),
+  const [viewer] = await db
+    .select({
+      role: users.role,
+      branchId: users.branchId,
+      kindergartenId: users.kindergartenId,
+    })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!viewer) throw new ScopeError("Користувача не знайдено", 401);
+  // Супер-адміністратор стоїть над садочками й у жодному не працює — його
+  // місце в кабінеті, а не в операційних розділах.
+  if (viewer.role === "superadmin")
+    throw new ScopeError("Супер-адміністратор працює в кабінеті", 403);
+  if (!viewer.kindergartenId)
+    throw new ScopeError("Вам не призначено садочок", 403);
+
+  const kindergartenId = viewer.kindergartenId;
+
+  const [all, managed] = await Promise.all([
     db
       .select({ id: branches.id, name: branches.name })
       .from(branches)
+      .where(eq(branches.kindergartenId, kindergartenId))
       .orderBy(asc(branches.id)),
     db
       .select({ id: users.id })
       .from(users)
-      .where(isNotNull(users.branchId)),
+      .where(
+        and(
+          isNotNull(users.branchId),
+          eq(users.kindergartenId, kindergartenId),
+        ),
+      ),
   ]);
 
-  if (!viewer) throw new ScopeError("Користувача не знайдено", 401);
   if (!all.length) throw new ScopeError("Не створено жодної філії", 500);
 
   const wanted = requested ? Number(requested) : null;
@@ -70,6 +97,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
     if (wanted && wanted !== own.id)
       throw new ScopeError("Немає доступу до цієї філії", 403);
     return {
+      kindergartenId,
       branchId: own.id,
       branchName: own.name,
       isOwner: false,
@@ -80,6 +108,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
 
   const chosen = all.find((branch) => branch.id === wanted) ?? all[0];
   return {
+    kindergartenId,
     branchId: chosen.id,
     branchName: chosen.name,
     isOwner: true,

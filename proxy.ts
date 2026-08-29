@@ -18,12 +18,33 @@ export async function proxy(request: NextRequest) {
   // Той, хто вже увійшов, на цих сторінках робити нічого не має: обидві
   // заводять сесію, яка в нього вже є.
   if (pathname === "/login" || pathname === "/register") {
-    return token
-      ? NextResponse.redirect(new URL("/", request.url))
-      : NextResponse.next();
+    if (!token) return NextResponse.next();
+    return NextResponse.redirect(
+      new URL(token.role === "superadmin" ? "/admin" : "/", request.url),
+    );
   }
 
-  if (token) return NextResponse.next();
+  if (token) {
+    // Супер-адміністратор не належить жодному садочку, тож операційні розділи
+    // для нього порожні — відправляємо його до кабінету, а не до помилки
+    // «вам не призначено садочок». Роль тут із токена: вона може відстати від
+    // бази, але це лише маршрутизація — доступ усе одно перевіряють маршрути.
+    const isSuperadmin = token.role === "superadmin";
+    const wantsCabinet =
+      pathname === "/admin" || pathname.startsWith("/api/admin");
+
+    if (isSuperadmin && !wantsCabinet)
+      return NextResponse.redirect(new URL("/admin", request.url));
+    if (!isSuperadmin && wantsCabinet)
+      return pathname.startsWith("/api/")
+        ? NextResponse.json(
+            { error: "Доступно лише супер-адміністратору" },
+            { status: 403 },
+          )
+        : NextResponse.redirect(new URL("/", request.url));
+
+    return NextResponse.next();
+  }
 
   // API callers get a status they can act on rather than a redirect to HTML.
   if (pathname.startsWith("/api/")) {

@@ -18,7 +18,12 @@ export const waitlistStatusValues = [
   "enrolled",
   "declined",
 ] as const;
-export const userRoleValues = ["admin", "manager", "teacher"] as const;
+export const userRoleValues = [
+  "superadmin",
+  "admin",
+  "manager",
+  "teacher",
+] as const;
 export type UserRole = (typeof userRoleValues)[number];
 export const colorThemeValues = ["green", "blue", "red", "yellow"] as const;
 export type ColorTheme = (typeof colorThemeValues)[number];
@@ -547,6 +552,75 @@ export type InviteDto = {
   expiresAt: string;
   /** "waiting" — чинне, "expired" — вийшов термін, "accepted" — уже використане. */
   status: "waiting" | "expired" | "accepted";
+};
+
+// ----------------------------------------------------------------- admin
+
+export const adminRequest = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("kindergarten_create"),
+    name: z.string().trim().min(1, "Назва садочка обов’язкова").max(120),
+  }),
+  z.object({
+    kind: z.literal("kindergarten_rename"),
+    kindergartenId: id,
+    name: z.string().trim().min(1, "Назва садочка обов’язкова").max(120),
+  }),
+  z.object({
+    kind: z.literal("owner_invite"),
+    kindergartenId: id,
+    email: z.string().trim().toLowerCase().pipe(z.email("Некоректна пошта")),
+    days: z.coerce.number().int().min(1).max(30).default(7),
+  }),
+  z.object({ kind: z.literal("admin_invite_revoke"), inviteId: id }),
+], unknownAction);
+
+export type AdminPersonDto = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  /** Філія керуючого; у власника порожня. */
+  branchName: string;
+};
+
+export type AdminBranchDto = {
+  id: number;
+  name: string;
+  address: string;
+  groups: number;
+  /** Діти, які не вибули. */
+  children: number;
+};
+
+export type AdminKindergartenDto = {
+  id: number;
+  name: string;
+  createdAt: string;
+  branches: AdminBranchDto[];
+  owners: AdminPersonDto[];
+  managers: AdminPersonDto[];
+  totals: {
+    branches: number;
+    groups: number;
+    children: number;
+    people: number;
+  };
+  /** Запрошення власників саме цього садочка. */
+  invites: InviteDto[];
+};
+
+export type AdminSnapshot = {
+  kindergartens: AdminKindergartenDto[];
+  totals: {
+    kindergartens: number;
+    branches: number;
+    groups: number;
+    children: number;
+  };
+  /** Посилання щойно створеного запрошення — повертається один раз. */
+  newInviteUrl?: string;
+  error?: string;
 };
 
 export type BranchSettingsDto = {

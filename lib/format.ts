@@ -193,6 +193,7 @@ export const THEME_LABELS = {
 } as const;
 
 export const USER_ROLE_LABELS = {
+  superadmin: "Супер-адміністратор",
   admin: "Власник",
   manager: "Керуючий філією",
   teacher: "Вихователь",

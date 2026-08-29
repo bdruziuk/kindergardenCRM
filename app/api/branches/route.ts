@@ -1,4 +1,4 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { branches, children, staff, users } from "@/db/schema";
 import {
@@ -16,7 +16,9 @@ async function requireOwner() {
   return scope;
 }
 
-async function snapshot(): Promise<BranchesSnapshot> {
+/** Усе тут звужене до садочка власника: філії, лічильники й люди. Без цього
+ *  розділ показував би чужі садочки тому, хто просто має роль `admin`. */
+async function snapshot(kindergartenId: number): Promise<BranchesSnapshot> {
   const db = getDb();
   const [rows, staffCounts, userRows] = await Promise.all([
     db
@@ -29,6 +31,7 @@ async function snapshot(): Promise<BranchesSnapshot> {
       })
       .from(branches)
       .leftJoin(children, eq(children.branchId, branches.id))
+      .where(eq(branches.kindergartenId, kindergartenId))
       .groupBy(branches.id)
       .orderBy(asc(branches.id)),
     db
@@ -37,6 +40,8 @@ async function snapshot(): Promise<BranchesSnapshot> {
         count: sql<number>`count(*) filter (where ${staff.active})::int`,
       })
       .from(staff)
+      .innerJoin(branches, eq(branches.id, staff.branchId))
+      .where(eq(branches.kindergartenId, kindergartenId))
       .groupBy(staff.branchId),
     db
       .select({
@@ -46,6 +51,7 @@ async function snapshot(): Promise<BranchesSnapshot> {
         branchId: users.branchId,
       })
       .from(users)
+      .where(eq(users.kindergartenId, kindergartenId))
       .orderBy(asc(users.id)),
   ]);
 
@@ -76,8 +82,8 @@ async function snapshot(): Promise<BranchesSnapshot> {
 
 export async function GET() {
   try {
-    await requireOwner();
-    return Response.json(await snapshot());
+    const { kindergartenId } = await requireOwner();
+    return Response.json(await snapshot(kindergartenId));
   } catch (error) {
     return (
       scopeFailure(error) ??
@@ -91,7 +97,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireOwner();
+    const { kindergartenId } = await requireOwner();
     const parsed = branchRequest.safeParse(await request.json());
     if (!parsed.success)
       return Response.json({ error: firstIssue(parsed.error) }, { status: 400 });
@@ -101,11 +107,14 @@ export async function POST(request: Request) {
 
     if (body.kind === "create") {
       await db.insert(branches).values({
+        kindergartenId,
         name: body.name,
         address: body.address || null,
         monthlyFee: body.monthlyFee,
       });
     } else if (body.kind === "rename") {
+      // Умова по садочку, а не лише по id: чужу філію не перейменувати навіть
+      // підставивши її номер руками.
       await db
         .update(branches)
         .set({
@@ -113,20 +122,42 @@ export async function POST(request: Request) {
           address: body.address || null,
           monthlyFee: body.monthlyFee,
         })
-        .where(eq(branches.id, body.branchId));
+        .where(
+          and(
+            eq(branches.id, body.branchId),
+            eq(branches.kindergartenId, kindergartenId),
+          ),
+        );
     } else {
       // A person tied to a branch becomes its manager; clearing the branch
       // hands them back the owner's unrestricted view.
+      if (body.branchId) {
+        const [target] = await db
+          .select({ id: branches.id })
+          .from(branches)
+          .where(
+            and(
+              eq(branches.id, body.branchId),
+              eq(branches.kindergartenId, kindergartenId),
+            ),
+          );
+        if (!target) throw new ScopeError("Немає доступу до цієї філії", 403);
+      }
       await db
         .update(users)
         .set({
           branchId: body.branchId,
           role: body.branchId ? "manager" : "admin",
         })
-        .where(eq(users.id, body.userId));
+        .where(
+          and(
+            eq(users.id, body.userId),
+            eq(users.kindergartenId, kindergartenId),
+          ),
+        );
     }
 
-    return Response.json(await snapshot());
+    return Response.json(await snapshot(kindergartenId));
   } catch (error) {
     return (
       scopeFailure(error) ??
