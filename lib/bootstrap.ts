@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { kindergartens, users } from "@/db/schema";
 
@@ -19,6 +19,54 @@ import { kindergartens, users } from "@/db/schema";
  * Разом із власником заводиться і його садочок: власник без садочка не
  * пройшов би `resolveScope()` і побачив би лише помилку.
  */
+/**
+ * Заводить супер-адміністратора з `BOOTSTRAP_SUPERADMIN_EMAIL` і
+ * `BOOTSTRAP_SUPERADMIN_PASSWORD`.
+ *
+ * На відміну від власника, перевіряється не порожнеча всієї таблиці, а
+ * відсутність саме супер-адміністратора: роль з'явилася пізніше за перші
+ * акаунти, тож на вже заселеній базі інакше її не завести — а лізти в консоль
+ * сервісу заради одного рядка незручно.
+ *
+ * Садочка в нього немає й не має бути: він стоїть над ними.
+ */
+export async function bootstrapSuperadmin(): Promise<string | null> {
+  const email = process.env.BOOTSTRAP_SUPERADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.BOOTSTRAP_SUPERADMIN_PASSWORD;
+  if (!email || !password) return null;
+
+  if (password.length < 8) {
+    throw new Error("BOOTSTRAP_SUPERADMIN_PASSWORD: щонайменше 8 символів");
+  }
+
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.role, "superadmin"));
+  if (existing) return null;
+
+  // Пошта могла вже бути зайнята звичайним акаунтом — тоді це не заведення
+  // нового, а помилка конфігурації, і мовчки перезаписувати чужий запис не
+  // можна.
+  const [taken] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email));
+  if (taken)
+    throw new Error(
+      `BOOTSTRAP_SUPERADMIN_EMAIL: ${email} уже належить іншому запису`,
+    );
+
+  await db.insert(users).values({
+    email,
+    passwordHash: await bcrypt.hash(password, 12),
+    name: process.env.BOOTSTRAP_SUPERADMIN_NAME?.trim() || null,
+    role: "superadmin",
+  });
+  return email;
+}
+
 export async function bootstrapOwner(): Promise<string | null> {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;

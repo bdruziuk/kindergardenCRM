@@ -24,7 +24,14 @@ export async function register() {
 
   // На щойно розгорнутій базі входити нікому — заводимо власника, якщо для
   // цього задані змінні. Спрацює лише поки користувачів немає жодного.
-  const { bootstrapOwner } = await import("@/lib/bootstrap");
-  const created = await bootstrapOwner();
-  if (created) console.log(`Створено власника: ${created}`);
+  const { bootstrapOwner, bootstrapSuperadmin } = await import(
+    "@/lib/bootstrap"
+  );
+  const owner = await bootstrapOwner();
+  if (owner) console.log(`Створено власника: ${owner}`);
+
+  // Роль з'явилася пізніше за перші акаунти, тож її заводимо окремо — на вже
+  // заселеній базі перевірка «жодного користувача» не спрацювала б.
+  const superadmin = await bootstrapSuperadmin();
+  if (superadmin) console.log(`Створено супер-адміністратора: ${superadmin}`);
 }

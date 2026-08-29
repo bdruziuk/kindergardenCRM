@@ -46,7 +46,14 @@ async function requireSuperadmin() {
 async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
   const db = getDb();
 
-  const [gardenRows, branchRows, peopleRows, inviteRows] = await Promise.all([
+  const [
+    gardenRows,
+    branchRows,
+    groupCounts,
+    childCounts,
+    peopleRows,
+    inviteRows,
+  ] = await Promise.all([
     db
       .select({
         id: kindergartens.id,
@@ -55,22 +62,34 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       })
       .from(kindergartens)
       .orderBy(asc(kindergartens.id)),
-    // Групи й діти рахуються підзапитами: join одразу по двох гілках
-    // перемножив би рядки й роздув обидва лічильники.
     db
       .select({
         id: branches.id,
         kindergartenId: branches.kindergartenId,
         name: branches.name,
         address: branches.address,
-        groups: sql<number>`(select count(*) from ${groups}
-          where ${groups.branchId} = ${branches.id})::int`,
-        children: sql<number>`(select count(*) from ${children}
-          where ${children.branchId} = ${branches.id}
-            and ${children.status} <> 'left')::int`,
       })
       .from(branches)
       .orderBy(asc(branches.id)),
+    // Групи й діти рахуються окремими згрупованими запитами й зшиваються в JS.
+    // Join одразу по двох гілках перемножив би рядки й роздув обидва числа, а
+    // кореляційний підзапит через `sql` рендериться без префіксів таблиць —
+    // `where "branch_id" = "id"` всередині підзапиту вказує сам на себе.
+    db
+      .select({
+        branchId: groups.branchId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(groups)
+      .groupBy(groups.branchId),
+    db
+      .select({
+        branchId: children.branchId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(children)
+      .where(ne(children.status, "left"))
+      .groupBy(children.branchId),
     db
       .select({
         id: users.id,
@@ -115,8 +134,9 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       id: branch.id,
       name: branch.name,
       address: branch.address ?? "",
-      groups: branch.groups,
-      children: branch.children,
+      groups: groupCounts.find((row) => row.branchId === branch.id)?.count ?? 0,
+      children:
+        childCounts.find((row) => row.branchId === branch.id)?.count ?? 0,
     }));
 
     return {
