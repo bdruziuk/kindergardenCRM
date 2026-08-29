@@ -27,6 +27,7 @@ const EMPTY_ACCOUNT: AccountDto = {
 
 const EMPTY: SettingsSnapshot = {
   me: EMPTY_ACCOUNT,
+  kindergartenName: "",
   others: [],
   personalTheme: null,
   activeTheme: "green",
@@ -329,6 +330,11 @@ export default function SettingsPage() {
               Пошта
               <input value={me.email} disabled />
               <small>Логін для входу — змінити не можна</small>
+            </label>
+            <label>
+              Садочок
+              <input value={data.kindergartenName || "—"} disabled />
+              <small>Назву садочка змінює супер-адміністратор</small>
             </label>
             <label>
               Філія

@@ -639,6 +639,8 @@ export type BranchSettingsDto = {
 
 export type SettingsSnapshot = {
   me: AccountDto;
+  /** Садочок, у якому працює той, хто дивиться. */
+  kindergartenName: string;
   /** Решта акаунтів — лише для власника. Керуючий бачить тільки себе, тож у
    *  нього цей список завжди порожній. */
   others: AccountDto[];

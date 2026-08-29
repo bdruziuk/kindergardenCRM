@@ -86,7 +86,13 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
       ),
   ]);
 
-  if (!all.length) throw new ScopeError("Не створено жодної філії", 500);
+  // Не помилка сервера, а стан щойно зареєстрованого садочка: власнику треба
+  // сказати, що робити далі, а не показати 500.
+  if (!all.length)
+    throw new ScopeError(
+      "У садочку ще немає жодної філії — створіть її в розділі «Філії»",
+      409,
+    );
 
   const wanted = requested ? Number(requested) : null;
   const isOwner = viewer.role === "admin";
@@ -117,6 +123,35 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
     // picker appears as soon as there is a second branch or a manager.
     canSwitch: all.length > 1 || managed.length > 0,
   };
+}
+
+/**
+ * Власник і його садочок — **без** вимоги, щоб філія вже існувала.
+ *
+ * Потрібно сторінці «Філії»: саме там створюють першу філію, тож вимагати
+ * наявну означало б замкнене коло — щойно зареєстрований садочок неможливо
+ * було б почати наповнювати.
+ */
+export async function resolveOwner(): Promise<{
+  userId: number;
+  kindergartenId: number;
+}> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) throw new ScopeError("Потрібна авторизація", 401);
+
+  const userId = Number(session.user.id);
+  const [viewer] = await getDb()
+    .select({ role: users.role, kindergartenId: users.kindergartenId })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!viewer) throw new ScopeError("Користувача не знайдено", 401);
+  if (viewer.role !== "admin")
+    throw new ScopeError("Доступно лише власнику", 403);
+  if (!viewer.kindergartenId)
+    throw new ScopeError("Вам не призначено садочок", 403);
+
+  return { userId, kindergartenId: viewer.kindergartenId };
 }
 
 /** Turns a ScopeError into the `{ error }` shape every route already returns. */

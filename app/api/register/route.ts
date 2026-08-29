@@ -24,6 +24,7 @@ async function findInvite(token: string) {
       id: invites.id,
       email: invites.email,
       role: invites.role,
+      kindergartenId: invites.kindergartenId,
       branchId: invites.branchId,
       branchName: branches.name,
       expiresAt: invites.expiresAt,
@@ -108,6 +109,9 @@ export async function POST(request: Request) {
         passwordHash,
         name: body.name,
         role: invite.role,
+        // Садочок береться із запрошення разом із роллю. Без нього обліковий
+        // запис створювався б «нічийним» і не проходив би resolveScope().
+        kindergartenId: invite.kindergartenId,
         branchId: invite.branchId,
       });
     });

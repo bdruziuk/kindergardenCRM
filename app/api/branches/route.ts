@@ -6,15 +6,7 @@ import {
   branchRequest,
   firstIssue,
 } from "@/lib/api-schemas";
-import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
-
-/** Managing branches is the owner's job alone. */
-async function requireOwner() {
-  const scope = await resolveScope();
-  if (!scope.isOwner)
-    throw new ScopeError("Доступно лише власнику", 403);
-  return scope;
-}
+import { ScopeError, resolveOwner, scopeFailure } from "@/lib/scope";
 
 /** Усе тут звужене до садочка власника: філії, лічильники й люди. Без цього
  *  розділ показував би чужі садочки тому, хто просто має роль `admin`. */
@@ -82,7 +74,7 @@ async function snapshot(kindergartenId: number): Promise<BranchesSnapshot> {
 
 export async function GET() {
   try {
-    const { kindergartenId } = await requireOwner();
+    const { kindergartenId } = await resolveOwner();
     return Response.json(await snapshot(kindergartenId));
   } catch (error) {
     return (
@@ -97,7 +89,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { kindergartenId } = await requireOwner();
+    const { kindergartenId } = await resolveOwner();
     const parsed = branchRequest.safeParse(await request.json());
     if (!parsed.success)
       return Response.json({ error: firstIssue(parsed.error) }, { status: 400 });

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
-import { branches, invites, users } from "@/db/schema";
+import { branches, invites, kindergartens, users } from "@/db/schema";
 import {
   type AccountDto,
   type BranchSettingsDto,
@@ -58,7 +58,7 @@ async function snapshot(
   newInviteUrl?: string,
 ): Promise<SettingsSnapshot> {
   const db = getDb();
-  const [userRows, branchRows, inviteRows] = await Promise.all([
+  const [userRows, branchRows, gardenRows, inviteRows] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -82,6 +82,10 @@ async function snapshot(
       .from(branches)
       .where(eq(branches.kindergartenId, me.kindergartenId))
       .orderBy(asc(branches.id)),
+    db
+      .select({ name: kindergartens.name })
+      .from(kindergartens)
+      .where(eq(kindergartens.id, me.kindergartenId)),
     // Запрошення бачить лише власник, тож керуючому їх навіть не читаємо.
     me.isOwner
       ? db
@@ -144,6 +148,7 @@ async function snapshot(
 
   return {
     me: toAccount(self),
+    kindergartenName: gardenRows[0]?.name ?? "",
     others: me.isOwner
       ? userRows.filter((row) => row.id !== me.id).map(toAccount)
       : [],
