@@ -33,6 +33,9 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          // Лише прапорець: сам знімок у куку сесії не влізе, а сайдбару
+          // достатньо знати, чи є що завантажувати з /api/avatar.
+          hasAvatar: Boolean(user.avatar),
         };
       },
     }),
@@ -45,6 +48,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.hasAvatar = user.hasAvatar;
       }
       // Ім’я живе в токені, тож зміна ПІБ у налаштуваннях була б помітна лише
       // після наступного входу. `useSession().update({ name })` доходить сюди
@@ -52,12 +56,16 @@ export const authOptions: NextAuthOptions = {
       if (trigger === "update" && typeof session?.name === "string") {
         token.name = session.name;
       }
+      if (trigger === "update" && typeof session?.hasAvatar === "boolean") {
+        token.hasAvatar = session.hasAvatar;
+      }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id ?? "";
         session.user.role = token.role ?? "admin";
+        session.user.hasAvatar = token.hasAvatar ?? false;
       }
       return session;
     },

@@ -1,6 +1,7 @@
 "use client";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { Avatar } from "@/components/Avatar";
 import type { AdminKindergartenDto, AdminSnapshot } from "@/lib/api-schemas";
 import { USER_ROLE_LABELS, dayLabel, initialsOf, plural } from "@/lib/format";
 
@@ -348,6 +349,11 @@ export default function AdminPage() {
               <h3>Власники та керуючі</h3>
               {[...garden.owners, ...garden.managers].map((person) => (
                 <div className="garden-row" key={person.id}>
+                  <Avatar
+                    userId={person.id}
+                    name={person.name || person.email}
+                    hasAvatar={person.hasAvatar}
+                  />
                   <div>
                     <b>{person.name || person.email}</b>
                     <small>

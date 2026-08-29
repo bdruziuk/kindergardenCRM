@@ -395,6 +395,11 @@ export const users = pgTable(
     }),
     /** Особиста схема інтерфейсу власника; null — брати схему філії. */
     theme: colorTheme("theme"),
+    /** Аватарка в base64 (без префікса `data:`) і її тип. Лежить у базі, бо
+     *  файлова система контейнера ефемерна, а окремого сховища тут немає;
+     *  зображення маленьке — сторона обрізається до 256 px ще в браузері. */
+    avatar: text("avatar"),
+    avatarMime: text("avatar_mime"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

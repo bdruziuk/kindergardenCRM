@@ -427,3 +427,17 @@
 
 .settings-grid .password-button{margin-top:7px;height:40px;width:100%}
 .login-card .login-link{align-self:center;margin-top:14px}
+
+/* --- avatars ------------------------------------------------------------ */
+.avatar{overflow:hidden}
+.avatar>img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-large{width:56px;height:56px;flex:none;border-radius:17px;background:var(--accent-soft);color:var(--accent);font-size:15px}
+.profile-hero .avatar-large{align-self:flex-start}
+.avatar-actions{display:flex;align-items:center;gap:10px;margin-top:4px}
+.avatar-pick{position:relative;overflow:hidden;display:inline-flex;align-items:center;height:30px;padding:0 13px;border:1px solid var(--accent-line);border-radius:9px;background:var(--accent-wash);color:var(--accent-ink);font-size:10px;font-weight:700;cursor:pointer}
+.avatar-pick:hover{background:var(--accent-soft)}
+.avatar-pick input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.avatar-clear{height:30px;padding:0 11px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer}
+.avatar-clear:hover:not(:disabled){color:#a8433b;border-color:#e8c3bf}
+.avatar-clear:disabled{opacity:.45;cursor:not-allowed}
+.garden-row .avatar{flex:none}

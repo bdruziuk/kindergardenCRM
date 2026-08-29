@@ -525,6 +525,19 @@ export const settingsRequest = z.discriminatedUnion("kind", [
   /** Зміна власного пароля — теж через лист, як і «забули пароль». */
   z.object({ kind: z.literal("password_change_request") }),
   z.object({
+    kind: z.literal("avatar_set"),
+    /** Data-URL із браузера. Розмір обмежений тут, а не лише у формі: поле
+     *  лежить у рядку таблиці, і мегабайтний знімок роздув би кожну вибірку
+     *  користувачів, навіть коли аватарка нікому не потрібна. */
+    dataUrl: z
+      .string()
+      .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, {
+        error: "Підтримуються PNG, JPEG і WebP",
+      })
+      .max(400_000, "Зображення завелике"),
+  }),
+  z.object({ kind: z.literal("avatar_clear") }),
+  z.object({
     // Без id: власник перейменовує рівно свій садочок, і взятися чужому
     // номеру тут просто нізвідки.
     kind: z.literal("kindergarten_rename"),
@@ -540,6 +553,8 @@ export const settingsRequest = z.discriminatedUnion("kind", [
 
 export type AccountDto = {
   id: number;
+  /** Чи є що показувати за адресою /api/avatar/{id}. */
+  hasAvatar: boolean;
   /** ПІБ; порожній рядок, поки його не заповнили. */
   name: string;
   email: string;
@@ -607,6 +622,7 @@ export const adminRequest = z.discriminatedUnion("kind", [
 
 export type AdminPersonDto = {
   id: number;
+  hasAvatar: boolean;
   name: string;
   email: string;
   role: UserRole;

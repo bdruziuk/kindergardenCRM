@@ -1,7 +1,8 @@
 "use client";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
-import { USER_ROLE_LABELS, initialsOf } from "@/lib/format";
+import { Avatar } from "@/components/Avatar";
+import { USER_ROLE_LABELS } from "@/lib/format";
 
 const NAV = [
   { icon: "⌂", label: "Огляд", href: "/" },
@@ -48,7 +49,11 @@ export function Sidebar({ active }: { active: string }) {
         ))}
       </nav>
       <div className="profile">
-        <i>{initialsOf(displayName)}</i>
+        <Avatar
+          userId={Number(user?.id ?? 0)}
+          name={displayName}
+          hasAvatar={Boolean(user?.hasAvatar)}
+        />
         <div>
           <b>{displayName}</b>
           <small>{user ? USER_ROLE_LABELS[user.role] : ""}</small>

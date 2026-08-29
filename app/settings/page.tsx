@@ -2,6 +2,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Avatar } from "@/components/Avatar";
 import { Sidebar } from "@/components/Sidebar";
 import type {
   AccountDto,
@@ -10,15 +11,11 @@ import type {
   SettingsSnapshot,
 } from "@/lib/api-schemas";
 import { colorThemeValues } from "@/lib/api-schemas";
-import {
-  THEME_LABELS,
-  USER_ROLE_LABELS,
-  dayLabel,
-  initialsOf,
-} from "@/lib/format";
+import { THEME_LABELS, USER_ROLE_LABELS, dayLabel } from "@/lib/format";
 
 const EMPTY_ACCOUNT: AccountDto = {
   id: 0,
+  hasAvatar: false,
   name: "",
   email: "",
   role: "manager",
@@ -50,6 +47,45 @@ const emptyInvite = (): InviteDraft => ({
   days: "7",
 });
 
+/**
+ * Зменшує знімок до квадрата 256 px просто в браузері.
+ *
+ * Так на сервер їде десяток кілобайт замість фотографії з телефона, і не
+ * потрібна бібліотека обробки зображень: аватарка все одно показується
+ * розміром із ніготь.
+ */
+async function toAvatarDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Браузер не дав полотна для обробки зображення");
+
+  // Обрізаємо по центру, а не стискаємо: інакше обличчя на широкому кадрі
+  // виходило б сплюснутим.
+  const side = Math.min(bitmap.width, bitmap.height);
+  ctx.drawImage(
+    bitmap,
+    (bitmap.width - side) / 2,
+    (bitmap.height - side) / 2,
+    side,
+    side,
+    0,
+    0,
+    size,
+    size,
+  );
+  bitmap.close();
+
+  const webp = canvas.toDataURL("image/webp", 0.85);
+  // Старий браузер міг мовчки віддати PNG замість webp — беремо що вийшло.
+  return webp.startsWith("data:image/webp")
+    ? webp
+    : canvas.toDataURL("image/jpeg", 0.85);
+}
+
 const INVITE_STATUS_LABELS = {
   waiting: "Чекає",
   expired: "Прострочене",
@@ -70,6 +106,7 @@ export default function SettingsPage() {
   /** Посилання показується рівно один раз — у базі лише його хеш. */
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   /** Чернетки полів заводимо від знімка, щоб недописане не зникало. */
   const apply = (next: SettingsSnapshot) => {
@@ -303,10 +340,61 @@ export default function SettingsPage() {
 
         <article className="panel settings-panel">
           <div className="profile-hero">
-            <i>{initialsOf(draftName(me) || me.email || "—")}</i>
+            <Avatar
+              userId={me.id}
+              name={draftName(me) || me.email || "—"}
+              hasAvatar={me.hasAvatar}
+              className="avatar-large"
+            />
             <div>
               <h2>{draftName(me) || "Без імені"}</h2>
               <p>{me.email || "—"}</p>
+              <div className="avatar-actions">
+                <label className="avatar-pick">
+                  {avatarBusy ? "Завантажуємо…" : "Змінити фото"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={avatarBusy}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      // Скидаємо одразу, щоб той самий файл можна було
+                      // обрати вдруге після невдачі.
+                      event.target.value = "";
+                      if (!file) return;
+
+                      setAvatarBusy(true);
+                      try {
+                        const dataUrl = await toAvatarDataUrl(file);
+                        const next = await send("avatar", {
+                          kind: "avatar_set",
+                          dataUrl,
+                        });
+                        if (next) await update({ hasAvatar: true });
+                      } catch {
+                        setError("Не вдалося обробити зображення");
+                      } finally {
+                        setAvatarBusy(false);
+                      }
+                    }}
+                  />
+                </label>
+                {me.hasAvatar && (
+                  <button
+                    type="button"
+                    className="avatar-clear"
+                    disabled={avatarBusy}
+                    onClick={async () => {
+                      const next = await send("avatar", {
+                        kind: "avatar_clear",
+                      });
+                      if (next) await update({ hasAvatar: false });
+                    }}
+                  >
+                    Прибрати
+                  </button>
+                )}
+              </div>
             </div>
             <em className={"role-badge " + me.role}>
               {USER_ROLE_LABELS[me.role]}
@@ -603,9 +691,11 @@ export default function SettingsPage() {
             <div className="account-list">
               {data.others.map((account) => (
                 <div className="account-row" key={account.id}>
-                  <i className="avatar">
-                    {initialsOf(draftName(account) || account.email)}
-                  </i>
+                  <Avatar
+                    userId={account.id}
+                    name={draftName(account) || account.email}
+                    hasAvatar={account.hasAvatar}
+                  />
                   <div className="account-who">
                     <b>{account.email}</b>
                     <small>

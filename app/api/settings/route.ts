@@ -73,6 +73,7 @@ async function snapshot(
         role: users.role,
         branchId: users.branchId,
         theme: users.theme,
+        avatar: users.avatar,
       })
       .from(users)
       .where(eq(users.kindergartenId, me.kindergartenId))
@@ -119,6 +120,7 @@ async function snapshot(
 
   const toAccount = (row: (typeof userRows)[number]): AccountDto => ({
     id: row.id,
+    hasAvatar: Boolean(row.avatar),
     name: row.name ?? "",
     email: row.email,
     role: row.role,
@@ -277,6 +279,20 @@ export async function POST(request: Request) {
       await db
         .update(users)
         .set({ theme: body.theme })
+        .where(eq(users.id, me.id));
+    } else if (body.kind === "avatar_set") {
+      // Тільки свою: чужий знімок ставити не має права навіть власник.
+      const match = body.dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+      if (!match) throw new ScopeError("Некоректне зображення", 400);
+      const [, meta, data] = match;
+      await db
+        .update(users)
+        .set({ avatar: data, avatarMime: meta })
+        .where(eq(users.id, me.id));
+    } else if (body.kind === "avatar_clear") {
+      await db
+        .update(users)
+        .set({ avatar: null, avatarMime: null })
         .where(eq(users.id, me.id));
     } else if (body.kind === "password_change_request") {
       // Пароль змінюється тільки через пошту — так само, як при «забули

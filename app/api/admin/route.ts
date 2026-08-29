@@ -194,6 +194,7 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
         email: users.email,
         role: users.role,
         branchId: users.branchId,
+        avatar: users.avatar,
       })
       .from(users)
       .where(ne(users.role, "superadmin"))
@@ -220,6 +221,7 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
 
     const toPerson = (person: (typeof peopleRows)[number]): AdminPersonDto => ({
       id: person.id,
+      hasAvatar: Boolean(person.avatar),
       name: person.name ?? "",
       email: person.email,
       role: person.role,

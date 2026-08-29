@@ -120,6 +120,13 @@
       "when": 1788032569070,
       "tag": "0016_password_resets",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788033674818,
+      "tag": "0017_avatars",
+      "breakpoints": true
     }
   ]
 }
