@@ -56,6 +56,7 @@ async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
   ]);
 
   return {
+    monthlyFee: fee,
     groups: groupRows,
     children: childRows.map((child) => ({
       id: child.id,

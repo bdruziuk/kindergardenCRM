@@ -280,6 +280,9 @@ export type ChildDto = {
 export type KindergartenSnapshot = {
   groups: GroupDto[];
   children: ChildDto[];
+  /** Базова місячна плата філії — те, що форма нової дитини має підставляти
+   *  за замовчуванням замість якогось узятого зі стелі числа. */
+  monthlyFee: number;
 };
 
 export type PaymentMethod = (typeof paymentMethodValues)[number];

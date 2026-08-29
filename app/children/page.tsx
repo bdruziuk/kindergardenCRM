@@ -46,13 +46,16 @@ export default function Page() {
       age: string;
     } | null>(null),
     [kidsList, setKidsList] = useState<ChildDto[]>([]),
+    [branchFee, setBranchFee] = useState(0),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null),
     [newKid, setNewKid] = useState({
       name: "",
       group: "",
       birthDate: "",
-      fee: "12500",
+      // Порожнє, поки не завантажилась філія: підставляти вигадане число, яке
+      // потім розійдеться з платою філії, гірше, ніж не підставляти нічого.
+      fee: "",
       // Дитину зараховують сьогодні, поки не сказано інакше — щоб у звітах за
       // минулі місяці вона не з’являлася заднім числом.
       enrolledAt: new Date().toISOString().slice(0, 10),
@@ -64,6 +67,7 @@ export default function Page() {
   const apply = (data: {
     groups?: GroupDto[];
     children?: ChildDto[];
+    monthlyFee?: number;
     error?: string;
   }) => {
     if (!data.groups || !data.children) {
@@ -72,6 +76,7 @@ export default function Page() {
     }
     setGroupList(data.groups);
     setKidsList(data.children);
+    setBranchFee(data.monthlyFee ?? 0);
     setError(null);
     return true;
   };
@@ -112,7 +117,16 @@ export default function Page() {
               branchId={branchId}
               onChange={choose}
             />
-            <button className="primary" onClick={() => setAdd(true)}>
+            <button
+              className="primary"
+              onClick={() => {
+                // Підставляємо плату філії саме тут: до завантаження знімка її
+                // ще немає, а на момент відкриття форми вона вже актуальна —
+                // зокрема й після перемикання філії.
+                setNewKid({ ...newKid, fee: String(branchFee) });
+                setAdd(true);
+              }}
+            >
               ＋ Додати дитину
             </button>
           </div>
@@ -776,7 +790,7 @@ export default function Page() {
                       name: "",
                       group: "",
                       birthDate: "",
-                      fee: "12500",
+                      fee: String(branchFee),
                       enrolledAt: new Date().toISOString().slice(0, 10),
                       relatives: [{ name: "", note: "Мама", phone: "" }],
                     });
