@@ -513,10 +513,9 @@ export const settingsRequest = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("invite_create"),
     email: z.string().trim().toLowerCase().pipe(z.email("Некоректна пошта")),
-    // Власника не запрошують: перший заводиться змінними середовища, далі
-    // роль підвищують на сторінці «Філії», знімаючи прив'язку до філії.
-    role: z.enum(["manager", "teacher"], { error: "Оберіть роль" }),
-    branchId: id.nullable().default(null),
+    /** Філія обов'язкова: власник запрошує лише керуючих, а керуючий без
+     *  філії не пройшов би resolveScope(). */
+    branchId: z.number({ error: "Оберіть філію" }).int().positive("Оберіть філію"),
     days: z.coerce.number().int().min(1).max(30).default(7),
   }),
   z.object({ kind: z.literal("invite_revoke"), inviteId: id }),

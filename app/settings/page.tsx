@@ -37,16 +37,15 @@ const EMPTY: SettingsSnapshot = {
 
 type BranchDraft = { name: string; address: string };
 
+/** Власник запрошує лише керуючих, тож ролі у формі немає — тільки філія. */
 type InviteDraft = {
   email: string;
-  role: "manager" | "teacher";
   branchId: string;
   days: string;
 };
 
 const emptyInvite = (): InviteDraft => ({
   email: "",
-  role: "manager",
   branchId: "",
   days: "7",
 });
@@ -126,8 +125,7 @@ export default function SettingsPage() {
     const next = await send("invite", {
       kind: "invite_create",
       email: invite.email,
-      role: invite.role,
-      branchId: invite.role === "manager" ? Number(invite.branchId) : null,
+      branchId: Number(invite.branchId),
       days: Number(invite.days),
     });
     if (!next) return;
@@ -437,7 +435,7 @@ export default function SettingsPage() {
           <article className="panel settings-panel">
             <div className="section-heading">
               <div>
-                <h2>Запрошення</h2>
+                <h2>Запрошення керуючим</h2>
                 <span>
                   Реєстрації в застосунку немає — обліковий запис створюється
                   лише за одноразовим посиланням
@@ -486,63 +484,34 @@ export default function SettingsPage() {
                 />
               </label>
               <label>
-                Роль
+                Філія
                 <select
-                  value={invite.role}
+                  value={invite.branchId}
                   onChange={(event) =>
-                    setInvite({
-                      ...invite,
-                      role: event.target.value as InviteDraft["role"],
-                    })
+                    setInvite({ ...invite, branchId: event.target.value })
                   }
                 >
-                  <option value="manager">Керуючий філією</option>
-                  <option value="teacher">Вихователь</option>
+                  <option value="">Оберіть філію</option>
+                  {data.branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
                 </select>
-                <small>Власника призначають на сторінці «Філії»</small>
+                <small>Запрошений стане керуючим цієї філії</small>
               </label>
               <label>
-                {invite.role === "manager" ? "Філія" : "Термін дії, днів"}
-                {invite.role === "manager" ? (
-                  <select
-                    value={invite.branchId}
-                    onChange={(event) =>
-                      setInvite({ ...invite, branchId: event.target.value })
-                    }
-                  >
-                    <option value="">Оберіть філію</option>
-                    {data.branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="number"
-                    min="1"
-                    max="30"
-                    value={invite.days}
-                    onChange={(event) =>
-                      setInvite({ ...invite, days: event.target.value })
-                    }
-                  />
-                )}
+                Термін дії, днів
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={invite.days}
+                  onChange={(event) =>
+                    setInvite({ ...invite, days: event.target.value })
+                  }
+                />
               </label>
-              {invite.role === "manager" && (
-                <label>
-                  Термін дії, днів
-                  <input
-                    type="number"
-                    min="1"
-                    max="30"
-                    value={invite.days}
-                    onChange={(event) =>
-                      setInvite({ ...invite, days: event.target.value })
-                    }
-                  />
-                </label>
-              )}
             </div>
 
             <div className="settings-actions">
@@ -551,7 +520,7 @@ export default function SettingsPage() {
                 disabled={
                   saving === "invite" ||
                   !invite.email.trim() ||
-                  (invite.role === "manager" && !invite.branchId)
+                  !invite.branchId
                 }
                 onClick={createInvite}
               >
@@ -591,7 +560,7 @@ export default function SettingsPage() {
                 </div>
               ))}
               {!data.invites.length && (
-                <div className="empty">Запрошень ще не було.</div>
+                <div className="empty">Запрошень керуючим ще не було.</div>
               )}
             </div>
           </article>

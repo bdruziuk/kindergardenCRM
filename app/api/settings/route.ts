@@ -98,7 +98,15 @@ async function snapshot(
             acceptedAt: invites.acceptedAt,
           })
           .from(invites)
-          .where(eq(invites.kindergartenId, me.kindergartenId))
+          .where(
+            and(
+              eq(invites.kindergartenId, me.kindergartenId),
+              // Запрошення власникам роздає супер-адміністратор зі свого
+              // кабінету — власнику ні до чого бачити в своїй панелі чужу
+              // дію, зокрема те, за яким прийшов він сам.
+              ne(invites.role, "admin"),
+            ),
+          )
           .orderBy(desc(invites.createdAt))
       : Promise.resolve([]),
   ]);
@@ -199,23 +207,16 @@ export async function POST(request: Request) {
       if (taken)
         throw new ScopeError("Такий обліковий запис уже існує", 409);
 
-      // Керуючий без філії бачив би порожнечу, а вихователь до філії не
-      // прив'язаний — ловимо це тут, а не після переходу за посиланням.
-      if (body.role === "manager" && !body.branchId)
-        throw new ScopeError("Керуючому потрібна філія", 400);
-
-      if (body.branchId) {
-        const [branch] = await db
-          .select({ id: branches.id })
-          .from(branches)
-          .where(
-            and(
-              eq(branches.id, body.branchId),
-              eq(branches.kindergartenId, me.kindergartenId),
-            ),
-          );
-        if (!branch) throw new ScopeError("Немає доступу до цієї філії", 403);
-      }
+      const [branch] = await db
+        .select({ id: branches.id })
+        .from(branches)
+        .where(
+          and(
+            eq(branches.id, body.branchId),
+            eq(branches.kindergartenId, me.kindergartenId),
+          ),
+        );
+      if (!branch) throw new ScopeError("Немає доступу до цієї філії", 403);
 
       // Чинні запрошення на ту саму пошту скасовуємо: два робочі посилання на
       // одну людину — це просто зайвий ключ, який десь лишиться.
@@ -227,9 +228,12 @@ export async function POST(request: Request) {
       await db.insert(invites).values({
         tokenHash: hashInviteToken(token),
         email: body.email,
-        role: body.role,
+        // Роль не приходить із запиту: власник запрошує лише керуючих, а
+        // власника заводить супер-адміністратор у кабінеті. Взяти її з тіла
+        // означало б дозволити підмінити.
+        role: "manager",
         kindergartenId: me.kindergartenId,
-        branchId: body.role === "manager" ? body.branchId : null,
+        branchId: body.branchId,
         invitedBy: me.id,
         expiresAt: sql`now() + make_interval(days => ${body.days})`,
       });
