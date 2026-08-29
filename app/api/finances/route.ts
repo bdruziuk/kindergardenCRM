@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { transactions } from "@/db/schema";
 import {
@@ -13,6 +13,7 @@ import {
   paymentsSummary,
   salaryProgress,
 } from "@/lib/queries";
+import { mutatePayout } from "@/lib/payouts";
 import { resolveScope, scopeFailure } from "@/lib/scope";
 
 /** The one expense the app derives itself; it cannot be edited by hand. */
@@ -102,10 +103,21 @@ export async function POST(request: Request) {
         occurredAt: body.occurredAt,
         note: body.note || null,
       });
-    } else {
+    } else if (body.kind === "remove") {
+      // Умова по філії, а не лише по id: чужу витрату не стерти, підставивши
+      // її номер руками.
       await db
         .delete(transactions)
-        .where(eq(transactions.id, body.transactionId));
+        .where(
+          and(
+            eq(transactions.id, body.transactionId),
+            eq(transactions.branchId, branchId),
+          ),
+        );
+    } else {
+      // Виплати правляться й тут: список зарплат на цій сторінці той самий,
+      // що в «Колективі», тож і дії над ним однакові.
+      await mutatePayout(branchId, body);
     }
 
     return Response.json(await snapshot(branchId, body.month ?? FALLBACK_MONTH));

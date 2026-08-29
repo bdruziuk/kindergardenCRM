@@ -3,13 +3,13 @@ import { getDb } from "@/db";
 import {
   jobTitles,
   lessons,
-  salaryPayments,
   staff,
   staffAttendance,
 } from "@/db/schema";
 import { type SalaryType, firstIssue, staffRequest } from "@/lib/api-schemas";
 import { paidByLesson } from "@/lib/format";
-import { FALLBACK_MONTH, monthStart } from "@/lib/period";
+import { FALLBACK_MONTH } from "@/lib/period";
+import { mutatePayout } from "@/lib/payouts";
 import { staffWithAttendance } from "@/lib/queries";
 import { resolveScope, scopeFailure } from "@/lib/scope";
 
@@ -131,19 +131,12 @@ export async function POST(request: Request) {
         .where(eq(lessons.id, body.lessonId));
     } else if (body.kind === "lesson_remove") {
       await db.delete(lessons).where(eq(lessons.id, body.lessonId));
-    } else if (body.kind === "payout_add") {
-      await db.insert(salaryPayments).values({
-        staffId: body.staffId,
-        month: monthStart(body.month ?? FALLBACK_MONTH),
-        kind: body.payoutKind,
-        amount: body.amount,
-        paidAt: body.paidAt,
-        note: body.note || null,
-      });
-    } else if (body.kind === "payout_remove") {
-      await db
-        .delete(salaryPayments)
-        .where(eq(salaryPayments.id, body.payoutId));
+    } else if (
+      body.kind === "payout_add" ||
+      body.kind === "payout_update" ||
+      body.kind === "payout_remove"
+    ) {
+      await mutatePayout(branchId, body);
     } else if (body.kind === "update_staff") {
       await db
         .update(staff)

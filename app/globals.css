@@ -490,3 +490,16 @@
 .payment-confirm .danger-confirm{height:26px;padding:0 10px;border:0;border-radius:8px;background:#c9564c;color:#fff;font:inherit;font-size:9px;font-weight:700;cursor:pointer}
 .payment-confirm .danger-confirm:disabled{opacity:.5;cursor:not-allowed}
 .payment-confirm>button:last-child{width:24px;height:24px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--muted);font:inherit;font-size:12px;line-height:1;cursor:pointer}
+
+/* --- payouts in finances ------------------------------------------------ */
+.salary-row{cursor:pointer}
+.salary-row:hover{background:var(--accent-tint)}
+.salary-row td:first-child b{display:block}
+.payout-modal{width:600px}
+.payout-history{display:grid;gap:8px;margin-bottom:18px;max-height:280px;overflow:auto}
+.payout-history article{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:10px 12px}
+.payout-history article>div:first-child{display:flex;flex-direction:column;gap:3px;margin-right:auto;min-width:0}
+.payout-history b{font-size:12px}
+.payout-history small{font-size:9px;color:var(--muted)}
+.payout-actions{display:flex;align-items:center;gap:4px}
+.payout-form{padding-top:16px;border-top:1px solid var(--line)}

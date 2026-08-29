@@ -303,6 +303,7 @@ export async function salaryProgress(
       accrued: person.salary,
       paid: person.paidOut.total,
       remaining: person.remaining,
+      payouts: person.payouts,
       progress: person.salary
         ? Math.min(100, Math.round((person.paidOut.total / person.salary) * 100))
         : person.paidOut.total > 0

@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { Sidebar } from "@/components/Sidebar";
-import type { FinanceSnapshot } from "@/lib/api-schemas";
+import type {
+  FinanceSnapshot,
+  SalaryKind,
+  SalaryRowDto,
+} from "@/lib/api-schemas";
+import { SALARY_KIND_LABELS } from "@/lib/format";
 
 const months = [
   ["2026-07", "Липень 2026"],
@@ -56,6 +61,23 @@ const emptyDraft = (): Draft => ({
   note: "",
 });
 
+type PayoutDraft = {
+  /** null — нова виплата; інакше правимо наявну. */
+  id: number | null;
+  kind: SalaryKind;
+  amount: string;
+  paidAt: string;
+  note: string;
+};
+
+const emptyPayout = (): PayoutDraft => ({
+  id: null,
+  kind: "advance",
+  amount: "",
+  paidAt: new Date().toISOString().slice(0, 10),
+  note: "",
+});
+
 export default function FinancesPage() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
@@ -66,6 +88,10 @@ export default function FinancesPage() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Відкритий працівник і чернетка виплати в його картці. */
+  const [openStaff, setOpenStaff] = useState<number | null>(null);
+  const [payout, setPayout] = useState<PayoutDraft>(emptyPayout);
+  const [confirming, setConfirming] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/finances?month=" + month + branchQuery)
@@ -92,6 +118,35 @@ export default function FinancesPage() {
     setData(next);
     setError(null);
     return true;
+  };
+
+  /** Знімок приходить новий після кожної дії, тож відкриту картку беремо з
+   *  нього, а не тримаємо копію, яка встигне застаріти. */
+  const selected: SalaryRowDto | null =
+    data.salaryRows.find((row) => row.id === openStaff) ?? null;
+
+  const savePayout = async () => {
+    if (!selected || Number(payout.amount) <= 0) return;
+    const ok = await send(
+      payout.id
+        ? {
+            kind: "payout_update",
+            payoutId: payout.id,
+            payoutKind: payout.kind,
+            amount: Number(payout.amount),
+            paidAt: payout.paidAt,
+            note: payout.note,
+          }
+        : {
+            kind: "payout_add",
+            staffId: selected.id,
+            payoutKind: payout.kind,
+            amount: Number(payout.amount),
+            paidAt: payout.paidAt,
+            note: payout.note,
+          },
+    );
+    if (ok) setPayout(emptyPayout());
   };
 
   const monthIndex = months.findIndex((item) => item[0] === month);
@@ -276,9 +331,22 @@ export default function FinancesPage() {
               </thead>
               <tbody>
                 {data.salaryRows.map((row) => (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className="salary-row"
+                    onClick={() => {
+                      setOpenStaff(row.id);
+                      setPayout(emptyPayout());
+                      setConfirming(null);
+                    }}
+                  >
                     <td>
                       <b>{row.name}</b>
+                      <small className="open-child">
+                        {row.payouts.length
+                          ? `${row.payouts.length} виплат`
+                          : "виплат немає"}
+                      </small>
                     </td>
                     <td>
                       <span className="group-pill">{row.role}</span>
@@ -444,6 +512,157 @@ export default function FinancesPage() {
               }}
             >
               {saving ? "Збереження…" : "Додати"}
+            </button>
+          </div>
+        </Modal>
+      )}
+      {selected && (
+        <Modal
+          className="modal payout-modal"
+          onClose={() => {
+            setOpenStaff(null);
+            setConfirming(null);
+          }}
+        >
+          <h2>{selected.name}</h2>
+          <p>
+            {selected.role} · нараховано {money(selected.accrued)}, видано{" "}
+            {money(selected.paid)}
+            {selected.remaining > 0
+              ? `, залишок ${money(selected.remaining)}`
+              : selected.remaining < 0
+                ? `, переплата ${money(-selected.remaining)}`
+                : ""}
+          </p>
+
+          <div className="payout-history">
+            {selected.payouts.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <b>{money(item.amount)}</b>
+                  <small>
+                    {SALARY_KIND_LABELS[item.kind]} · {dayLabel(item.paidAt)}
+                    {item.note ? ` · ${item.note}` : ""}
+                  </small>
+                </div>
+                {confirming === item.id ? (
+                  <div className="payment-confirm">
+                    <button
+                      className="danger-confirm"
+                      disabled={saving}
+                      onClick={async () => {
+                        await send({
+                          kind: "payout_remove",
+                          payoutId: item.id,
+                        });
+                        setConfirming(null);
+                        if (payout.id === item.id) setPayout(emptyPayout());
+                      }}
+                    >
+                      {saving ? "…" : "Видалити"}
+                    </button>
+                    <button onClick={() => setConfirming(null)}>×</button>
+                  </div>
+                ) : (
+                  <div className="payout-actions">
+                    <button
+                      className="row-action"
+                      title="Змінити"
+                      aria-label={`Змінити виплату ${money(item.amount)}`}
+                      onClick={() =>
+                        setPayout({
+                          id: item.id,
+                          kind: item.kind,
+                          amount: String(item.amount),
+                          paidAt: item.paidAt,
+                          note: item.note,
+                        })
+                      }
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="remove-relative"
+                      title="Видалити"
+                      aria-label={`Видалити виплату ${money(item.amount)}`}
+                      onClick={() => setConfirming(item.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+            {!selected.payouts.length && (
+              <div className="empty">За цей місяць виплат ще не було.</div>
+            )}
+          </div>
+
+          <div className="form-grid payout-form">
+            <label>
+              Вид
+              <select
+                value={payout.kind}
+                onChange={(event) =>
+                  setPayout({
+                    ...payout,
+                    kind: event.target.value as SalaryKind,
+                  })
+                }
+              >
+                <option value="advance">{SALARY_KIND_LABELS.advance}</option>
+                <option value="salary">{SALARY_KIND_LABELS.salary}</option>
+              </select>
+            </label>
+            <label>
+              Сума
+              <input
+                type="number"
+                min="0"
+                value={payout.amount}
+                onChange={(event) =>
+                  setPayout({ ...payout, amount: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Коли видано
+              <input
+                type="date"
+                value={payout.paidAt}
+                onChange={(event) =>
+                  setPayout({ ...payout, paidAt: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Примітка
+              <input
+                value={payout.note}
+                onChange={(event) =>
+                  setPayout({ ...payout, note: event.target.value })
+                }
+                placeholder="Необов’язково"
+              />
+            </label>
+          </div>
+
+          <div className="modal-actions">
+            {payout.id && (
+              <button onClick={() => setPayout(emptyPayout())}>
+                Скасувати правку
+              </button>
+            )}
+            <button
+              className="primary"
+              disabled={saving || Number(payout.amount) <= 0}
+              onClick={savePayout}
+            >
+              {saving
+                ? "Збереження…"
+                : payout.id
+                  ? "Зберегти виплату"
+                  : "Додати виплату"}
             </button>
           </div>
         </Modal>

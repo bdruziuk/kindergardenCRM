@@ -124,6 +124,34 @@ const rateFields = {
   dayOffQuota: z.coerce.number().int().min(0).max(31).default(0),
 };
 
+/** Виплати правлять із двох місць — «Колектив» і «Доходи й витрати», — тож
+ *  дії описані один раз і входять в обидві схеми. */
+const payoutActions = [
+  z.object({
+    kind: z.literal("payout_add"),
+    staffId: id,
+    payoutKind: z.enum(salaryKindValues, { error: "Оберіть аванс або зарплату" }),
+    amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
+    paidAt: day,
+    note: z.string().trim().max(200).default(""),
+    month: month.optional(),
+  }),
+  z.object({
+    kind: z.literal("payout_update"),
+    payoutId: id,
+    payoutKind: z.enum(salaryKindValues, { error: "Оберіть аванс або зарплату" }),
+    amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
+    paidAt: day,
+    note: z.string().trim().max(200).default(""),
+    month: month.optional(),
+  }),
+  z.object({
+    kind: z.literal("payout_remove"),
+    payoutId: id,
+    month: month.optional(),
+  }),
+] as const;
+
 export const staffRequest = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("attendance"),
@@ -167,20 +195,7 @@ export const staffRequest = z.discriminatedUnion("kind", [
     lessonId: id,
     month: month.optional(),
   }),
-  z.object({
-    kind: z.literal("payout_add"),
-    staffId: id,
-    payoutKind: z.enum(salaryKindValues, { error: "Оберіть аванс або зарплату" }),
-    amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
-    paidAt: day,
-    note: z.string().trim().max(200).default(""),
-    month: month.optional(),
-  }),
-  z.object({
-    kind: z.literal("payout_remove"),
-    payoutId: id,
-    month: month.optional(),
-  }),
+  ...payoutActions,
 ], unknownAction);
 
 // ---------------------------------------------------------------- transactions
@@ -199,6 +214,7 @@ export const transactionRequest = z.discriminatedUnion("kind", [
     transactionId: id,
     month: month.optional(),
   }),
+  ...payoutActions,
 ], unknownAction);
 
 // -------------------------------------------------------------------- waitlist
@@ -459,6 +475,8 @@ export type SalaryRowDto = {
   accrued: number;
   paid: number;
   remaining: number;
+  /** Виплати цього місяця — щоб їх можна було правити прямо тут. */
+  payouts: PayoutDto[];
   /** Share of the accrued amount already handed over, 0–100. */
   progress: number;
 };
