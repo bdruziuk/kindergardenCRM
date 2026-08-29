@@ -406,8 +406,8 @@ export type BirthdayDto = {
 };
 
 export type StaffSnapshot = {
-  /** Посади, доступні у випадайці цієї філії. */
-  jobTitles: string[];
+  /** Посади філії разом із заготовками ставки й лімітів. */
+  jobTitles: JobTitleDto[];
   month: string;
   calendar: CalendarDay[];
   workdays: number;
@@ -559,6 +559,14 @@ export const settingsRequest = z.discriminatedUnion("kind", [
     /** null — у бібліотеку садочка (лише власник); інакше — у філію. */
     branchId: id.nullable().default(null),
   }),
+  z.object({
+    kind: z.literal("job_title_update"),
+    titleId: id,
+    salaryType: z.enum(salaryTypeValues).default("monthly"),
+    rate: amount.default(0),
+    vacationQuota: z.coerce.number().int().min(0).max(365).default(0),
+    dayOffQuota: z.coerce.number().int().min(0).max(31).default(0),
+  }),
   z.object({ kind: z.literal("job_title_remove"), titleId: id }),
   /** Переносить бібліотеку садочка у філію, не чіпаючи вже наявних там. */
   z.object({ kind: z.literal("job_titles_apply"), branchId: id }),
@@ -704,6 +712,11 @@ export type JobTitleDto = {
   name: string;
   /** Посаду спустив власник — керуючий її не прибирає. */
   addedByOwner: boolean;
+  /** Заготовки для нового працівника з цією посадою. */
+  salaryType: SalaryType;
+  rate: number;
+  vacationQuota: number;
+  dayOffQuota: number;
 };
 
 export type BranchSettingsDto = {

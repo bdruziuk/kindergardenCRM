@@ -35,7 +35,15 @@ async function snapshot(branchId: number, month: string) {
   // Посади філії — вони наповнюють випадайку замість колишнього списку,
   // зашитого в сторінку.
   const titles = await getDb()
-    .select({ name: jobTitles.name })
+    .select({
+      id: jobTitles.id,
+      name: jobTitles.name,
+      addedByOwner: jobTitles.addedByOwner,
+      salaryType: jobTitles.salaryType,
+      rate: jobTitles.rate,
+      vacationQuota: jobTitles.vacationQuota,
+      dayOffQuota: jobTitles.dayOffQuota,
+    })
     .from(jobTitles)
     .where(eq(jobTitles.branchId, branchId))
     .orderBy(asc(jobTitles.id));
@@ -45,7 +53,7 @@ async function snapshot(branchId: number, month: string) {
   const onAttendance = rows.filter((row) => row.salaryType !== "lesson");
   return {
     ...info,
-    jobTitles: titles.map((row) => row.name),
+    jobTitles: titles,
     rows,
     summary: {
       staffCount: rows.length,

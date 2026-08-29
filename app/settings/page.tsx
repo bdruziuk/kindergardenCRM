@@ -11,7 +11,13 @@ import type {
   SettingsSnapshot,
 } from "@/lib/api-schemas";
 import { colorThemeValues } from "@/lib/api-schemas";
-import { THEME_LABELS, USER_ROLE_LABELS, dayLabel } from "@/lib/format";
+import type { JobTitleDto } from "@/lib/api-schemas";
+import {
+  SALARY_TYPE_LABELS,
+  THEME_LABELS,
+  USER_ROLE_LABELS,
+  dayLabel,
+} from "@/lib/format";
 
 const EMPTY_ACCOUNT: AccountDto = {
   id: 0,
@@ -110,6 +116,10 @@ export default function SettingsPage() {
   const [avatarBusy, setAvatarBusy] = useState(false);
   /** Нова посада: окремо для бібліотеки й для кожної філії. */
   const [titleDraft, setTitleDraft] = useState<Record<string, string>>({});
+  /** Заготовки, які зараз правлять. Ключ — id посади. */
+  const [titleEdits, setTitleEdits] = useState<
+    Record<number, Pick<JobTitleDto, "salaryType" | "rate" | "vacationQuota" | "dayOffQuota">>
+  >({});
 
   /** Чернетки полів заводимо від знімка, щоб недописане не зникало. */
   const apply = (next: SettingsSnapshot) => {
@@ -206,29 +216,125 @@ export default function SettingsPage() {
     canRemove: (title: SettingsSnapshot["jobTitles"][number]) => boolean,
   ) => (
     <div className="title-block">
-      <div className="title-chips">
-        {titles.map((title) => (
-          <span className="title-chip" key={title.id}>
-            {title.name}
-            {canRemove(title) ? (
-              <button
-                type="button"
-                aria-label={`Прибрати посаду ${title.name}`}
-                disabled={saving === `title-${title.id}`}
-                onClick={() =>
-                  send(`title-${title.id}`, {
-                    kind: "job_title_remove",
-                    titleId: title.id,
-                  })
-                }
-              >
-                ×
-              </button>
-            ) : (
-              <em title="Посаду додав власник">🔒</em>
-            )}
-          </span>
-        ))}
+      <div className="title-rows">
+        {titles.map((title) => {
+          const draft = titleEdits[title.id] ?? title;
+          const rateLabel =
+            draft.salaryType === "monthly"
+              ? "Ставка / місяць"
+              : draft.salaryType === "daily"
+                ? "Ставка / день"
+                : "Ставка / заняття";
+          const changed =
+            draft.salaryType !== title.salaryType ||
+            Number(draft.rate) !== title.rate ||
+            Number(draft.vacationQuota) !== title.vacationQuota ||
+            Number(draft.dayOffQuota) !== title.dayOffQuota;
+          const patch = (part: Partial<typeof draft>) =>
+            setTitleEdits({
+              ...titleEdits,
+              [title.id]: { ...draft, ...part },
+            });
+
+          return (
+            <div className="title-row" key={title.id}>
+              <div className="title-head">
+                <b>{title.name}</b>
+                {canRemove(title) ? (
+                  <button
+                    type="button"
+                    className="title-remove"
+                    aria-label={`Прибрати посаду ${title.name}`}
+                    disabled={saving === `title-${title.id}`}
+                    onClick={() =>
+                      send(`title-${title.id}`, {
+                        kind: "job_title_remove",
+                        titleId: title.id,
+                      })
+                    }
+                  >
+                    ×
+                  </button>
+                ) : (
+                  <em title="Посаду додав власник — прибрати може лише він">
+                    🔒
+                  </em>
+                )}
+              </div>
+              <div className="title-defaults">
+                <label>
+                  Тип оплати
+                  <select
+                    value={draft.salaryType}
+                    onChange={(event) =>
+                      patch({
+                        salaryType: event.target
+                          .value as JobTitleDto["salaryType"],
+                      })
+                    }
+                  >
+                    {(["monthly", "daily", "lesson"] as const).map((type) => (
+                      <option key={type} value={type}>
+                        {SALARY_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {rateLabel}
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft.rate}
+                    onChange={(event) =>
+                      patch({ rate: Number(event.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  Відпустка, днів/рік
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft.vacationQuota}
+                    onChange={(event) =>
+                      patch({ vacationQuota: Number(event.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  Вихідні, днів/місяць
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft.dayOffQuota}
+                    onChange={(event) =>
+                      patch({ dayOffQuota: Number(event.target.value) })
+                    }
+                  />
+                </label>
+                <button
+                  className="account-save ghost"
+                  disabled={!changed || saving === `defaults-${title.id}`}
+                  onClick={async () => {
+                    const next = await send(`defaults-${title.id}`, {
+                      kind: "job_title_update",
+                      titleId: title.id,
+                      ...draft,
+                    });
+                    if (next) {
+                      const rest = { ...titleEdits };
+                      delete rest[title.id];
+                      setTitleEdits(rest);
+                    }
+                  }}
+                >
+                  {saving === `defaults-${title.id}` ? "…" : "Зберегти"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
         {!titles.length && (
           <span className="title-empty">Посад ще немає</span>
         )}
@@ -651,6 +757,11 @@ export default function SettingsPage() {
               </div>
             </div>
             {titleList("title-library", data.jobTitles, null, () => true)}
+            <small className="title-note">
+              Ставка й ліміти підставляються, коли працівнику обирають цю
+              посаду. При додаванні їх можна змінити — це заготовка, а не
+              жорстка прив&apos;язка.
+            </small>
           </article>
         )}
 

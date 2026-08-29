@@ -141,6 +141,13 @@
       "when": 1788035381977,
       "tag": "0019_job_titles",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788036167624,
+      "tag": "0020_title_defaults",
+      "breakpoints": true
     }
   ]
 }

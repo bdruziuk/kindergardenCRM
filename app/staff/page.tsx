@@ -99,6 +99,7 @@ export default function StaffPage() {
   const [view, setView] = useState<"list" | "grid">("list");
   /** Попередження про перевищення лімітів після останньої відмітки дня. */
   const [warning, setWarning] = useState<string | null>(null);
+  const titleNames = data.jobTitles.map((title) => title.name);
   /** Which person/day the grid opened a lesson editor for. */
   const [gridLessons, setGridLessons] = useState<{
     person: StaffRowDto;
@@ -862,9 +863,9 @@ export default function StaffPage() {
                     setEditing({ ...editing, role: event.target.value })
                   }
                 >
-                  {(data.jobTitles.includes(editing.role)
-                    ? data.jobTitles
-                    : [editing.role, ...data.jobTitles]
+                  {(titleNames.includes(editing.role)
+                    ? titleNames
+                    : [editing.role, ...titleNames]
                   ).map((role) => (
                     <option key={role}>{role}</option>
                   ))}
@@ -1043,15 +1044,43 @@ export default function StaffPage() {
                   value={
                     // Посада за замовчуванням може бути відсутня у філії —
                     // тоді беремо першу наявну, щоб поле не лишалось порожнім.
-                    data.jobTitles.includes(newStaff.role)
+                    titleNames.includes(newStaff.role)
                       ? newStaff.role
-                      : (data.jobTitles[0] ?? "")
+                      : (titleNames[0] ?? "")
                   }
-                  onChange={(event) =>
-                    setNewStaff({ ...newStaff, role: event.target.value })
-                  }
+                  onChange={(event) => {
+                    // Разом із посадою підтягуються її заготовки: тип оплати,
+                    // ставка й ліміти. Далі їх можна виправити руками — це
+                    // саме значення за замовчуванням, а не жорстка прив'язка.
+                    const picked = data.jobTitles.find(
+                      (title) => title.name === event.target.value,
+                    );
+                    setNewStaff({
+                      ...newStaff,
+                      role: event.target.value,
+                      ...(picked
+                        ? {
+                            salaryType: picked.salaryType,
+                            monthlyRate:
+                              picked.salaryType === "monthly"
+                                ? String(picked.rate)
+                                : newStaff.monthlyRate,
+                            dailyRate:
+                              picked.salaryType === "daily"
+                                ? String(picked.rate)
+                                : newStaff.dailyRate,
+                            lessonRate:
+                              picked.salaryType === "lesson"
+                                ? String(picked.rate)
+                                : newStaff.lessonRate,
+                            vacationQuota: String(picked.vacationQuota),
+                            dayOffQuota: String(picked.dayOffQuota),
+                          }
+                        : {}),
+                    });
+                  }}
                 >
-                  {data.jobTitles.map((role) => (
+                  {titleNames.map((role) => (
                     <option key={role}>{role}</option>
                   ))}
                 </select>
@@ -1168,9 +1197,9 @@ export default function StaffPage() {
                       ...newStaff,
                       // Те саме вирівнювання, що й у полі: інакше на сервер
                       // пішла б посада, якої у філії немає.
-                      role: data.jobTitles.includes(newStaff.role)
+                      role: titleNames.includes(newStaff.role)
                         ? newStaff.role
-                        : (data.jobTitles[0] ?? newStaff.role),
+                        : (titleNames[0] ?? newStaff.role),
                       birthDate: newStaff.birthDate || null,
                     }),
                   });

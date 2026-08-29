@@ -129,6 +129,10 @@ async function snapshot(
         name: jobTitles.name,
         branchId: jobTitles.branchId,
         addedByOwner: jobTitles.addedByOwner,
+        salaryType: jobTitles.salaryType,
+        rate: jobTitles.rate,
+        vacationQuota: jobTitles.vacationQuota,
+        dayOffQuota: jobTitles.dayOffQuota,
       })
       .from(jobTitles)
       .where(eq(jobTitles.kindergartenId, me.kindergartenId))
@@ -157,6 +161,18 @@ async function snapshot(
           .orderBy(desc(invites.createdAt))
       : Promise.resolve([]),
   ]);
+
+  /** `branchId` розрізняє бібліотеку й філію лише всередині знімка, назовні
+   *  він не потрібен — тому збираємо DTO явно, а не відкиданням поля. */
+  const toTitle = (row: (typeof titleRows)[number]): JobTitleDto => ({
+    id: row.id,
+    name: row.name,
+    addedByOwner: row.addedByOwner,
+    salaryType: row.salaryType,
+    rate: row.rate,
+    vacationQuota: row.vacationQuota,
+    dayOffQuota: row.dayOffQuota,
+  });
 
   const toAccount = (row: (typeof userRows)[number]): AccountDto => ({
     id: row.id,
@@ -187,7 +203,7 @@ async function snapshot(
     canEditDetails: me.isOwner,
     jobTitles: titleRows
       .filter((row) => row.branchId === branch.id)
-      .map(({ id, name, addedByOwner }) => ({ id, name, addedByOwner })),
+      .map(toTitle),
   }));
 
   const now = Date.now();
@@ -208,7 +224,7 @@ async function snapshot(
   const library: JobTitleDto[] = me.isOwner
     ? titleRows
         .filter((row) => row.branchId === null)
-        .map(({ id, name, addedByOwner }) => ({ id, name, addedByOwner }))
+        .map(toTitle)
     : [];
 
   return {
@@ -361,6 +377,36 @@ export async function POST(request: Request) {
           })
           .onConflictDoNothing();
       }
+    } else if (body.kind === "job_title_update") {
+      const [title] = await db
+        .select({ id: jobTitles.id, branchId: jobTitles.branchId })
+        .from(jobTitles)
+        .where(
+          and(
+            eq(jobTitles.id, body.titleId),
+            eq(jobTitles.kindergartenId, me.kindergartenId),
+          ),
+        );
+      if (!title) throw new ScopeError("Посаду не знайдено", 404);
+
+      if (!me.isOwner) {
+        if (title.branchId === null)
+          throw new ScopeError("Бібліотеку посад веде власник", 403);
+        // Ставки правити керуючому можна навіть у спущеній власником посаді:
+        // саме заради цього посада й прив'язана до філії — в іншій вони інші.
+        // Під замком лишається тільки видалення.
+        await assertBranch(db, me, title.branchId);
+      }
+
+      await db
+        .update(jobTitles)
+        .set({
+          salaryType: body.salaryType,
+          rate: body.rate,
+          vacationQuota: body.vacationQuota,
+          dayOffQuota: body.dayOffQuota,
+        })
+        .where(eq(jobTitles.id, body.titleId));
     } else if (body.kind === "job_title_remove") {
       const [title] = await db
         .select({

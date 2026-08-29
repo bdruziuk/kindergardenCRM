@@ -156,6 +156,13 @@ export const jobTitles = pgTable(
     }),
     name: text("name").notNull(),
     addedByOwner: boolean("added_by_owner").notNull().default(true),
+    /** Заготовки для нового працівника з цією посадою. Одна ставка, а не три:
+     *  тип оплати визначає, яке саме поле показує форма, тож зберігати решту
+     *  означало б тримати числа, яких ніхто не побачить. */
+    salaryType: salaryType("salary_type").notNull().default("monthly"),
+    rate: money("rate").notNull().default(0),
+    vacationQuota: integer("vacation_quota").notNull().default(0),
+    dayOffQuota: integer("day_off_quota").notNull().default(0),
   },
   (t) => [
     // Два часткові індекси, а не один спільний: у Postgres NULL не дорівнює
