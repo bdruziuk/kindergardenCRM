@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+dist
+.vinext
+.wrangler
+site-build.tar.gz
+README.md
+Dockerfile
+.dockerignore
+docker-compose.yml

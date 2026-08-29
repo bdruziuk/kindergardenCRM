@@ -1,0 +1,1 @@
+ALTER TABLE "staff" ADD COLUMN "birth_date" date;

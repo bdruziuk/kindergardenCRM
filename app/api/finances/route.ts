@@ -1,0 +1,118 @@
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { transactions } from "@/db/schema";
+import {
+  type FinanceSnapshot,
+  firstIssue,
+  transactionRequest,
+} from "@/lib/api-schemas";
+import { FALLBACK_MONTH, monthStart } from "@/lib/period";
+import {
+  childrenWithPayments,
+  monthExpenses,
+  paymentsSummary,
+  salaryProgress,
+} from "@/lib/queries";
+import { resolveScope, scopeFailure } from "@/lib/scope";
+
+/** The one expense the app derives itself; it cannot be edited by hand. */
+const SALARY_CATEGORY = "Зарплата";
+
+async function snapshot(
+  branchId: number,
+  month: string,
+): Promise<FinanceSnapshot> {
+  const [childRows, salaryRows, rows] = await Promise.all([
+    childrenWithPayments(branchId, month),
+    salaryProgress(branchId, month),
+    monthExpenses(branchId, month),
+  ]);
+
+  // Income is not a ledger of its own: the only money coming in is the
+  // monthly fee, so it is whatever the parents have actually paid.
+  const income = paymentsSummary(childRows).received;
+
+  // The expense is the cash that actually left, mirroring income being what
+  // parents actually paid. What the timesheet accrued is reported alongside.
+  const salaryAccrued = salaryRows.reduce((sum, row) => sum + row.accrued, 0);
+  const salary = salaryRows.reduce((sum, row) => sum + row.paid, 0);
+  const salaryRemaining = Math.round((salaryAccrued - salary) * 100) / 100;
+  const other = rows.reduce((sum, row) => sum + row.amount, 0);
+  const total = salary + other;
+
+  const byCategory = new Map<string, number>();
+  if (salary) byCategory.set(SALARY_CATEGORY, salary);
+  for (const row of rows)
+    byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
+
+  const categories = [...byCategory.entries()]
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      share: total ? Math.round((amount / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return {
+    month: monthStart(month).slice(0, 7),
+    rows,
+    salaryRows,
+    summary: {
+      income,
+      expense: { salary, other, total },
+      salaryAccrued,
+      salaryRemaining,
+      balance: Math.round((income - total) * 100) / 100,
+    },
+    categories,
+  };
+}
+
+export async function GET(request: Request) {
+  try {
+    const params = new URL(request.url).searchParams;
+    const { branchId } = await resolveScope(params.get("branch"));
+    const month = params.get("month") ?? FALLBACK_MONTH;
+    return Response.json(await snapshot(branchId, month));
+  } catch (error) {
+    return scopeFailure(error) ?? Response.json(
+      { error: error instanceof Error ? error.message : "PostgreSQL error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { branchId } = await resolveScope(
+      new URL(request.url).searchParams.get("branch"),
+    );
+    const parsed = transactionRequest.safeParse(await request.json());
+    if (!parsed.success)
+      return Response.json({ error: firstIssue(parsed.error) }, { status: 400 });
+
+    const db = getDb();
+    const body = parsed.data;
+
+    if (body.kind === "add") {
+      await db.insert(transactions).values({
+        branchId,
+        category: body.category,
+        amount: body.amount,
+        occurredAt: body.occurredAt,
+        note: body.note || null,
+      });
+    } else {
+      await db
+        .delete(transactions)
+        .where(eq(transactions.id, body.transactionId));
+    }
+
+    return Response.json(await snapshot(branchId, body.month ?? FALLBACK_MONTH));
+  } catch (error) {
+    return scopeFailure(error) ?? Response.json(
+      { error: error instanceof Error ? error.message : "PostgreSQL error" },
+      { status: 500 },
+    );
+  }
+}
