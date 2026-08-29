@@ -22,8 +22,21 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Трасування standalone тягне лише те, що імпортує код: SQL-файли міграцій і
+# скрипт створення користувача треба покласти явно. Перші читає instrumentation.ts
+# на старті, другий запускають руками з консолі Railway, щоб завести власника.
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/scripts ./scripts
+
+# Next вбудовує bcryptjs у серверний бандл, тож як пакет у standalone його
+# немає — а scripts/create-user.mjs запускається окремим процесом і резолвить
+# його звичайним способом. `pg` там уже лежить: його Next лишає зовнішнім.
+COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
 USER nextjs
 EXPOSE 3000
+# Railway підставляє власний PORT — тутешній лишається запасним для
+# локального `docker run` без змінних.
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
