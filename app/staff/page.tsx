@@ -19,6 +19,7 @@ import {
   leaveOverrun,
   leaveWarning,
   lessonsLabel,
+  paidByLesson,
 } from "@/lib/format";
 
 const months = [
@@ -397,14 +398,14 @@ export default function StaffPage() {
                       <small className="salary-rate">
                         {person.salaryType === "monthly"
                           ? money(person.monthlyRate)
-                          : person.salaryType === "lesson"
+                          : paidByLesson(person.salaryType)
                             ? money(person.lessonRate) + " / заняття"
                             : money(person.dailyRate) + " / день"}
                       </small>
                     </td>
                     <td>
                       <div className="days-count">
-                        {person.salaryType === "lesson" ? (
+                        {paidByLesson(person.salaryType) ? (
                           <b className="worked-count">
                             {person.lessonCount} ♪
                           </b>
@@ -463,10 +464,12 @@ export default function StaffPage() {
             <div className="staff-salary-card">
               <div>
                 <span>
-                  {selected.salaryType === "lesson" ? "Проведено" : "Оплачено"}
+                  {paidByLesson(selected.salaryType)
+                    ? "Проведено"
+                    : "Оплачено"}
                 </span>
                 <b>
-                  {selected.salaryType === "lesson"
+                  {paidByLesson(selected.salaryType)
                     ? lessonsLabel(selected.lessonCount)
                     : `${selected.paidDays} із ${data.workdays} днів`}
                 </b>
@@ -479,7 +482,7 @@ export default function StaffPage() {
                 {selected.salaryType === "monthly"
                   ? "Розрахунок пропорційно відпрацьованим дням зі ставки " +
                     money(selected.monthlyRate)
-                  : selected.salaryType === "lesson"
+                  : paidByLesson(selected.salaryType)
                     ? `${selected.lessonCount} × ${money(selected.lessonRate)}`
                     : selected.paidDays + " дн. × " + money(selected.dailyRate)}
               </small>
@@ -503,7 +506,7 @@ export default function StaffPage() {
                 Редагувати працівника
               </button>
             </div>
-            {selected.salaryType !== "lesson" &&
+            {!paidByLesson(selected.salaryType) &&
               (selected.vacationQuota > 0 || selected.dayOffQuota > 0) && (
                 <div className="leave-block">
                   <div
@@ -667,7 +670,7 @@ export default function StaffPage() {
             </div>
 
             <div className="attendance-legend">
-              {selected.salaryType === "lesson" ? (
+              {paidByLesson(selected.salaryType) ? (
                 <>
                   <span>
                     <i className="day-worked" /> Є заняття
@@ -716,7 +719,7 @@ export default function StaffPage() {
                 ),
               )}
               {data.calendar.map((day) => {
-                if (selected.salaryType === "lesson") {
+                if (paidByLesson(selected.salaryType)) {
                   const taught = selected.lessons[day.date] ?? [];
                   return (
                     <button
@@ -760,7 +763,7 @@ export default function StaffPage() {
                 );
               })}
             </div>
-            {selected.salaryType !== "lesson" ? (
+            {!paidByLesson(selected.salaryType) ? (
               <p className="calendar-help">
                 Натискайте на день, щоб змінити стан: відпрацьовано → не
                 відпрацьовано → відпустка → оплачуваний вихідний → не відмічено.
@@ -885,9 +888,41 @@ export default function StaffPage() {
                   <option value="monthly">Місячна ставка</option>
                   <option value="daily">Фіксовано за день</option>
                   <option value="lesson">За проведене заняття</option>
+                  <option value="base_lesson">Ставка + за заняття</option>
                 </select>
               </label>
-              {editing.salaryType === "monthly" ? (
+              {editing.salaryType === "base_lesson" ? (
+                <>
+                  <label>
+                    Ставка
+                    <input
+                      type="number"
+                      min="0"
+                      value={editing.monthlyRate}
+                      onChange={(event) =>
+                        setEditing({
+                          ...editing,
+                          monthlyRate: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Сума за одне заняття
+                    <input
+                      type="number"
+                      min="0"
+                      value={editing.lessonRate}
+                      onChange={(event) =>
+                        setEditing({
+                          ...editing,
+                          lessonRate: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              ) : editing.salaryType === "monthly" ? (
                 <label className="wide-field">
                   Місячна ставка
                   <input
@@ -983,7 +1018,12 @@ export default function StaffPage() {
                   ? money(Number(editing.monthlyRate) || 0) + " / місяць"
                   : editing.salaryType === "lesson"
                     ? money(Number(editing.lessonRate) || 0) + " / заняття"
-                    : money(Number(editing.dailyRate) || 0) + " / день"}
+                    : editing.salaryType === "base_lesson"
+                      ? money(Number(editing.monthlyRate) || 0) +
+                        " + " +
+                        money(Number(editing.lessonRate) || 0) +
+                        " / заняття"
+                      : money(Number(editing.dailyRate) || 0) + " / день"}
               </b>
             </div>
             <div className="modal-actions">
@@ -1061,8 +1101,11 @@ export default function StaffPage() {
                       ...(picked
                         ? {
                             salaryType: picked.salaryType,
+                            // «Ставка + за заняття» — єдиний тип із двома
+                            // сумами: ставка лежить у rate, друга в lessonRate.
                             monthlyRate:
-                              picked.salaryType === "monthly"
+                              picked.salaryType === "monthly" ||
+                              picked.salaryType === "base_lesson"
                                 ? String(picked.rate)
                                 : newStaff.monthlyRate,
                             dailyRate:
@@ -1072,7 +1115,9 @@ export default function StaffPage() {
                             lessonRate:
                               picked.salaryType === "lesson"
                                 ? String(picked.rate)
-                                : newStaff.lessonRate,
+                                : picked.salaryType === "base_lesson"
+                                  ? String(picked.lessonRate)
+                                  : newStaff.lessonRate,
                             vacationQuota: String(picked.vacationQuota),
                             dayOffQuota: String(picked.dayOffQuota),
                           }
@@ -1100,9 +1145,39 @@ export default function StaffPage() {
                   <option value="monthly">Місячна ставка</option>
                   <option value="daily">Фіксовано за день</option>
                   <option value="lesson">За проведене заняття</option>
+                  <option value="base_lesson">Ставка + за заняття</option>
                 </select>
               </label>
-              {newStaff.salaryType === "monthly" ? (
+              {newStaff.salaryType === "base_lesson" ? (
+                <>
+                  <label>
+                    Ставка
+                    <input
+                      type="number"
+                      value={newStaff.monthlyRate}
+                      onChange={(event) =>
+                        setNewStaff({
+                          ...newStaff,
+                          monthlyRate: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Сума за заняття
+                    <input
+                      type="number"
+                      value={newStaff.lessonRate}
+                      onChange={(event) =>
+                        setNewStaff({
+                          ...newStaff,
+                          lessonRate: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              ) : newStaff.salaryType === "monthly" ? (
                 <label>
                   Місячна ставка
                   <input

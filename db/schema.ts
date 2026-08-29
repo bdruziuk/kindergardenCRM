@@ -25,6 +25,9 @@ export const salaryType = pgEnum("salary_type", [
   "monthly",
   "daily",
   "lesson",
+  /** Ставка плюс оплата за кожне проведене заняття. Ставка тут не ділиться
+   *  на робочі дні, як у місячній: вона додається до занять як є. */
+  "base_lesson",
 ]);
 export const salaryKind = pgEnum("salary_kind", ["advance", "salary"]);
 export const attendanceKind = pgEnum("attendance_kind", [
@@ -160,7 +163,11 @@ export const jobTitles = pgTable(
      *  тип оплати визначає, яке саме поле показує форма, тож зберігати решту
      *  означало б тримати числа, яких ніхто не побачить. */
     salaryType: salaryType("salary_type").notNull().default("monthly"),
+    /** Основна сума: місячна, денна, за заняття — або ставка в «ставка +
+     *  за заняття». Яку саме, каже `salaryType`. */
     rate: money("rate").notNull().default(0),
+    /** Друга сума, потрібна лише для «ставка + за заняття». */
+    lessonRate: money("lesson_rate").notNull().default(0),
     vacationQuota: integer("vacation_quota").notNull().default(0),
     dayOffQuota: integer("day_off_quota").notNull().default(0),
   },

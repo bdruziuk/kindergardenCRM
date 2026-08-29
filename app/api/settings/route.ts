@@ -131,6 +131,7 @@ async function snapshot(
         addedByOwner: jobTitles.addedByOwner,
         salaryType: jobTitles.salaryType,
         rate: jobTitles.rate,
+        lessonRate: jobTitles.lessonRate,
         vacationQuota: jobTitles.vacationQuota,
         dayOffQuota: jobTitles.dayOffQuota,
       })
@@ -170,6 +171,7 @@ async function snapshot(
     addedByOwner: row.addedByOwner,
     salaryType: row.salaryType,
     rate: row.rate,
+    lessonRate: row.lessonRate,
     vacationQuota: row.vacationQuota,
     dayOffQuota: row.dayOffQuota,
   });
@@ -403,6 +405,7 @@ export async function POST(request: Request) {
         .set({
           salaryType: body.salaryType,
           rate: body.rate,
+          lessonRate: body.lessonRate,
           vacationQuota: body.vacationQuota,
           dayOffQuota: body.dayOffQuota,
         })

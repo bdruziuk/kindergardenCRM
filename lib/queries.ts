@@ -202,7 +202,13 @@ export async function staffWithAttendance(
         ? Math.round((person.monthlyRate / info.workdays) * paidDays * 100) / 100
         : person.salaryType === "lesson"
           ? Math.round(person.lessonRate * lessonCount * 100) / 100
-          : person.dailyRate * paidDays;
+          : person.salaryType === "base_lesson"
+            ? // Ставка додається як є, не ділиться на робочі дні: це доплата
+              // до занять, а не місячний оклад.
+              Math.round(
+                (person.monthlyRate + person.lessonRate * lessonCount) * 100,
+              ) / 100
+            : person.dailyRate * paidDays;
 
     const payouts = payoutRows
       .filter((row) => row.staffId === person.id)

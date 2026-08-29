@@ -5,6 +5,7 @@ import {
   ATTENDANCE_KIND_MARKS,
   leaveOverrun,
   lessonsLabel,
+  paidByLesson,
 } from "@/lib/format";
 
 const WEEKDAYS = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -52,7 +53,7 @@ export function AttendanceGrid({
         </thead>
         <tbody>
           {rows.map((person) => {
-            const byLesson = person.salaryType === "lesson";
+            const byLesson = paidByLesson(person.salaryType);
             const overrun = leaveOverrun(person);
             const showLimits =
               !byLesson && (person.vacationQuota > 0 || person.dayOffQuota > 0);

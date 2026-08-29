@@ -472,7 +472,7 @@
 .title-remove{width:20px;height:20px;display:grid;place-items:center;border:0;border-radius:6px;background:none;color:var(--muted);font-size:14px;line-height:1;cursor:pointer}
 .title-remove:hover:not(:disabled){background:#fdecea;color:#a8433b}
 .title-remove:disabled{opacity:.4;cursor:not-allowed}
-.title-defaults{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:9px;align-items:end}
+.title-defaults{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:9px;align-items:end}
 .title-defaults label{display:flex;flex-direction:column;font-size:8px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:#7d8a86}
 .title-defaults input,.title-defaults select{height:32px;margin-top:5px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:11px;outline:none}
 .title-defaults input:focus,.title-defaults select:focus{border-color:var(--accent-focus)}

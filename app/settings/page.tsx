@@ -118,7 +118,13 @@ export default function SettingsPage() {
   const [titleDraft, setTitleDraft] = useState<Record<string, string>>({});
   /** Заготовки, які зараз правлять. Ключ — id посади. */
   const [titleEdits, setTitleEdits] = useState<
-    Record<number, Pick<JobTitleDto, "salaryType" | "rate" | "vacationQuota" | "dayOffQuota">>
+    Record<
+      number,
+      Pick<
+        JobTitleDto,
+        "salaryType" | "rate" | "lessonRate" | "vacationQuota" | "dayOffQuota"
+      >
+    >
   >({});
 
   /** Чернетки полів заводимо від знімка, щоб недописане не зникало. */
@@ -224,10 +230,13 @@ export default function SettingsPage() {
               ? "Ставка / місяць"
               : draft.salaryType === "daily"
                 ? "Ставка / день"
-                : "Ставка / заняття";
+                : draft.salaryType === "base_lesson"
+                  ? "Ставка"
+                  : "Ставка / заняття";
           const changed =
             draft.salaryType !== title.salaryType ||
             Number(draft.rate) !== title.rate ||
+            Number(draft.lessonRate) !== title.lessonRate ||
             Number(draft.vacationQuota) !== title.vacationQuota ||
             Number(draft.dayOffQuota) !== title.dayOffQuota;
           const patch = (part: Partial<typeof draft>) =>
@@ -273,7 +282,9 @@ export default function SettingsPage() {
                       })
                     }
                   >
-                    {(["monthly", "daily", "lesson"] as const).map((type) => (
+                    {(
+                      ["monthly", "daily", "lesson", "base_lesson"] as const
+                    ).map((type) => (
                       <option key={type} value={type}>
                         {SALARY_TYPE_LABELS[type]}
                       </option>
@@ -291,6 +302,19 @@ export default function SettingsPage() {
                     }
                   />
                 </label>
+                {draft.salaryType === "base_lesson" && (
+                  <label>
+                    Сума / заняття
+                    <input
+                      type="number"
+                      min="0"
+                      value={draft.lessonRate}
+                      onChange={(event) =>
+                        patch({ lessonRate: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                )}
                 <label>
                   Відпустка, днів/рік
                   <input

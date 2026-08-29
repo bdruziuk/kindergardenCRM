@@ -8,6 +8,7 @@ import {
   staffAttendance,
 } from "@/db/schema";
 import { type SalaryType, firstIssue, staffRequest } from "@/lib/api-schemas";
+import { paidByLesson } from "@/lib/format";
 import { FALLBACK_MONTH, monthStart } from "@/lib/period";
 import { staffWithAttendance } from "@/lib/queries";
 import { resolveScope, scopeFailure } from "@/lib/scope";
@@ -41,6 +42,7 @@ async function snapshot(branchId: number, month: string) {
       addedByOwner: jobTitles.addedByOwner,
       salaryType: jobTitles.salaryType,
       rate: jobTitles.rate,
+      lessonRate: jobTitles.lessonRate,
       vacationQuota: jobTitles.vacationQuota,
       dayOffQuota: jobTitles.dayOffQuota,
     })
@@ -50,7 +52,7 @@ async function snapshot(branchId: number, month: string) {
   // Lesson-paid staff may still carry attendance rows from before they were
   // switched over, but their pay ignores those and the grid shows lessons in
   // their cells — so counting them here would show days nobody can see.
-  const onAttendance = rows.filter((row) => row.salaryType !== "lesson");
+  const onAttendance = rows.filter((row) => !paidByLesson(row.salaryType));
   return {
     ...info,
     jobTitles: titles,

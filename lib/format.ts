@@ -84,10 +84,16 @@ export const CHILD_STATUS_LABELS = {
   left: "Вибула",
 } as const;
 
+/** Оплата рахується від занять, а не від відпрацьованих днів. Об'єднує два
+ *  типи, тож усі місця, де це важливо, питають тут, а не звіряють рядок. */
+export const paidByLesson = (salaryType: string) =>
+  salaryType === "lesson" || salaryType === "base_lesson";
+
 export const SALARY_TYPE_LABELS = {
   monthly: "Місячна ставка",
   daily: "Оплата за день",
   lesson: "Оплата за заняття",
+  base_lesson: "Ставка + за заняття",
 } as const;
 
 export const lessonsLabel = (count: number) =>
@@ -143,7 +149,7 @@ export function leaveOverrun(person: {
   dayOffQuota: number;
   dayOffDays: number;
 }) {
-  const counts = person.salaryType !== "lesson";
+  const counts = !paidByLesson(person.salaryType);
   const vacation =
     counts && person.vacationQuota
       ? Math.max(person.vacationUsedYear - person.vacationQuota, 0)

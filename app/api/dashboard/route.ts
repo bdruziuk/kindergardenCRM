@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { children, groups, transactions } from "@/db/schema";
+import { paidByLesson } from "@/lib/format";
 import { FALLBACK_MONTH, monthStart } from "@/lib/period";
 import {
   childrenWithPayments,
@@ -71,7 +72,7 @@ async function snapshot(branchId: number, month: string) {
       staffCount: staffData.rows.length,
       // Same rule as the staff page: only staff paid by days are counted.
       workedDays: staffData.rows
-        .filter((row) => row.salaryType !== "lesson")
+        .filter((row) => !paidByLesson(row.salaryType))
         .reduce((sum, row) => sum + row.workedDays, 0),
       lessonCount: staffData.rows.reduce((sum, row) => sum + row.lessonCount, 0),
       workdays: staffData.info.workdays,

@@ -148,6 +148,13 @@
       "when": 1788036167624,
       "tag": "0020_title_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788036565462,
+      "tag": "0021_base_lesson",
+      "breakpoints": true
     }
   ]
 }

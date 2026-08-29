@@ -10,7 +10,12 @@ const amount = z.coerce.number().nonnegative();
 
 export const childStatusValues = ["active", "paused", "left"] as const;
 export const paymentMethodValues = ["cash", "iban", "card"] as const;
-export const salaryTypeValues = ["monthly", "daily", "lesson"] as const;
+export const salaryTypeValues = [
+  "monthly",
+  "daily",
+  "lesson",
+  "base_lesson",
+] as const;
 export const salaryKindValues = ["advance", "salary"] as const;
 export const waitlistStatusValues = [
   "waiting",
@@ -564,6 +569,7 @@ export const settingsRequest = z.discriminatedUnion("kind", [
     titleId: id,
     salaryType: z.enum(salaryTypeValues).default("monthly"),
     rate: amount.default(0),
+    lessonRate: amount.default(0),
     vacationQuota: z.coerce.number().int().min(0).max(365).default(0),
     dayOffQuota: z.coerce.number().int().min(0).max(31).default(0),
   }),
@@ -714,7 +720,11 @@ export type JobTitleDto = {
   addedByOwner: boolean;
   /** Заготовки для нового працівника з цією посадою. */
   salaryType: SalaryType;
+  /** Основна сума — місячна, денна, за заняття або ставка в «ставка + за
+   *  заняття»; яка саме, каже `salaryType`. */
   rate: number;
+  /** Друга сума, потрібна лише для «ставка + за заняття». */
+  lessonRate: number;
   vacationQuota: number;
   dayOffQuota: number;
 };
