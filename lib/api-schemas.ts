@@ -521,6 +521,12 @@ export const settingsRequest = z.discriminatedUnion("kind", [
   }),
   z.object({ kind: z.literal("invite_revoke"), inviteId: id }),
   z.object({
+    // Без id: власник перейменовує рівно свій садочок, і взятися чужому
+    // номеру тут просто нізвідки.
+    kind: z.literal("kindergarten_rename"),
+    name: z.string().trim().min(1, "Назва садочка обов’язкова").max(120),
+  }),
+  z.object({
     kind: z.literal("branch_details"),
     branchId: id,
     name: z.string().trim().min(1, "Назва філії обов’язкова").max(120),

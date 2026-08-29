@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
 import { branches, invites, kindergartens, users } from "@/db/schema";
@@ -266,6 +266,27 @@ export async function POST(request: Request) {
         .update(users)
         .set({ theme: body.theme })
         .where(eq(users.id, me.id));
+    } else if (body.kind === "kindergarten_rename") {
+      if (!me.isOwner)
+        throw new ScopeError("Назву садочка змінює лише власник", 403);
+
+      // Назви садочків унікальні глобально, тож зіткнення ловимо самі —
+      // інакше воно прилетіло б із бази п'ятисоткою.
+      const [clash] = await db
+        .select({ id: kindergartens.id })
+        .from(kindergartens)
+        .where(
+          and(
+            eq(kindergartens.name, body.name),
+            ne(kindergartens.id, me.kindergartenId),
+          ),
+        );
+      if (clash) throw new ScopeError("Садочок із такою назвою вже є", 409);
+
+      await db
+        .update(kindergartens)
+        .set({ name: body.name })
+        .where(eq(kindergartens.id, me.kindergartenId));
     } else if (body.kind === "branch_theme") {
       if (!me.isOwner) {
         if (body.branchId !== me.branchId)

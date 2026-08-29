@@ -291,6 +291,17 @@ export async function POST(request: Request) {
 
       await db.insert(kindergartens).values({ name: body.name });
     } else if (body.kind === "kindergarten_rename") {
+      const [clash] = await db
+        .select({ id: kindergartens.id })
+        .from(kindergartens)
+        .where(
+          and(
+            eq(kindergartens.name, body.name),
+            ne(kindergartens.id, body.kindergartenId),
+          ),
+        );
+      if (clash) throw new ScopeError("Садочок із такою назвою вже є", 409);
+
       await db
         .update(kindergartens)
         .set({ name: body.name })

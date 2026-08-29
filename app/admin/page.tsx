@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [branchDraft, setBranchDraft] = useState<
     Record<number, { name: string; address: string; fee: string }>
   >({});
+  const [renaming, setRenaming] = useState<Record<number, string>>({});
 
   const draftOf = (id: number) =>
     branchDraft[id] ?? { name: "", address: "", fee: "0" };
@@ -141,6 +142,42 @@ export default function AdminPage() {
 
         {expanded && (
           <div className="garden-body">
+            <div className="garden-section">
+              <h3>Назва садочка</h3>
+              <div className="garden-invite">
+                <input
+                  value={renaming[garden.id] ?? garden.name}
+                  onChange={(event) =>
+                    setRenaming({ ...renaming, [garden.id]: event.target.value })
+                  }
+                />
+                <button
+                  className="account-save"
+                  disabled={
+                    busy === `rename-${garden.id}` ||
+                    !(renaming[garden.id] ?? garden.name).trim() ||
+                    (renaming[garden.id] ?? garden.name).trim() === garden.name
+                  }
+                  onClick={async () => {
+                    const next = await send(`rename-${garden.id}`, {
+                      kind: "kindergarten_rename",
+                      kindergartenId: garden.id,
+                      name: renaming[garden.id] ?? garden.name,
+                    });
+                    if (next) {
+                      const rest = { ...renaming };
+                      delete rest[garden.id];
+                      setRenaming(rest);
+                    }
+                  }}
+                >
+                  {busy === `rename-${garden.id}`
+                    ? "Зберігаємо…"
+                    : "Перейменувати"}
+                </button>
+              </div>
+            </div>
+
             <div className="garden-section">
               <h3>Філії</h3>
               {garden.branches.map((branch) => (

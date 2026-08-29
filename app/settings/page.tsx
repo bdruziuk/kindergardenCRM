@@ -66,6 +66,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [gardenName, setGardenName] = useState("");
   const [invite, setInvite] = useState<InviteDraft>(emptyInvite);
   /** Посилання показується рівно один раз — у базі лише його хеш. */
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export default function SettingsPage() {
         ]),
       ),
     );
+    setGardenName(next.kindergartenName);
   };
 
   useEffect(() => {
@@ -333,8 +335,19 @@ export default function SettingsPage() {
             </label>
             <label>
               Садочок
-              <input value={data.kindergartenName || "—"} disabled />
-              <small>Назву садочка змінює супер-адміністратор</small>
+              <input
+                value={me.role === "admin" ? gardenName : data.kindergartenName || "—"}
+                disabled={me.role !== "admin"}
+                onChange={(event) => {
+                  setGardenName(event.target.value);
+                  if (saved === "garden") setSaved(null);
+                }}
+              />
+              <small>
+                {me.role === "admin"
+                  ? "Назву бачать усі, хто працює в садочку"
+                  : "Назву садочка змінює власник"}
+              </small>
             </label>
             <label>
               Філія
@@ -348,6 +361,29 @@ export default function SettingsPage() {
           </div>
 
           <div className="settings-actions">
+            {saved === "garden" && (
+              <span className="saved-hint">✓ Назву садочка збережено</span>
+            )}
+            {me.role === "admin" && (
+              <button
+                className="account-save ghost"
+                disabled={
+                  saving === "garden" ||
+                  !gardenName.trim() ||
+                  gardenName.trim() === data.kindergartenName
+                }
+                onClick={() =>
+                  send("garden", {
+                    kind: "kindergarten_rename",
+                    name: gardenName,
+                  })
+                }
+              >
+                {saving === "garden"
+                  ? "Збереження…"
+                  : "Зберегти назву садочка"}
+              </button>
+            )}
             {saved === `name-${me.id}` && (
               <span className="saved-hint">✓ Збережено</span>
             )}
