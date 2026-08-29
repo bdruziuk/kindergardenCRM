@@ -10,7 +10,12 @@ import type {
   SettingsSnapshot,
 } from "@/lib/api-schemas";
 import { colorThemeValues } from "@/lib/api-schemas";
-import { THEME_LABELS, USER_ROLE_LABELS, initialsOf } from "@/lib/format";
+import {
+  THEME_LABELS,
+  USER_ROLE_LABELS,
+  dayLabel,
+  initialsOf,
+} from "@/lib/format";
 
 const EMPTY_ACCOUNT: AccountDto = {
   id: 0,
@@ -26,9 +31,30 @@ const EMPTY: SettingsSnapshot = {
   personalTheme: null,
   activeTheme: "green",
   branches: [],
+  invites: [],
 };
 
 type BranchDraft = { name: string; address: string };
+
+type InviteDraft = {
+  email: string;
+  role: "manager" | "teacher";
+  branchId: string;
+  days: string;
+};
+
+const emptyInvite = (): InviteDraft => ({
+  email: "",
+  role: "manager",
+  branchId: "",
+  days: "7",
+});
+
+const INVITE_STATUS_LABELS = {
+  waiting: "Чекає",
+  expired: "Прострочене",
+  accepted: "Прийняте",
+} as const;
 
 export default function SettingsPage() {
   const { update } = useSession();
@@ -39,6 +65,10 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [invite, setInvite] = useState<InviteDraft>(emptyInvite);
+  /** Посилання показується рівно один раз — у базі лише його хеш. */
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   /** Чернетки полів заводимо від знімка, щоб недописане не зникало. */
   const apply = (next: SettingsSnapshot) => {
@@ -87,6 +117,20 @@ export default function SettingsPage() {
     setError(null);
     setSaved(slot);
     return next;
+  };
+
+  const createInvite = async () => {
+    const next = await send("invite", {
+      kind: "invite_create",
+      email: invite.email,
+      role: invite.role,
+      branchId: invite.role === "manager" ? Number(invite.branchId) : null,
+      days: Number(invite.days),
+    });
+    if (!next) return;
+    setInviteLink(next.newInviteUrl ?? null);
+    setCopied(false);
+    setInvite(emptyInvite());
   };
 
   const saveName = async (account: AccountDto) => {
@@ -346,6 +390,170 @@ export default function SettingsPage() {
             </div>
           )}
         </article>
+
+        {me.role === "admin" && (
+          <article className="panel settings-panel">
+            <div className="section-heading">
+              <div>
+                <h2>Запрошення</h2>
+                <span>
+                  Реєстрації в застосунку немає — обліковий запис створюється
+                  лише за одноразовим посиланням
+                </span>
+              </div>
+            </div>
+
+            {inviteLink && (
+              <div className="invite-link">
+                <div>
+                  <b>Посилання створено</b>
+                  <small>
+                    Показуємо один раз: у базі лише його хеш, відновити потім
+                    нізвідки. Передайте його запрошеному.
+                  </small>
+                  <code>{inviteLink}</code>
+                </div>
+                <button
+                  className="account-save ghost"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(inviteLink);
+                      setCopied(true);
+                    } catch {
+                      // Буфер обміну може бути недоступний — посилання видно
+                      // й так, лишається виділити його вручну.
+                      setCopied(false);
+                    }
+                  }}
+                >
+                  {copied ? "✓ Скопійовано" : "Скопіювати"}
+                </button>
+              </div>
+            )}
+
+            <div className="settings-grid invite-form">
+              <label className="wide-field">
+                Пошта запрошеного
+                <input
+                  type="email"
+                  value={invite.email}
+                  onChange={(event) =>
+                    setInvite({ ...invite, email: event.target.value })
+                  }
+                  placeholder="person@example.com"
+                />
+              </label>
+              <label>
+                Роль
+                <select
+                  value={invite.role}
+                  onChange={(event) =>
+                    setInvite({
+                      ...invite,
+                      role: event.target.value as InviteDraft["role"],
+                    })
+                  }
+                >
+                  <option value="manager">Керуючий філією</option>
+                  <option value="teacher">Вихователь</option>
+                </select>
+                <small>Власника призначають на сторінці «Філії»</small>
+              </label>
+              <label>
+                {invite.role === "manager" ? "Філія" : "Термін дії, днів"}
+                {invite.role === "manager" ? (
+                  <select
+                    value={invite.branchId}
+                    onChange={(event) =>
+                      setInvite({ ...invite, branchId: event.target.value })
+                    }
+                  >
+                    <option value="">Оберіть філію</option>
+                    {data.branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={invite.days}
+                    onChange={(event) =>
+                      setInvite({ ...invite, days: event.target.value })
+                    }
+                  />
+                )}
+              </label>
+              {invite.role === "manager" && (
+                <label>
+                  Термін дії, днів
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={invite.days}
+                    onChange={(event) =>
+                      setInvite({ ...invite, days: event.target.value })
+                    }
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="settings-actions">
+              <button
+                className="account-save"
+                disabled={
+                  saving === "invite" ||
+                  !invite.email.trim() ||
+                  (invite.role === "manager" && !invite.branchId)
+                }
+                onClick={createInvite}
+              >
+                {saving === "invite" ? "Створюємо…" : "Створити запрошення"}
+              </button>
+            </div>
+
+            <div className="invite-list">
+              {data.invites.map((row) => (
+                <div className="invite-row" key={row.id}>
+                  <div className="invite-who">
+                    <b>{row.email}</b>
+                    <small>
+                      {USER_ROLE_LABELS[row.role]}
+                      {row.branchName ? ` · філія «${row.branchName}»` : ""}
+                      {` · до ${dayLabel(row.expiresAt.slice(0, 10))}`}
+                    </small>
+                  </div>
+                  <em className="invite-status" data-status={row.status}>
+                    {INVITE_STATUS_LABELS[row.status]}
+                  </em>
+                  {row.status !== "accepted" && (
+                    <button
+                      className="remove-relative"
+                      disabled={saving === `revoke-${row.id}`}
+                      aria-label={`Скасувати запрошення для ${row.email}`}
+                      onClick={() =>
+                        send(`revoke-${row.id}`, {
+                          kind: "invite_revoke",
+                          inviteId: row.id,
+                        })
+                      }
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!data.invites.length && (
+                <div className="empty">Запрошень ще не було.</div>
+              )}
+            </div>
+          </article>
+        )}
 
         {me.role === "admin" && (
           <article className="panel settings-panel">

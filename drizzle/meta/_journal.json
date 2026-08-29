@@ -99,6 +99,13 @@
       "when": 1787905279760,
       "tag": "0013_color_themes",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787989685565,
+      "tag": "0014_invites",
+      "breakpoints": true
     }
   ]
 }

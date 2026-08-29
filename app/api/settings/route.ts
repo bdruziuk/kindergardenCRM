@@ -1,16 +1,18 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
-import { branches, users } from "@/db/schema";
+import { branches, invites, users } from "@/db/schema";
 import {
   type AccountDto,
   type BranchSettingsDto,
+  type InviteDto,
   type SettingsSnapshot,
   firstIssue,
   settingsRequest,
 } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
 import { ScopeError, scopeFailure } from "@/lib/scope";
+import { hashInviteToken, inviteUrl, newInviteToken } from "@/lib/invites";
 import { DEFAULT_THEME } from "@/lib/theme";
 
 /**
@@ -31,9 +33,12 @@ async function viewer() {
 
 type Viewer = Awaited<ReturnType<typeof viewer>>;
 
-async function snapshot(me: Viewer): Promise<SettingsSnapshot> {
+async function snapshot(
+  me: Viewer,
+  newInviteUrl?: string,
+): Promise<SettingsSnapshot> {
   const db = getDb();
-  const [userRows, branchRows] = await Promise.all([
+  const [userRows, branchRows, inviteRows] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -55,6 +60,20 @@ async function snapshot(me: Viewer): Promise<SettingsSnapshot> {
       })
       .from(branches)
       .orderBy(asc(branches.id)),
+    // Запрошення бачить лише власник, тож керуючому їх навіть не читаємо.
+    me.isOwner
+      ? db
+          .select({
+            id: invites.id,
+            email: invites.email,
+            role: invites.role,
+            branchId: invites.branchId,
+            expiresAt: invites.expiresAt,
+            acceptedAt: invites.acceptedAt,
+          })
+          .from(invites)
+          .orderBy(desc(invites.createdAt))
+      : Promise.resolve([]),
   ]);
 
   const toAccount = (row: (typeof userRows)[number]): AccountDto => ({
@@ -85,6 +104,21 @@ async function snapshot(me: Viewer): Promise<SettingsSnapshot> {
     canEditDetails: me.isOwner,
   }));
 
+  const now = Date.now();
+  const inviteDtos: InviteDto[] = inviteRows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    branchName:
+      branchRows.find((branch) => branch.id === row.branchId)?.name ?? "",
+    expiresAt: row.expiresAt.toISOString(),
+    status: row.acceptedAt
+      ? "accepted"
+      : row.expiresAt.getTime() <= now
+        ? "expired"
+        : "waiting",
+  }));
+
   return {
     me: toAccount(self),
     others: me.isOwner
@@ -96,6 +130,8 @@ async function snapshot(me: Viewer): Promise<SettingsSnapshot> {
       branchRows.find((branch) => branch.id === self.branchId)?.theme ??
       DEFAULT_THEME,
     branches: branchDtos,
+    invites: inviteDtos,
+    ...(newInviteUrl ? { newInviteUrl } : {}),
   };
 }
 
@@ -124,7 +160,48 @@ export async function POST(request: Request) {
     const db = getDb();
     const body = parsed.data;
 
-    if (body.kind === "name") {
+    if (body.kind === "invite_create") {
+      if (!me.isOwner)
+        throw new ScopeError("Запрошення видає лише власник", 403);
+
+      const [taken] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, body.email));
+      if (taken)
+        throw new ScopeError("Такий обліковий запис уже існує", 409);
+
+      // Керуючий без філії бачив би порожнечу, а вихователь до філії не
+      // прив'язаний — ловимо це тут, а не після переходу за посиланням.
+      if (body.role === "manager" && !body.branchId)
+        throw new ScopeError("Керуючому потрібна філія", 400);
+
+      // Чинні запрошення на ту саму пошту скасовуємо: два робочі посилання на
+      // одну людину — це просто зайвий ключ, який десь лишиться.
+      await db
+        .delete(invites)
+        .where(and(eq(invites.email, body.email), isNull(invites.acceptedAt)));
+
+      const token = newInviteToken();
+      await db.insert(invites).values({
+        tokenHash: hashInviteToken(token),
+        email: body.email,
+        role: body.role,
+        branchId: body.role === "manager" ? body.branchId : null,
+        invitedBy: me.id,
+        expiresAt: sql`now() + make_interval(days => ${body.days})`,
+      });
+
+      const origin = new URL(request.url).origin;
+      return Response.json(await snapshot(me, inviteUrl(origin, token)));
+    } else if (body.kind === "invite_revoke") {
+      if (!me.isOwner)
+        throw new ScopeError("Запрошення скасовує лише власник", 403);
+      // Прийняті не чіпаємо: це вже слід у журналі, а не діючий ключ.
+      await db
+        .delete(invites)
+        .where(and(eq(invites.id, body.inviteId), isNull(invites.acceptedAt)));
+    } else if (body.kind === "name") {
       // Чуже ПІБ міняє тільки власник; спроба керуючого — помилка, а не тиха
       // підміна на власний запис, щоб хиба в інтерфейсі не лишилась непоміченою.
       if (!me.isOwner && body.userId !== me.id)

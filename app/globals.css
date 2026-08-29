@@ -328,3 +328,24 @@
 .branch-card .settings-actions{margin-top:14px;padding-top:14px}
 .branch-card .theme-block{margin-top:14px;padding-top:14px}
 @media(max-width:720px){.theme-swatches{gap:7px}.swatch{flex:1 1 auto;justify-content:center}}
+
+/* --- invites ------------------------------------------------------------ */
+.invite-link{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;padding:14px 16px;border:1px solid var(--accent-line);border-radius:12px;background:var(--accent-wash)}
+.invite-link>div{display:flex;flex-direction:column;gap:6px;min-width:0;margin-right:auto}
+.invite-link b{font-size:11px;color:var(--accent-ink)}
+.invite-link small{font-size:9px;color:var(--muted);line-height:1.5}
+.invite-link code{margin-top:2px;padding:8px 10px;border:1px solid var(--accent-line);border-radius:8px;background:#fff;font-size:10px;word-break:break-all;user-select:all}
+.invite-form{padding-top:4px}
+.invite-list{display:grid;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.invite-row{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+.invite-who{display:flex;flex-direction:column;gap:4px;min-width:0;margin-right:auto}
+.invite-who b{font-size:11px}
+.invite-who small{font-size:9px;color:var(--muted)}
+.invite-status{flex:none;padding:4px 9px;border-radius:11px;font-style:normal;font-size:8px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+.invite-status[data-status="waiting"]{background:#fdf5e6;color:#a3691f}
+.invite-status[data-status="expired"]{background:#f3f5f4;color:#8b978f}
+.invite-status[data-status="accepted"]{background:var(--accent-soft);color:var(--accent-ink)}
+.login-link{display:inline-block;margin-top:16px;color:var(--accent);font-size:11px;font-weight:700;text-decoration:none}
+.login-link:hover{text-decoration:underline}
+.login-hint{margin:14px 0 0;font-size:9px;color:var(--muted);text-align:center}
+@media(max-width:720px){.invite-link{flex-direction:column}.invite-row{flex-wrap:wrap}}

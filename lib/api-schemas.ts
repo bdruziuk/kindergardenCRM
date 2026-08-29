@@ -506,6 +506,16 @@ export const settingsRequest = z.discriminatedUnion("kind", [
     theme: theme.nullable(),
   }),
   z.object({
+    kind: z.literal("invite_create"),
+    email: z.string().trim().toLowerCase().pipe(z.email("Некоректна пошта")),
+    // Власника не запрошують: перший заводиться змінними середовища, далі
+    // роль підвищують на сторінці «Філії», знімаючи прив'язку до філії.
+    role: z.enum(["manager", "teacher"], { error: "Оберіть роль" }),
+    branchId: id.nullable().default(null),
+    days: z.coerce.number().int().min(1).max(30).default(7),
+  }),
+  z.object({ kind: z.literal("invite_revoke"), inviteId: id }),
+  z.object({
     kind: z.literal("branch_details"),
     branchId: id,
     name: z.string().trim().min(1, "Назва філії обов’язкова").max(120),
@@ -521,6 +531,22 @@ export type AccountDto = {
   role: UserRole;
   /** Назва філії керуючого; у власника порожня — він не прив’язаний до однієї. */
   branchName: string;
+};
+
+export const registerRequest = z.object({
+  token: z.string().min(1, "Немає токена запрошення"),
+  name: z.string().trim().min(1, "ПІБ обов’язкове").max(120),
+  password: z.string().min(8, "Пароль має бути щонайменше 8 символів").max(200),
+});
+
+export type InviteDto = {
+  id: number;
+  email: string;
+  role: UserRole;
+  branchName: string;
+  expiresAt: string;
+  /** "waiting" — чинне, "expired" — вийшов термін, "accepted" — уже використане. */
+  status: "waiting" | "expired" | "accepted";
 };
 
 export type BranchSettingsDto = {
@@ -548,6 +574,19 @@ export type SettingsSnapshot = {
   activeTheme: ColorTheme;
   /** Філії, доступні для налаштування: власнику — усі, керуючому — його одна. */
   branches: BranchSettingsDto[];
+  /** Запрошення — лише для власника; у керуючого список завжди порожній. */
+  invites: InviteDto[];
+  /** Посилання щойно створеного запрошення. Повертається рівно один раз:
+   *  у базі лежить тільки хеш, тож відновити його потім нізвідки. */
+  newInviteUrl?: string;
+  error?: string;
+};
+
+/** Що показати на сторінці реєстрації до того, як людина щось увела. */
+export type InviteCheckDto = {
+  email: string;
+  role: UserRole;
+  branchName: string;
   error?: string;
 };
 

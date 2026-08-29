@@ -260,6 +260,43 @@ export const waitlist = pgTable(
  *  народження, тож категорія задається діапазоном років, а не роком: «Молодша»
  *  може означати 2022–2023. Діапазони не мусять бути суцільними — дитина, чий
  *  рік не потрапив у жодну категорію, показується окремим блоком. */
+/**
+ * Запрошення на створення облікового запису.
+ *
+ * Реєстрації в застосунку немає й не буде: у базі імена дітей і телефони
+ * батьків. Натомість власник видає одноразове посилання, у якому вже зашиті
+ * роль і філія, а запрошений лише задає собі ПІБ та пароль — тож пароль не
+ * проходить через власника й не мандрує месенджерами.
+ *
+ * Зберігаємо не сам токен, а його SHA-256: витік бази не дає робочих посилань.
+ */
+export const invites = pgTable(
+  "invites",
+  {
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    email: text("email").notNull(),
+    role: userRole("role").notNull().default("manager"),
+    /** Філія майбутнього керуючого; у власника null. */
+    branchId: integer("branch_id").references(() => branches.id, {
+      onDelete: "set null",
+    }),
+    invitedBy: integer("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Проставляється при використанні — посилання одноразове. */
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_invites_token").on(t.tokenHash),
+    index("idx_invites_email").on(t.email),
+  ],
+);
+
 export const ageCategories = pgTable(
   "age_categories",
   {
