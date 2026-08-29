@@ -519,6 +519,8 @@ export const settingsRequest = z.discriminatedUnion("kind", [
     days: z.coerce.number().int().min(1).max(30).default(7),
   }),
   z.object({ kind: z.literal("invite_revoke"), inviteId: id }),
+  /** Зміна власного пароля — теж через лист, як і «забули пароль». */
+  z.object({ kind: z.literal("password_change_request") }),
   z.object({
     // Без id: власник перейменовує рівно свій садочок, і взятися чужому
     // номеру тут просто нізвідки.
@@ -546,6 +548,17 @@ export type AccountDto = {
 export const registerRequest = z.object({
   token: z.string().min(1, "Немає токена запрошення"),
   name: z.string().trim().min(1, "ПІБ обов’язкове").max(120),
+  password: z.string().min(8, "Пароль має бути щонайменше 8 символів").max(200),
+});
+
+// ------------------------------------------------------------------ passwords
+
+export const forgotRequest = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email("Некоректна пошта")),
+});
+
+export const resetRequest = z.object({
+  token: z.string().min(1, "Немає токена"),
   password: z.string().min(8, "Пароль має бути щонайменше 8 символів").max(200),
 });
 
@@ -674,6 +687,9 @@ export type SettingsSnapshot = {
   /** Посилання щойно створеного запрошення. Повертається рівно один раз:
    *  у базі лежить тільки хеш, тож відновити його потім нізвідки. */
   newInviteUrl?: string;
+  /** Чи пішов лист про зміну пароля. `logged` — SMTP не налаштований, і
+   *  посилання лишилось у лозі сервера. */
+  passwordMail?: "sent" | "logged";
   error?: string;
 };
 

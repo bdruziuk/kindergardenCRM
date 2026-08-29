@@ -18,6 +18,12 @@ import {
   newInviteToken,
   publicOrigin,
 } from "@/lib/invites";
+import { passwordLetter, sendMail } from "@/lib/mailer";
+import {
+  RESET_TTL_HOURS,
+  issueResetToken,
+  resetUrl,
+} from "@/lib/password-reset";
 import { DEFAULT_THEME } from "@/lib/theme";
 
 /**
@@ -55,7 +61,7 @@ type Viewer = Awaited<ReturnType<typeof viewer>>;
 
 async function snapshot(
   me: Viewer,
-  newInviteUrl?: string,
+  extra?: { newInviteUrl?: string; passwordMail?: "sent" | "logged" },
 ): Promise<SettingsSnapshot> {
   const db = getDb();
   const [userRows, branchRows, gardenRows, inviteRows] = await Promise.all([
@@ -167,7 +173,7 @@ async function snapshot(
       DEFAULT_THEME,
     branches: branchDtos,
     invites: inviteDtos,
-    ...(newInviteUrl ? { newInviteUrl } : {}),
+    ...extra,
   };
 }
 
@@ -239,7 +245,9 @@ export async function POST(request: Request) {
       });
 
       const origin = publicOrigin(request);
-      return Response.json(await snapshot(me, inviteUrl(origin, token)));
+      return Response.json(
+        await snapshot(me, { newInviteUrl: inviteUrl(origin, token) }),
+      );
     } else if (body.kind === "invite_revoke") {
       if (!me.isOwner)
         throw new ScopeError("Запрошення скасовує лише власник", 403);
@@ -270,6 +278,25 @@ export async function POST(request: Request) {
         .update(users)
         .set({ theme: body.theme })
         .where(eq(users.id, me.id));
+    } else if (body.kind === "password_change_request") {
+      // Пароль змінюється тільки через пошту — так само, як при «забули
+      // пароль». Форма зі старим і новим паролем була б простішою, але тоді
+      // зміна залежала б від того, хто зараз за клавіатурою, а не від доступу
+      // до скриньки.
+      const [self] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, me.id));
+      if (!self) throw new ScopeError("Користувача не знайдено", 401);
+
+      const token = await issueResetToken(me.id);
+      const link = resetUrl(publicOrigin(request), token);
+      const passwordMail = await sendMail({
+        to: self.email,
+        ...passwordLetter(link, RESET_TTL_HOURS, false),
+      });
+
+      return Response.json(await snapshot(me, { passwordMail }));
     } else if (body.kind === "kindergarten_rename") {
       if (!me.isOwner)
         throw new ScopeError("Назву садочка змінює лише власник", 403);

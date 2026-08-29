@@ -1,5 +1,6 @@
 "use client";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -66,6 +67,9 @@ function LoginForm() {
       <button className="primary" type="submit" disabled={pending}>
         {pending ? "Входимо…" : "Увійти"}
       </button>
+      <Link className="login-link" href="/forgot">
+        Забули пароль?
+      </Link>
     </form>
   );
 }

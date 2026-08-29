@@ -4,9 +4,10 @@ import type { NextRequest } from "next/server";
 
 /**
  * Everything is private: the app holds children's names, dates of birth and
- * their parents' phone numbers. The only anonymous surfaces are `/login`,
- * `/register` — which is useless without an invite token — and `/api/auth/*`,
- * `/api/register/*`, `/api/health`, all excluded via the matcher below.
+ * their parents' phone numbers. The anonymous surfaces are `/login`,
+ * `/forgot`, and `/register` and `/reset` — both useless without a token from
+ * an invite or a letter — plus `/api/auth/*`, `/api/register/*`,
+ * `/api/forgot`, `/api/reset` and `/api/health`, excluded via the matcher.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,6 +18,9 @@ export async function proxy(request: NextRequest) {
 
   // Той, хто вже увійшов, на цих сторінках робити нічого не має: обидві
   // заводять сесію, яка в нього вже є.
+  // `/reset` навмисно не в цьому списку: за посиланням зі зміни пароля туди
+  // заходить саме той, хто вже увійшов, і викидати його на головну означало б
+  // зламати єдиний спосіб змінити пароль.
   if (pathname === "/login" || pathname === "/register") {
     if (!token) return NextResponse.next();
     return NextResponse.redirect(
@@ -59,6 +63,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/auth|api/register|api/health|_next/static|_next/image|favicon.svg|og.png|.*\\.svg$).*)",
+    "/((?!api/auth|api/register|api/forgot|api/reset|api/health|_next/static|_next/image|favicon.svg|og.png|.*\\.svg$).*)",
   ],
 };

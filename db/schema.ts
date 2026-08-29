@@ -330,6 +330,35 @@ export const invites = pgTable(
   ],
 );
 
+/**
+ * Одноразові посилання на встановлення пароля — і для «забули пароль», і для
+ * зміни з налаштувань: обидва шляхи ведуть на пошту, тож механізм один.
+ *
+ * Як і в запрошеннях, зберігається лише SHA-256 токена. Живуть вони куди
+ * менше: запрошення чекає тижнями, а лист про пароль відкривають одразу, і
+ * довгий термін тут — лише зайве вікно для того, хто дістався скриньки.
+ */
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Проставляється при використанні — посилання одноразове. */
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_password_resets_token").on(t.tokenHash),
+    index("idx_password_resets_user").on(t.userId),
+  ],
+);
+
 export const ageCategories = pgTable(
   "age_categories",
   {

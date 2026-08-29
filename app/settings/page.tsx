@@ -332,6 +332,28 @@ export default function SettingsPage() {
               <small>Логін для входу — змінити не можна</small>
             </label>
             <label>
+              Пароль
+              <button
+                type="button"
+                className="account-save ghost password-button"
+                disabled={saving === "password"}
+                onClick={() => send("password", {
+                  kind: "password_change_request",
+                })}
+              >
+                {saving === "password"
+                  ? "Надсилаємо…"
+                  : "Надіслати посилання на зміну"}
+              </button>
+              <small>
+                {data.passwordMail === "sent"
+                  ? `Посилання надіслано на ${me.email}. Діє дві години.`
+                  : data.passwordMail === "logged"
+                    ? "Пошта не налаштована — посилання лишилось у лозі сервера."
+                    : "Пароль змінюється за посиланням із листа, не тут"}
+              </small>
+            </label>
+            <label>
               Садочок
               <input
                 value={me.role === "admin" ? gardenName : data.kindergartenName || "—"}

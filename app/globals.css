@@ -424,3 +424,6 @@
 .danger-confirm-box input{flex:1;height:32px;padding:0 11px;border:1px solid #e8c3bf;border-radius:9px;background:#fff;font:inherit;font-size:11px;outline:none}
 .danger-confirm-box input:focus{border-color:#c9564c}
 .danger-note{font-size:9px;color:#a8433b;white-space:nowrap}
+
+.settings-grid .password-button{margin-top:7px;height:40px;width:100%}
+.login-card .login-link{align-self:center;margin-top:14px}

@@ -113,6 +113,13 @@
       "when": 1788026708244,
       "tag": "0015_kindergartens",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788032569070,
+      "tag": "0016_password_resets",
+      "breakpoints": true
     }
   ]
 }
