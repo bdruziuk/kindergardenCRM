@@ -441,3 +441,23 @@
 .avatar-clear:hover:not(:disabled){color:#a8433b;border-color:#e8c3bf}
 .avatar-clear:disabled{opacity:.45;cursor:not-allowed}
 .garden-row .avatar{flex:none}
+
+/* --- staff on group cards ----------------------------------------------- */
+.group-staff{display:flex;flex-direction:column;gap:3px;padding:9px 14px 11px;border-top:1px solid var(--line)}
+.group-staff>span{display:flex;align-items:baseline;gap:6px;min-width:0}
+.group-staff b{font-size:9px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-staff small{font-size:8px;color:var(--muted);white-space:nowrap}
+.group-staff-empty{font-size:8px;color:var(--muted)}
+.group-card-slot{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 3px 11px #223d3608;overflow:hidden}
+.group-card-slot .group-card{border:0;border-radius:0;box-shadow:none;background:none}
+.group-card-slot .group-card:hover{transform:none;border-color:transparent;background:var(--accent-tint)}
+
+.group-staff-picker{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.group-staff-picker>b{font-size:11px}
+.group-staff-picker>p{margin:5px 0 12px;font-size:9px;color:var(--muted)}
+.group-staff-picker label{display:grid;grid-template-columns:16px 1fr;column-gap:10px;align-items:center;padding:8px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer}
+.group-staff-picker label:hover{background:var(--accent-tint)}
+.group-staff-picker input{grid-row:1 / span 2;width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.group-staff-picker label b{grid-column:2;font-size:11px}
+.group-staff-picker label small{grid-column:2;font-size:9px;color:var(--muted)}
+.group-staff-none{margin:0;font-size:10px;color:var(--muted)}

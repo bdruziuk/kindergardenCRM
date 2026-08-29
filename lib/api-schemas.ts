@@ -71,6 +71,13 @@ export const kindergartenRequest = z.discriminatedUnion("kind", [
     name: z.string().trim().min(1, "Назва обов’язкова"),
     ageRange: z.string().trim().default("3–4 роки"),
   }),
+  z.object({
+    // Список приходить цілком, а не по одному: так знімається питання, що
+    // робити з тим, кого зняли, і два одночасні збереження не змішуються.
+    kind: z.literal("group_staff"),
+    groupId: id,
+    staffIds: z.array(id).default([]),
+  }),
   z.object({ kind: z.literal("child"), child: childInput }),
   z.object({
     kind: z.literal("update_child"),
@@ -250,6 +257,10 @@ export const branchRequest = z.discriminatedUnion("kind", [
 
 // ------------------------------------------------------------------- responses
 
+/** Працівник, закріплений за групою. Посада — та сама, що в його картці:
+ *  окремої копії немає, щоб вона не розходилася з нею. */
+export type GroupStaffDto = { id: number; name: string; role: string };
+
 export type GroupDto = {
   id: number;
   name: string;
@@ -257,6 +268,7 @@ export type GroupDto = {
   childCount: number;
   icon: string;
   color: string;
+  staff: GroupStaffDto[];
 };
 
 export type RelativeDto = { name: string; note: string; phone: string };
@@ -280,6 +292,8 @@ export type ChildDto = {
 export type KindergartenSnapshot = {
   groups: GroupDto[];
   children: ChildDto[];
+  /** Працівники філії — з них обирають, кого закріпити за групою. */
+  staff: GroupStaffDto[];
   /** Базова місячна плата філії — те, що форма нової дитини має підставляти
    *  за замовчуванням замість якогось узятого зі стелі числа. */
   monthlyFee: number;

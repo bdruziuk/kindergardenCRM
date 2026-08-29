@@ -104,6 +104,30 @@ export const groups = pgTable(
   (t) => [uniqueIndex("idx_groups_branch_name").on(t.branchId, t.name)],
 );
 
+/**
+ * Хто закріплений за групою.
+ *
+ * Посада тут не дублюється: вона вже є в `staff.role`, заведена при додаванні
+ * працівника, і зберігати її вдруге означало б тримати два джерела правди —
+ * зміна посади в картці мовчки розійшлася б із тим, що видно в групі.
+ *
+ * Зв'язок «багато до багатьох» навмисно: у групі буває і вихователь, і кілька
+ * помічників, а той самий помічник може ходити на дві групи.
+ */
+export const groupStaff = pgTable(
+  "group_staff",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("idx_group_staff").on(t.groupId, t.staffId)],
+);
+
 export const children = pgTable(
   "children",
   {

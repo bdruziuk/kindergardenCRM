@@ -1,6 +1,13 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { branches, children, groups, relatives } from "@/db/schema";
+import {
+  branches,
+  children,
+  groupStaff,
+  groups,
+  relatives,
+  staff,
+} from "@/db/schema";
 import {
   type ChildInput,
   type KindergartenSnapshot,
@@ -22,7 +29,8 @@ async function branchFee(BRANCH_ID: number) {
 async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
   const db = getDb();
   const fee = await branchFee(BRANCH_ID);
-  const [groupRows, childRows, relativeRows] = await Promise.all([
+  const [groupRows, childRows, relativeRows, staffRows, assignments] =
+    await Promise.all([
     db
       .select({
         id: groups.id,
@@ -53,11 +61,36 @@ async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
       .where(eq(children.branchId, BRANCH_ID))
       .orderBy(asc(children.id)),
     db.select().from(relatives).orderBy(asc(relatives.id)),
+    // Тільки чинні працівники цієї філії: закріплювати за групою звільненого
+    // немає сенсу, а в списку вибору він лише заважав би.
+    db
+      .select({ id: staff.id, name: staff.fullName, role: staff.role })
+      .from(staff)
+      .where(and(eq(staff.branchId, BRANCH_ID), eq(staff.active, true)))
+      .orderBy(asc(staff.fullName)),
+    db
+      .select({
+        groupId: groupStaff.groupId,
+        id: staff.id,
+        name: staff.fullName,
+        role: staff.role,
+      })
+      .from(groupStaff)
+      .innerJoin(staff, eq(staff.id, groupStaff.staffId))
+      .innerJoin(groups, eq(groups.id, groupStaff.groupId))
+      .where(eq(groups.branchId, BRANCH_ID))
+      .orderBy(asc(staff.fullName)),
   ]);
 
   return {
     monthlyFee: fee,
-    groups: groupRows,
+    staff: staffRows,
+    groups: groupRows.map((group) => ({
+      ...group,
+      staff: assignments
+        .filter((row) => row.groupId === group.id)
+        .map(({ id, name, role }) => ({ id, name, role })),
+    })),
     children: childRows.map((child) => ({
       id: child.id,
       fullName: child.fullName,
@@ -157,6 +190,45 @@ export async function POST(request: Request) {
         .update(groups)
         .set({ name: body.name, ageRange: body.ageRange })
         .where(eq(groups.id, body.groupId));
+    } else if (body.kind === "group_staff") {
+      // Група й усі названі працівники мають належати цій філії — інакше
+      // чужого можна було б закріпити, підставивши його номер руками.
+      const [group] = await db
+        .select({ id: groups.id })
+        .from(groups)
+        .where(
+          and(eq(groups.id, body.groupId), eq(groups.branchId, BRANCH_ID)),
+        );
+      if (!group)
+        return Response.json({ error: "Групу не знайдено" }, { status: 404 });
+
+      const allowed = body.staffIds.length
+        ? await db
+            .select({ id: staff.id })
+            .from(staff)
+            .where(
+              and(
+                eq(staff.branchId, BRANCH_ID),
+                inArray(staff.id, body.staffIds),
+              ),
+            )
+        : [];
+      if (allowed.length !== body.staffIds.length)
+        return Response.json(
+          { error: "Не всі працівники належать цій філії" },
+          { status: 403 },
+        );
+
+      await db.transaction(async (tx) => {
+        await tx.delete(groupStaff).where(eq(groupStaff.groupId, body.groupId));
+        if (allowed.length)
+          await tx.insert(groupStaff).values(
+            allowed.map((person) => ({
+              groupId: body.groupId,
+              staffId: person.id,
+            })),
+          );
+      });
     } else if (body.kind === "child") {
       const values = await childValues(BRANCH_ID, body.child);
       await db.transaction(async (tx) => {

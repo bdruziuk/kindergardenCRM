@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import {
   type ChildDto,
   type GroupDto,
+  type GroupStaffDto,
   type RelativeDto,
   childStatusValues,
 } from "@/lib/api-schemas";
@@ -44,7 +45,10 @@ export default function Page() {
       id: number | null;
       name: string;
       age: string;
+      /** Кого закріплено за групою — редагується тут же, разом із назвою. */
+      staffIds: number[];
     } | null>(null),
+    [staffList, setStaffList] = useState<GroupStaffDto[]>([]),
     [kidsList, setKidsList] = useState<ChildDto[]>([]),
     [branchFee, setBranchFee] = useState(0),
     [loading, setLoading] = useState(true),
@@ -68,6 +72,7 @@ export default function Page() {
     groups?: GroupDto[];
     children?: ChildDto[];
     monthlyFee?: number;
+    staff?: GroupStaffDto[];
     error?: string;
   }) => {
     if (!data.groups || !data.children) {
@@ -77,6 +82,7 @@ export default function Page() {
     setGroupList(data.groups);
     setKidsList(data.children);
     setBranchFee(data.monthlyFee ?? 0);
+    setStaffList(data.staff ?? []);
     setError(null);
     return true;
   };
@@ -141,7 +147,14 @@ export default function Page() {
           </div>
           <button
             className="outline"
-            onClick={() => setGroupDraft({ id: null, name: "", age: "3–4 роки" })}
+            onClick={() =>
+              setGroupDraft({
+                id: null,
+                name: "",
+                age: "3–4 роки",
+                staffIds: [],
+              })
+            }
           >
             ＋ Створити групу
           </button>
@@ -164,12 +177,29 @@ export default function Page() {
                 </b>
                 <span>→</span>
               </button>
+              <div className="group-staff">
+                {g.staff.length ? (
+                  g.staff.map((person) => (
+                    <span key={person.id} title={`${person.name} — ${person.role}`}>
+                      <b>{person.name}</b>
+                      <small>{person.role}</small>
+                    </span>
+                  ))
+                ) : (
+                  <span className="group-staff-empty">Нікого не закріплено</span>
+                )}
+              </div>
               <button
                 className="group-edit"
                 aria-label={`Змінити групу «${g.name}»`}
                 title="Змінити назву та вік"
                 onClick={() =>
-                  setGroupDraft({ id: g.id, name: g.name, age: g.ageRange })
+                  setGroupDraft({
+                    id: g.id,
+                    name: g.name,
+                    age: g.ageRange,
+                    staffIds: g.staff.map((person) => person.id),
+                  })
                 }
               >
                 ✎
@@ -845,6 +875,45 @@ export default function Page() {
               </select>
             </label>
           </div>
+
+          {groupDraft.id !== null && (
+            <div className="group-staff-picker">
+              <b>Хто закріплений за групою</b>
+              <p>
+                Посада береться з картки працівника — окремо її тут не
+                задають
+              </p>
+              {staffList.map((person) => {
+                const picked = groupDraft.staffIds.includes(person.id);
+                return (
+                  <label key={person.id}>
+                    <input
+                      type="checkbox"
+                      checked={picked}
+                      onChange={() =>
+                        setGroupDraft({
+                          ...groupDraft,
+                          staffIds: picked
+                            ? groupDraft.staffIds.filter(
+                                (id) => id !== person.id,
+                              )
+                            : [...groupDraft.staffIds, person.id],
+                        })
+                      }
+                    />
+                    <b>{person.name}</b>
+                    <small>{person.role}</small>
+                  </label>
+                );
+              })}
+              {!staffList.length && (
+                <p className="group-staff-none">
+                  У філії ще немає працівників — додайте їх у розділі
+                  «Колектив».
+                </p>
+              )}
+            </div>
+          )}
           <div className="modal-actions">
             <button onClick={() => setGroupDraft(null)}>Скасувати</button>
             <button
@@ -872,7 +941,23 @@ export default function Page() {
                         },
                   ),
                 });
-                if (apply(await r.json())) {
+                let snapshot = await r.json();
+                if (snapshot.groups && groupDraft.id !== null) {
+                  const staffResponse = await fetch(
+                    "/api/kindergarten?x=1" + branchQuery,
+                    {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({
+                        kind: "group_staff",
+                        groupId: groupDraft.id,
+                        staffIds: groupDraft.staffIds,
+                      }),
+                    },
+                  );
+                  snapshot = await staffResponse.json();
+                }
+                if (apply(snapshot)) {
                   // the group filter holds a name, so a rename must follow it
                   if (renamedFrom && group === renamedFrom)
                     setGroup(groupDraft.name.trim());

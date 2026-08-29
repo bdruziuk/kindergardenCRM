@@ -127,6 +127,13 @@
       "when": 1788033674818,
       "tag": "0017_avatars",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788034296419,
+      "tag": "0018_group_staff",
+      "breakpoints": true
     }
   ]
 }
