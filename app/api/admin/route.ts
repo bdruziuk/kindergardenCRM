@@ -18,7 +18,12 @@ import {
   firstIssue,
 } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
-import { hashInviteToken, inviteUrl, newInviteToken } from "@/lib/invites";
+import {
+  hashInviteToken,
+  inviteUrl,
+  newInviteToken,
+  publicOrigin,
+} from "@/lib/invites";
 import { ScopeError, scopeFailure } from "@/lib/scope";
 
 /**
@@ -252,7 +257,7 @@ export async function POST(request: Request) {
         expiresAt: sql`now() + make_interval(days => ${body.days})`,
       });
 
-      const origin = new URL(request.url).origin;
+      const origin = publicOrigin(request);
       return Response.json(await snapshot(inviteUrl(origin, token)));
     } else {
       await db

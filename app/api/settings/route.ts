@@ -12,7 +12,12 @@ import {
 } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
 import { ScopeError, scopeFailure } from "@/lib/scope";
-import { hashInviteToken, inviteUrl, newInviteToken } from "@/lib/invites";
+import {
+  hashInviteToken,
+  inviteUrl,
+  newInviteToken,
+  publicOrigin,
+} from "@/lib/invites";
 import { DEFAULT_THEME } from "@/lib/theme";
 
 /**
@@ -224,7 +229,7 @@ export async function POST(request: Request) {
         expiresAt: sql`now() + make_interval(days => ${body.days})`,
       });
 
-      const origin = new URL(request.url).origin;
+      const origin = publicOrigin(request);
       return Response.json(await snapshot(me, inviteUrl(origin, token)));
     } else if (body.kind === "invite_revoke") {
       if (!me.isOwner)
