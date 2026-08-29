@@ -96,13 +96,22 @@ export type ChildInput = z.infer<typeof childInput>;
 
 // -------------------------------------------------------------------- payments
 
-export const paymentRequest = z.object({
-  childId: id,
-  month,
-  amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
-  method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
-  paidAt: day.optional(),
-});
+export const paymentRequest = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("add"),
+    childId: id,
+    month,
+    amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
+    method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
+    paidAt: day.optional(),
+  }),
+  z.object({
+    kind: z.literal("remove"),
+    paymentId: id,
+    /** Місяць потрібен, щоб повернути знімок тієї самої сторінки. */
+    month,
+  }),
+], unknownAction);
 
 // ----------------------------------------------------------------------- staff
 

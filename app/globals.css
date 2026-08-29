@@ -484,3 +484,9 @@
 .title-add input{flex:1;height:34px;padding:0 11px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:11px;outline:none}
 .title-add input:focus{border-color:var(--accent-focus)}
 .title-apply{margin-top:10px}
+
+.history-list article .remove-relative{margin-left:auto;flex:none}
+.payment-confirm{margin-left:auto;display:flex;align-items:center;gap:6px}
+.payment-confirm .danger-confirm{height:26px;padding:0 10px;border:0;border-radius:8px;background:#c9564c;color:#fff;font:inherit;font-size:9px;font-weight:700;cursor:pointer}
+.payment-confirm .danger-confirm:disabled{opacity:.5;cursor:not-allowed}
+.payment-confirm>button:last-child{width:24px;height:24px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--muted);font:inherit;font-size:12px;line-height:1;cursor:pointer}

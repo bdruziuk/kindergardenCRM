@@ -48,6 +48,8 @@ export default function PaymentsPage() {
   const [group, setGroup] = useState("Усі групи");
   const [selected, setSelected] = useState<ChildPaymentsDto | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Яку оплату зараз перепитуємо перед видаленням. */
+  const [confirming, setConfirming] = useState<number | null>(null);
   const [draft, setDraft] = useState<{
     amount: string;
     method: Method;
@@ -120,6 +122,31 @@ export default function PaymentsPage() {
     });
   };
 
+  /** Видалення оплати. Підтверджуємо у два кроки: суму не відновити, а
+   *  сусідні рядки в списку виглядають однаково — промахнутися легко. */
+  const removePayment = async (paymentId: number) => {
+    if (!selected) return;
+    setSaving(true);
+    const response = await fetch("/api/payments?x=1" + branchQuery, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "remove", paymentId, month }),
+    });
+    const next = (await response.json()) as PaymentsSnapshot;
+    setSaving(false);
+    setConfirming(null);
+    if (!next.rows) return;
+
+    setData(next);
+    const updated = next.rows.find((row) => row.id === selected.id);
+    setSelected(updated ?? null);
+    setDraft({
+      amount: updated?.balance ? String(updated.balance) : "",
+      method: "cash",
+      paidAt: new Date().toISOString().slice(0, 10),
+    });
+  };
+
   const addPayment = async () => {
     if (!selected || Number(draft.amount) <= 0) return;
     setSaving(true);
@@ -127,6 +154,7 @@ export default function PaymentsPage() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        kind: "add",
         childId: selected.id,
         month,
         amount: Number(draft.amount),
@@ -468,6 +496,27 @@ export default function PaymentsPage() {
                         )}
                       </small>
                     </div>
+                    {confirming === item.id ? (
+                      <div className="payment-confirm">
+                        <button
+                          className="danger-confirm"
+                          disabled={saving}
+                          onClick={() => removePayment(item.id)}
+                        >
+                          {saving ? "…" : "Видалити"}
+                        </button>
+                        <button onClick={() => setConfirming(null)}>×</button>
+                      </div>
+                    ) : (
+                      <button
+                        className="remove-relative"
+                        title="Видалити оплату"
+                        aria-label={`Видалити оплату ${money(item.amount)}`}
+                        onClick={() => setConfirming(item.id)}
+                      >
+                        ×
+                      </button>
+                    )}
                   </article>
                 ))}
                 {!selected.history.length && (
