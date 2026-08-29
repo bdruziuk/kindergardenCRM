@@ -573,6 +573,15 @@ export const adminRequest = z.discriminatedUnion("kind", [
     days: z.coerce.number().int().min(1).max(30).default(7),
   }),
   z.object({ kind: z.literal("admin_invite_revoke"), inviteId: id }),
+  z.object({ kind: z.literal("kindergarten_delete"), kindergartenId: id }),
+  z.object({
+    kind: z.literal("branch_create"),
+    kindergartenId: id,
+    name: z.string().trim().min(1, "Назва філії обов’язкова").max(120),
+    address: z.string().trim().max(200).default(""),
+    monthlyFee: amount.default(0),
+  }),
+  z.object({ kind: z.literal("branch_delete"), branchId: id }),
 ], unknownAction);
 
 export type AdminPersonDto = {
@@ -591,6 +600,8 @@ export type AdminBranchDto = {
   groups: number;
   /** Діти, які не вибули. */
   children: number;
+  /** Порожня філія — таку можна видалити, решту тримають її записи. */
+  removable: boolean;
 };
 
 export type AdminKindergartenDto = {
@@ -608,6 +619,8 @@ export type AdminKindergartenDto = {
   };
   /** Запрошення власників саме цього садочка. */
   invites: InviteDto[];
+  /** Садочок без філій і без людей — лише такий видаляється. */
+  removable: boolean;
 };
 
 export type AdminSnapshot = {

@@ -27,6 +27,17 @@ export default function AdminPage() {
   const [days, setDays] = useState<Record<number, string>>({});
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** Що саме зараз чекає підтвердження видалення — дія незворотна, тож у два
+   *  кроки, а не одним кліком по хрестику. */
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [branchDraft, setBranchDraft] = useState<
+    Record<number, { name: string; address: string; fee: string }>
+  >({});
+
+  const draftOf = (id: number) =>
+    branchDraft[id] ?? { name: "", address: "", fee: "0" };
+  const setDraft = (id: number, patch: Partial<{ name: string; address: string; fee: string }>) =>
+    setBranchDraft({ ...branchDraft, [id]: { ...draftOf(id), ...patch } });
 
   const load = () =>
     fetch("/api/admin")
@@ -90,6 +101,45 @@ export default function AdminPage() {
         </button>
 
         {expanded && (
+          <div className="garden-danger">
+            {confirming === `garden-${garden.id}` ? (
+              <>
+                <span>Видалити садочок «{garden.name}» без вороття?</span>
+                <button
+                  className="danger-confirm"
+                  disabled={busy === `del-garden-${garden.id}`}
+                  onClick={async () => {
+                    await send(`del-garden-${garden.id}`, {
+                      kind: "kindergarten_delete",
+                      kindergartenId: garden.id,
+                    });
+                    setConfirming(null);
+                  }}
+                >
+                  Так, видалити
+                </button>
+                <button onClick={() => setConfirming(null)}>Скасувати</button>
+              </>
+            ) : (
+              <>
+                <span>
+                  {garden.removable
+                    ? "Садочок порожній — його можна видалити."
+                    : "Видалити можна лише порожній садочок: без філій і без облікових записів."}
+                </span>
+                <button
+                  className="danger"
+                  disabled={!garden.removable}
+                  onClick={() => setConfirming(`garden-${garden.id}`)}
+                >
+                  Видалити садочок
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {expanded && (
           <div className="garden-body">
             <div className="garden-section">
               <h3>Філії</h3>
@@ -101,11 +151,93 @@ export default function AdminPage() {
                   </div>
                   <span className="garden-pill">{branch.groups} груп</span>
                   <span className="garden-pill">{branch.children} дітей</span>
+                  {confirming === `branch-${branch.id}` ? (
+                    <>
+                      <button
+                        className="danger-confirm"
+                        disabled={busy === `del-branch-${branch.id}`}
+                        onClick={async () => {
+                          await send(`del-branch-${branch.id}`, {
+                            kind: "branch_delete",
+                            branchId: branch.id,
+                          });
+                          setConfirming(null);
+                        }}
+                      >
+                        Видалити
+                      </button>
+                      <button onClick={() => setConfirming(null)}>×</button>
+                    </>
+                  ) : (
+                    <button
+                      className="remove-relative"
+                      title={
+                        branch.removable
+                          ? "Видалити філію"
+                          : "Філія не порожня — спершу приберіть її записи"
+                      }
+                      disabled={!branch.removable}
+                      aria-label={`Видалити філію ${branch.name}`}
+                      onClick={() => setConfirming(`branch-${branch.id}`)}
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               ))}
               {!garden.branches.length && (
                 <p className="garden-empty">Філій ще немає.</p>
               )}
+
+              <div className="garden-invite">
+                <input
+                  placeholder="Назва нової філії"
+                  value={draftOf(garden.id).name}
+                  onChange={(event) =>
+                    setDraft(garden.id, { name: event.target.value })
+                  }
+                />
+                <input
+                  placeholder="Адреса"
+                  value={draftOf(garden.id).address}
+                  onChange={(event) =>
+                    setDraft(garden.id, { address: event.target.value })
+                  }
+                />
+                <input
+                  type="number"
+                  min="0"
+                  title="Базова місячна плата"
+                  value={draftOf(garden.id).fee}
+                  onChange={(event) =>
+                    setDraft(garden.id, { fee: event.target.value })
+                  }
+                />
+                <button
+                  className="account-save"
+                  disabled={
+                    busy === `branch-${garden.id}` ||
+                    !draftOf(garden.id).name.trim()
+                  }
+                  onClick={async () => {
+                    const draft = draftOf(garden.id);
+                    const next = await send(`branch-${garden.id}`, {
+                      kind: "branch_create",
+                      kindergartenId: garden.id,
+                      name: draft.name,
+                      address: draft.address,
+                      monthlyFee: Number(draft.fee || "0"),
+                    });
+                    if (next)
+                      setBranchDraft({
+                        ...branchDraft,
+                        [garden.id]: { name: "", address: "", fee: "0" },
+                      });
+                  }}
+                >
+                  {busy === `branch-${garden.id}` ? "Додаємо…" : "Додати філію"}
+                </button>
+              </div>
             </div>
 
             <div className="garden-section">

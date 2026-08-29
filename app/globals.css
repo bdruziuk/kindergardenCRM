@@ -406,3 +406,15 @@
 .admin-new,.garden-invite{flex-direction:column}
 .garden-invite input[type="number"]{width:100%}
 }
+
+/* --- destructive actions in the cabinet --------------------------------- */
+.garden-danger{display:flex;align-items:center;gap:11px;padding:11px 18px;border-top:1px solid var(--line);background:#fdf7f6}
+.garden-danger span{font-size:10px;color:#8a6b68;margin-right:auto}
+.garden-danger button{height:32px;padding:0 13px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:10px;font-weight:700;color:#5c6a65;cursor:pointer}
+.garden-danger .danger{border-color:#e8c3bf;color:#a8433b}
+.garden-danger .danger:hover:not(:disabled){background:#fdecea}
+.garden-danger .danger:disabled{opacity:.45;cursor:not-allowed}
+.garden-danger .danger-confirm{border-color:#c9564c;background:#c9564c;color:#fff}
+.garden-danger .danger-confirm:hover:not(:disabled){background:#b44a41}
+.garden-row .danger-confirm{height:28px;padding:0 11px;border:0;border-radius:8px;background:#c9564c;color:#fff;font:inherit;font-size:9px;font-weight:700;cursor:pointer}
+.garden-row .remove-relative:disabled{opacity:.3;cursor:not-allowed}

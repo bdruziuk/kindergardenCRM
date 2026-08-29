@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
 import {
@@ -7,7 +8,10 @@ import {
   groups,
   invites,
   kindergartens,
+  staff,
+  transactions,
   users,
+  waitlist,
 } from "@/db/schema";
 import {
   type AdminBranchDto,
@@ -18,6 +22,7 @@ import {
   firstIssue,
 } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
+import { plural } from "@/lib/format";
 import {
   hashInviteToken,
   inviteUrl,
@@ -48,6 +53,21 @@ async function requireSuperadmin() {
   return row;
 }
 
+/** Скільки рядків таблиці посилається на цю філію, вже підписаних відмінком. */
+async function countRows(
+  table: PgTable,
+  column: PgColumn,
+  branchId: number,
+  forms: [string, string, string],
+) {
+  const [row] = await getDb()
+    .select({ count: sql<number>`count(*)::int` })
+    .from(table)
+    .where(eq(column, branchId));
+  const count = row?.count ?? 0;
+  return { count, label: `${count} ${plural(count, ...forms)}` };
+}
+
 async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
   const db = getDb();
 
@@ -56,6 +76,10 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
     branchRows,
     groupCounts,
     childCounts,
+    allChildCounts,
+    staffCounts,
+    transactionCounts,
+    waitlistCounts,
     peopleRows,
     inviteRows,
   ] = await Promise.all([
@@ -95,6 +119,37 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       .from(children)
       .where(ne(children.status, "left"))
       .groupBy(children.branchId),
+    // Що тримає філію від видалення. Діти тут рахуються **всі**, включно з
+    // вибулими: у лічильнику вгорі вони не показані, але запис лишається й
+    // видалити філію під ним не можна.
+    db
+      .select({
+        branchId: children.branchId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(children)
+      .groupBy(children.branchId),
+    db
+      .select({
+        branchId: staff.branchId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(staff)
+      .groupBy(staff.branchId),
+    db
+      .select({
+        branchId: transactions.branchId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(transactions)
+      .groupBy(transactions.branchId),
+    db
+      .select({
+        branchId: waitlist.branchId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(waitlist)
+      .groupBy(waitlist.branchId),
     db
       .select({
         id: users.id,
@@ -135,13 +190,23 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       branchName: own.find((b) => b.id === person.branchId)?.name ?? "",
     });
 
+    const countFor = (
+      rows: { branchId: number; count: number }[],
+      branchId: number,
+    ) => rows.find((row) => row.branchId === branchId)?.count ?? 0;
+
     const branchDtos: AdminBranchDto[] = own.map((branch) => ({
       id: branch.id,
       name: branch.name,
       address: branch.address ?? "",
-      groups: groupCounts.find((row) => row.branchId === branch.id)?.count ?? 0,
-      children:
-        childCounts.find((row) => row.branchId === branch.id)?.count ?? 0,
+      groups: countFor(groupCounts, branch.id),
+      children: countFor(childCounts, branch.id),
+      removable:
+        countFor(groupCounts, branch.id) === 0 &&
+        countFor(allChildCounts, branch.id) === 0 &&
+        countFor(staffCounts, branch.id) === 0 &&
+        countFor(transactionCounts, branch.id) === 0 &&
+        countFor(waitlistCounts, branch.id) === 0,
     }));
 
     return {
@@ -159,6 +224,9 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
         children: branchDtos.reduce((sum, b) => sum + b.children, 0),
         people: people.length,
       },
+      // Порожній садочок: ні філій, ні людей. Запрошення не рахуємо — вони
+      // зникнуть разом із ним каскадом і нічого цінного не тримають.
+      removable: branchDtos.length === 0 && people.length === 0,
       invites: inviteRows
         .filter((row) => row.kindergartenId === garden.id)
         .map((row) => ({
@@ -259,10 +327,107 @@ export async function POST(request: Request) {
 
       const origin = publicOrigin(request);
       return Response.json(await snapshot(inviteUrl(origin, token)));
-    } else {
+    } else if (body.kind === "admin_invite_revoke") {
       await db
         .delete(invites)
         .where(and(eq(invites.id, body.inviteId), isNull(invites.acceptedAt)));
+    } else if (body.kind === "branch_create") {
+      const [garden] = await db
+        .select({ id: kindergartens.id })
+        .from(kindergartens)
+        .where(eq(kindergartens.id, body.kindergartenId));
+      if (!garden) throw new ScopeError("Садочок не знайдено", 404);
+
+      const [clash] = await db
+        .select({ id: branches.id })
+        .from(branches)
+        .where(
+          and(
+            eq(branches.kindergartenId, body.kindergartenId),
+            eq(branches.name, body.name),
+          ),
+        );
+      if (clash)
+        throw new ScopeError("У цьому садочку вже є філія з такою назвою", 409);
+
+      await db.insert(branches).values({
+        kindergartenId: body.kindergartenId,
+        name: body.name,
+        address: body.address || null,
+        monthlyFee: body.monthlyFee,
+      });
+    } else if (body.kind === "branch_delete") {
+      // Видаляємо лише порожню філію. Каскад тут знищив би дітей, персонал і
+      // гроші одним кліком, а в системі з даними дітей така кнопка не має
+      // права існувати — тому спершу перелічуємо, що саме тримає.
+      const blocking = await Promise.all([
+        countRows(children, children.branchId, body.branchId, [
+          "дитина",
+          "дитини",
+          "дітей",
+        ]),
+        countRows(groups, groups.branchId, body.branchId, [
+          "група",
+          "групи",
+          "груп",
+        ]),
+        countRows(staff, staff.branchId, body.branchId, [
+          "працівник",
+          "працівники",
+          "працівників",
+        ]),
+        countRows(transactions, transactions.branchId, body.branchId, [
+          "операція",
+          "операції",
+          "операцій",
+        ]),
+        countRows(waitlist, waitlist.branchId, body.branchId, [
+          "заявка",
+          "заявки",
+          "заявок",
+        ]),
+      ]);
+      const held = blocking.filter((item) => item.count > 0);
+      if (held.length)
+        throw new ScopeError(
+          `Філія не порожня: ${held
+            .map((item) => item.label)
+            .join(", ")}. Спершу приберіть ці записи.`,
+          409,
+        );
+
+      await db.delete(branches).where(eq(branches.id, body.branchId));
+    } else {
+      const [branchCount, userCount] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(branches)
+          .where(eq(branches.kindergartenId, body.kindergartenId)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(users)
+          .where(eq(users.kindergartenId, body.kindergartenId)),
+      ]);
+      const branchesLeft = branchCount[0]?.count ?? 0;
+      const usersLeft = userCount[0]?.count ?? 0;
+      const held = [
+        branchesLeft
+          ? `${branchesLeft} ${plural(branchesLeft, "філія", "філії", "філій")}`
+          : "",
+        usersLeft
+          ? `${usersLeft} ${plural(usersLeft, "обліковий запис", "облікові записи", "облікових записів")}`
+          : "",
+      ].filter(Boolean);
+      if (held.length)
+        throw new ScopeError(
+          `Садочок не порожній: ${held.join(", ")}. Спершу приберіть їх.`,
+          409,
+        );
+
+      // Невикористані запрошення підуть каскадом — вони нічого не тримають.
+      await db
+        .delete(kindergartens)
+        .where(eq(kindergartens.id, body.kindergartenId));
     }
 
     return Response.json(await snapshot());
