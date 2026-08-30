@@ -10,6 +10,56 @@ import {
 } from "@/lib/api-schemas";
 import { PAYMENT_METHOD_LABELS } from "@/lib/format";
 
+/** Обмеження на бік браузера. Сервер перевіряє те саме, але сказати про
+ *  завеликий файл до відправки чесніше, ніж після. */
+const MAX_BYTES = 3 * 1024 * 1024;
+
+const sizeLabel = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? (bytes / 1024 / 1024).toFixed(1) + " МБ"
+    : Math.max(1, Math.round(bytes / 1024)) + " КБ";
+
+/**
+ * Готує файл до відправки: зображення зменшується до 1600 px по довшій
+ * стороні, PDF іде як є.
+ *
+ * Фото квитанції з телефона важить кілька мегабайтів, а читати з нього треба
+ * лише цифри — зменшення робить вкладення легшим на порядок, не втрачаючи
+ * розбірливості.
+ */
+async function prepareFile(file: File): Promise<{ name: string; dataUrl: string }> {
+  const asDataUrl = () =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Не вдалося прочитати файл"));
+      reader.readAsDataURL(file);
+    });
+
+  if (file.type === "application/pdf") {
+    if (file.size > MAX_BYTES) throw new Error("PDF завеликий — до 3 МБ");
+    return { name: file.name, dataUrl: await asDataUrl() };
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const side = Math.max(bitmap.width, bitmap.height);
+  const scale = side > 1600 ? 1600 / side : 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Браузер не дав полотна для обробки зображення");
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const webp = canvas.toDataURL("image/webp", 0.82);
+  const dataUrl = webp.startsWith("data:image/webp")
+    ? webp
+    : canvas.toDataURL("image/jpeg", 0.82);
+  if (dataUrl.length > 4_000_000) throw new Error("Зображення завелике");
+  return { name: file.name, dataUrl };
+}
+
 const months = [
   ["2026-07", "Липень 2026"],
   ["2026-08", "Серпень 2026"],
@@ -50,6 +100,34 @@ export default function PaymentsPage() {
   const [saving, setSaving] = useState(false);
   /** Яку оплату зараз перепитуємо перед видаленням. */
   const [confirming, setConfirming] = useState<number | null>(null);
+  /** Квитанція, обрана для нової оплати, і стан обробки файлу. */
+  const [receipt, setReceipt] = useState<{
+    name: string;
+    dataUrl: string;
+  } | null>(null);
+  const [fileBusy, setFileBusy] = useState(false);
+
+  /** Читає файл із поля й кладе його або в чернетку нової оплати, або одразу
+   *  на наявну — залежно від того, звідки його обрали. */
+  const pickFile = async (file: File | undefined, paymentId?: number) => {
+    if (!file) return;
+    setFileBusy(true);
+    try {
+      const prepared = await prepareFile(file);
+      if (paymentId === undefined) {
+        setReceipt(prepared);
+      } else {
+        await send({ kind: "receipt_set", paymentId, month, receipt: prepared });
+      }
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Не вдалося прочитати файл",
+      );
+    } finally {
+      setFileBusy(false);
+    }
+  };
+  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<{
     amount: string;
     method: Method;
@@ -122,50 +200,25 @@ export default function PaymentsPage() {
     });
   };
 
-  /** Видалення оплати. Підтверджуємо у два кроки: суму не відновити, а
-   *  сусідні рядки в списку виглядають однаково — промахнутися легко. */
-  const removePayment = async (paymentId: number) => {
-    if (!selected) return;
+  /** Одна відправка на всі дії сторінки: знімок приходить новий після кожної,
+   *  і відкрита картка має слідувати за ним. */
+  const send = async (body: Record<string, unknown>) => {
     setSaving(true);
     const response = await fetch("/api/payments?x=1" + branchQuery, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: "remove", paymentId, month }),
+      body: JSON.stringify(body),
     });
     const next = (await response.json()) as PaymentsSnapshot;
     setSaving(false);
-    setConfirming(null);
-    if (!next.rows) return;
+    if (next.error || !next.rows) {
+      setError(next.error ?? "Не вдалося зберегти");
+      return null;
+    }
 
+    setError(null);
     setData(next);
-    const updated = next.rows.find((row) => row.id === selected.id);
-    setSelected(updated ?? null);
-    setDraft({
-      amount: updated?.balance ? String(updated.balance) : "",
-      method: "cash",
-      paidAt: new Date().toISOString().slice(0, 10),
-    });
-  };
-
-  const addPayment = async () => {
-    if (!selected || Number(draft.amount) <= 0) return;
-    setSaving(true);
-    const response = await fetch("/api/payments?x=1" + branchQuery, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        kind: "add",
-        childId: selected.id,
-        month,
-        amount: Number(draft.amount),
-        method: draft.method,
-        paidAt: draft.paidAt,
-      }),
-    });
-    const next = (await response.json()) as PaymentsSnapshot;
-    setSaving(false);
-    if (next.rows) {
-      setData(next);
+    if (selected) {
       const updated = next.rows.find((row) => row.id === selected.id);
       setSelected(updated ?? null);
       setDraft({
@@ -174,6 +227,28 @@ export default function PaymentsPage() {
         paidAt: new Date().toISOString().slice(0, 10),
       });
     }
+    return next;
+  };
+
+  /** Видалення оплати. Підтверджуємо у два кроки: суму не відновити, а
+   *  сусідні рядки в списку виглядають однаково — промахнутися легко. */
+  const removePayment = async (paymentId: number) => {
+    await send({ kind: "remove", paymentId, month });
+    setConfirming(null);
+  };
+
+  const addPayment = async () => {
+    if (!selected || Number(draft.amount) <= 0) return;
+    const next = await send({
+      kind: "add",
+      childId: selected.id,
+      month,
+      amount: Number(draft.amount),
+      method: draft.method,
+      paidAt: draft.paidAt,
+      receipt,
+    });
+    if (next) setReceipt(null);
   };
 
   return (
@@ -469,9 +544,46 @@ export default function PaymentsPage() {
                   />
                 </label>
               </div>
+
+              <div className="receipt-pick">
+                <label>
+                  {fileBusy
+                    ? "Готуємо файл…"
+                    : receipt
+                      ? "Замінити квитанцію"
+                      : "＋ Прикріпити квитанцію"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    disabled={fileBusy || saving}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      // Скидаємо одразу, щоб той самий файл можна було обрати
+                      // вдруге після невдачі.
+                      event.target.value = "";
+                      pickFile(file);
+                    }}
+                  />
+                </label>
+                {receipt && (
+                  <span className="receipt-chosen">
+                    {receipt.name}
+                    <button
+                      type="button"
+                      aria-label="Прибрати обрану квитанцію"
+                      onClick={() => setReceipt(null)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+
+              {error && <p className="login-error">{error}</p>}
+
               <button
                 className="save-payment"
-                disabled={saving || Number(draft.amount) <= 0}
+                disabled={saving || fileBusy || Number(draft.amount) <= 0}
                 onClick={addPayment}
               >
                 {saving ? "Збереження…" : "＋ Додати часткову оплату"}
@@ -496,6 +608,53 @@ export default function PaymentsPage() {
                         )}
                       </small>
                     </div>
+                    {item.receipt ? (
+                      <div className="receipt-links">
+                        <a
+                          href={`/api/receipt/${item.id}${branchQuery.replace("&", "?")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`${item.receipt.name} · ${sizeLabel(item.receipt.size)}`}
+                        >
+                          Переглянути
+                        </a>
+                        <a
+                          href={`/api/receipt/${item.id}?download=1${branchQuery}`}
+                          title="Зберегти файл"
+                        >
+                          Завантажити
+                        </a>
+                        <button
+                          type="button"
+                          className="receipt-drop"
+                          aria-label="Прибрати квитанцію"
+                          disabled={saving}
+                          onClick={() =>
+                            send({
+                              kind: "receipt_remove",
+                              paymentId: item.id,
+                              month,
+                            })
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="receipt-attach">
+                        {fileBusy ? "…" : "Квитанція"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,application/pdf"
+                          disabled={fileBusy || saving}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            pickFile(file, item.id);
+                          }}
+                        />
+                      </label>
+                    )}
                     {confirming === item.id ? (
                       <div className="payment-confirm">
                         <button

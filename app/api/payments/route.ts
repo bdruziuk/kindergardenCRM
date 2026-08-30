@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { children, payments } from "@/db/schema";
+import { children, paymentReceipts, payments } from "@/db/schema";
 import { firstIssue, paymentRequest } from "@/lib/api-schemas";
 import { FALLBACK_MONTH, monthStart } from "@/lib/period";
 import { childrenWithPayments, paymentsSummary } from "@/lib/queries";
@@ -26,6 +26,33 @@ async function assertChildInBranch(childId: number, branchId: number) {
     .from(children)
     .where(and(eq(children.id, childId), eq(children.branchId, branchId)));
   if (!child) throw new ScopeError("Немає доступу до цієї дитини", 403);
+}
+
+/** Розбирає data-URL на тип і вміст. Формат уже перевірила схема, тож тут
+ *  лишається тільки поділити рядок. */
+function decodeFile(dataUrl: string) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new ScopeError("Некоректний файл", 400);
+  const [, mime, data] = match;
+  // Довжина base64 більша за вміст рівно на третину — рахуємо справжній розмір,
+  // щоб показати людині байти файлу, а не рядка.
+  const size = Math.floor((data.length * 3) / 4);
+  return { mime, data, size };
+}
+
+/** Прикріплює квитанцію, замінюючи попередню: одна на оплату. */
+async function attachReceipt(
+  paymentId: number,
+  receipt: { name: string; dataUrl: string },
+) {
+  const { mime, data, size } = decodeFile(receipt.dataUrl);
+  await getDb()
+    .insert(paymentReceipts)
+    .values({ paymentId, fileName: receipt.name, mime, data, size })
+    .onConflictDoUpdate({
+      target: paymentReceipts.paymentId,
+      set: { fileName: receipt.name, mime, data, size },
+    });
 }
 
 export async function GET(request: Request) {
@@ -56,13 +83,33 @@ export async function POST(request: Request) {
 
     if (body.kind === "add") {
       await assertChildInBranch(body.childId, branchId);
-      await db.insert(payments).values({
-        childId: body.childId,
-        billingMonth: monthStart(body.month),
-        amount: body.amount,
-        method: body.method,
-        paidAt: body.paidAt ?? new Date().toISOString().slice(0, 10),
-      });
+      const [created] = await db
+        .insert(payments)
+        .values({
+          childId: body.childId,
+          billingMonth: monthStart(body.month),
+          amount: body.amount,
+          method: body.method,
+          paidAt: body.paidAt ?? new Date().toISOString().slice(0, 10),
+        })
+        .returning({ id: payments.id });
+
+      if (body.receipt) await attachReceipt(created.id, body.receipt);
+    } else if (body.kind === "receipt_set" || body.kind === "receipt_remove") {
+      const [payment] = await db
+        .select({ childId: payments.childId })
+        .from(payments)
+        .where(eq(payments.id, body.paymentId));
+      if (!payment) throw new ScopeError("Оплату не знайдено", 404);
+      await assertChildInBranch(payment.childId, branchId);
+
+      if (body.kind === "receipt_set") {
+        await attachReceipt(body.paymentId, body.receipt);
+      } else {
+        await db
+          .delete(paymentReceipts)
+          .where(eq(paymentReceipts.paymentId, body.paymentId));
+      }
     } else {
       const [payment] = await db
         .select({ childId: payments.childId })

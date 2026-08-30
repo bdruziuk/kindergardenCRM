@@ -244,6 +244,37 @@ export const payments = pgTable(
   (t) => [index("idx_payments_month_child").on(t.billingMonth, t.childId)],
 );
 
+/**
+ * Квитанція, прикріплена до оплати.
+ *
+ * Окрема таблиця, а не колонка в `payments`: сторінка оплат щоразу вантажить
+ * усі оплати місяця, і base64-файл у тому ж рядку тягнув би за собою мегабайти
+ * на кожне відкриття. Тут вони лежать осторонь і читаються лише тоді, коли
+ * квитанцію справді відкривають.
+ *
+ * Одна на оплату — `unique` на `payment_id`: повторне прикріплення замінює
+ * попередню, а не накопичує невідомо що.
+ */
+export const paymentReceipts = pgTable(
+  "payment_receipts",
+  {
+    id: serial("id").primaryKey(),
+    paymentId: integer("payment_id")
+      .notNull()
+      .references(() => payments.id, { onDelete: "cascade" }),
+    fileName: text("file_name").notNull(),
+    mime: text("mime").notNull(),
+    /** Вміст у base64 — сховища файлів тут немає, а диск контейнера ефемерний. */
+    data: text("data").notNull(),
+    /** Розмір у байтах: показати «2,1 МБ», не розпаковуючи вміст. */
+    size: integer("size").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("idx_payment_receipts_payment").on(t.paymentId)],
+);
+
 export const staff = pgTable(
   "staff",
   {

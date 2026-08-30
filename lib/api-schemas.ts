@@ -96,6 +96,18 @@ export type ChildInput = z.infer<typeof childInput>;
 
 // -------------------------------------------------------------------- payments
 
+/** Файл із браузера: data-URL, ім'я та тип. Розмір обмежений і тут, не лише
+ *  у формі — інакше в базу лягло б усе, що зміг прочитати браузер. */
+const receiptFile = z.object({
+  name: z.string().trim().min(1).max(200),
+  dataUrl: z
+    .string()
+    .regex(/^data:(image\/(png|jpeg|webp)|application\/pdf);base64,[A-Za-z0-9+/=]+$/, {
+      error: "Підтримуються зображення (PNG, JPEG, WebP) і PDF",
+    })
+    .max(4_000_000, "Файл завеликий — до 3 МБ"),
+});
+
 export const paymentRequest = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("add"),
@@ -104,7 +116,15 @@ export const paymentRequest = z.discriminatedUnion("kind", [
     amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
     method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
     paidAt: day.optional(),
+    receipt: receiptFile.nullable().default(null),
   }),
+  z.object({
+    kind: z.literal("receipt_set"),
+    paymentId: id,
+    month,
+    receipt: receiptFile,
+  }),
+  z.object({ kind: z.literal("receipt_remove"), paymentId: id, month }),
   z.object({
     kind: z.literal("remove"),
     paymentId: id,
@@ -334,11 +354,16 @@ export type KindergartenSnapshot = {
 
 export type PaymentMethod = (typeof paymentMethodValues)[number];
 
+/** Прикріплена квитанція. Сам вміст сюди не потрапляє — його віддає
+ *  `/api/receipt/{paymentId}`, коли квитанцію справді відкривають. */
+export type ReceiptDto = { name: string; mime: string; size: number };
+
 export type PaymentEntry = {
   id: number;
   amount: number;
   method: PaymentMethod;
   paidAt: string;
+  receipt: ReceiptDto | null;
 };
 
 export type ChildPaymentsDto = {

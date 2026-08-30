@@ -4,6 +4,7 @@ import {
   branches,
   children,
   groups,
+  paymentReceipts,
   lessons,
   payments,
   staff,
@@ -51,8 +52,20 @@ export async function childrenWithPayments(
       .where(and(eq(children.branchId, branchId), ne(children.status, "left")))
       .orderBy(asc(children.fullName)),
     db
-      .select()
+      .select({
+        id: payments.id,
+        childId: payments.childId,
+        amount: payments.amount,
+        method: payments.method,
+        paidAt: payments.paidAt,
+        receiptName: paymentReceipts.fileName,
+        receiptMime: paymentReceipts.mime,
+        receiptSize: paymentReceipts.size,
+      })
       .from(payments)
+      // Приєднуємо лише метадані квитанції: сам вміст лишається в базі, поки
+      // його не попросять, інакше кожне відкриття сторінки тягнуло б файли.
+      .leftJoin(paymentReceipts, eq(paymentReceipts.paymentId, payments.id))
       .where(eq(payments.billingMonth, billingMonth))
       .orderBy(desc(payments.paidAt), desc(payments.id)),
   ]);
@@ -65,6 +78,13 @@ export async function childrenWithPayments(
         amount: payment.amount,
         method: payment.method,
         paidAt: payment.paidAt,
+        receipt: payment.receiptName
+          ? {
+              name: payment.receiptName,
+              mime: payment.receiptMime ?? "application/octet-stream",
+              size: payment.receiptSize ?? 0,
+            }
+          : null,
       }));
     const fee = child.customFee ?? defaultFee;
     const paid = history.reduce((sum, payment) => sum + payment.amount, 0);
