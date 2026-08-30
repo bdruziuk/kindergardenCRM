@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
+import { MonthLock } from "@/components/MonthLock";
 import { Sidebar } from "@/components/Sidebar";
 import type { DashboardDto } from "@/app/api/dashboard/route";
 import { initialsOf, moneyLabel, yearsLabel } from "@/lib/format";
@@ -52,7 +53,8 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setDate(today()), []);
 
-  useEffect(() => {
+  /** Перечитує огляд — зокрема після закриття чи відкриття місяця. */
+  const reload = useCallback(() => {
     fetch("/api/dashboard?month=" + month + branchQuery)
       .then((response) => response.json())
       .then((next) =>
@@ -60,6 +62,10 @@ export default function Home() {
       )
       .catch(() => setError("Немає зв’язку із сервером"));
   }, [month, branchQuery]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const monthIndex = months.findIndex((item) => item[0] === month);
   const step = (delta: number) =>
@@ -88,6 +94,14 @@ export default function Home() {
             </Link>
           </div>
         </header>
+
+        <MonthLock
+          month={month}
+          closed={Boolean(data?.closed)}
+          closedAt={data?.closedAt ?? null}
+          branchQuery={branchQuery}
+          onChange={reload}
+        />
 
         <div className="month">
           <div>

@@ -19,6 +19,8 @@ export type MonthSnapshot = {
   payments: unknown;
   staff: unknown;
   finances: unknown;
+  /** Може бути відсутнім у знімках, знятих до появи «Огляду» в закритті. */
+  dashboard?: unknown;
 };
 
 export type CloseState = {

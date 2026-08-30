@@ -8,6 +8,7 @@ import { closeMonth, loadClose, openMonth } from "@/lib/month-close";
 import { FALLBACK_MONTH } from "@/lib/period";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 import {
+  dashboardSnapshot,
   financeSnapshot,
   paymentsSnapshot,
   staffSnapshot,
@@ -59,12 +60,18 @@ export async function POST(request: Request) {
 
     if (action === "close") {
       // Закривають обидва: керуючий бачить, коли по його філії все внесено.
-      const [payments, staff, finances] = await Promise.all([
+      const [payments, staff, finances, dashboard] = await Promise.all([
         paymentsSnapshot(branchId, month),
         staffSnapshot(branchId, month),
         financeSnapshot(branchId, month),
+        dashboardSnapshot(branchId, month),
       ]);
-      await closeMonth(branchId, month, userId, { payments, staff, finances });
+      await closeMonth(branchId, month, userId, {
+        payments,
+        staff,
+        finances,
+        dashboard,
+      });
     } else {
       // Відкриває лише власник: інакше «закрито» не означало б нічого — той,
       // хто закрив, тим самим рухом і відкрив би назад.
