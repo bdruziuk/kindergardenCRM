@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
+import { MonthLock } from "@/components/MonthLock";
 import { Sidebar } from "@/components/Sidebar";
 import {
   type ChildPaymentsDto,
@@ -138,7 +139,9 @@ export default function PaymentsPage() {
     paidAt: new Date().toISOString().slice(0, 10),
   });
 
-  useEffect(() => {
+  /** Перечитує сторінку. Потрібне не лише на старті: закриття місяця міняє
+   *  все, що на ній видно. */
+  const reload = useCallback(() => {
     fetch("/api/payments?month=" + month + branchQuery)
       .then((response) => response.json())
       .then((next) => {
@@ -146,6 +149,10 @@ export default function PaymentsPage() {
         setSelected(null);
       });
   }, [month, branchQuery]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const groups = useMemo(
     () => [...new Set(data.rows.map((row) => row.group))] as string[],
@@ -272,6 +279,14 @@ export default function PaymentsPage() {
             />
           </div>
         </header>
+
+        <MonthLock
+          month={month}
+          closed={Boolean(data.closed)}
+          closedAt={data.closedAt ?? null}
+          branchQuery={branchQuery}
+          onChange={reload}
+        />
 
         <div className="payments-month">
           <button

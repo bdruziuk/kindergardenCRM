@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
+import { MonthLock } from "@/components/MonthLock";
 import { Sidebar } from "@/components/Sidebar";
 import type {
   FinanceSnapshot,
@@ -100,7 +101,8 @@ export default function FinancesPage() {
   const [payout, setPayout] = useState<PayoutDraft>(emptyPayout);
   const [confirming, setConfirming] = useState<number | null>(null);
 
-  useEffect(() => {
+  /** Перечитує сторінку — зокрема після закриття чи відкриття місяця. */
+  const reload = useCallback(() => {
     fetch("/api/finances?month=" + month + branchQuery)
       .then((response) => response.json())
       .then((next: FinanceSnapshot) =>
@@ -108,6 +110,10 @@ export default function FinancesPage() {
       )
       .catch(() => setError("Немає зв’язку із сервером"));
   }, [month, branchQuery]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const send = async (body: Record<string, unknown>) => {
     setSaving(true);
@@ -214,6 +220,14 @@ export default function FinancesPage() {
             </button>
           </div>
         </header>
+
+        <MonthLock
+          month={month}
+          closed={Boolean(data.closed)}
+          closedAt={data.closedAt ?? null}
+          branchQuery={branchQuery}
+          onChange={reload}
+        />
 
         <div className="payments-month">
           <button onClick={() => step(-1)}>‹</button>

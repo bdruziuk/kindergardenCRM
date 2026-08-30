@@ -242,6 +242,20 @@ export const transactionRequest = z.discriminatedUnion("kind", [
   ...payoutActions,
 ], unknownAction);
 
+// ------------------------------------------------------------------ month close
+
+export const monthCloseRequest = z.object({
+  month,
+  action: z.enum(["close", "open"], { error: "Невідома дія" }),
+});
+
+/** Стан місяця — приходить у кожному знімку сторінки місяця. */
+export type MonthCloseState = {
+  closed: boolean;
+  /** ISO-час закриття; null, поки місяць відкритий. */
+  closedAt: string | null;
+};
+
 // -------------------------------------------------------------------- waitlist
 
 const waitlistEntry = {
@@ -391,6 +405,9 @@ export type PaymentsSummary = {
 };
 
 export type PaymentsSnapshot = {
+  /** Місяць закритий — сторінка показує знімок і не дає його правити. */
+  closed?: boolean;
+  closedAt?: string | null;
   month: string;
   rows: ChildPaymentsDto[];
   summary: PaymentsSummary;
@@ -468,6 +485,9 @@ export type BirthdayDto = {
 };
 
 export type StaffSnapshot = {
+  /** Місяць закритий — сторінка показує знімок і не дає його правити. */
+  closed?: boolean;
+  closedAt?: string | null;
   /** Посади філії разом із заготовками ставки й лімітів. */
   jobTitles: JobTitleDto[];
   month: string;
@@ -530,6 +550,9 @@ export type CategoryTotal = {
 };
 
 export type FinanceSnapshot = {
+  /** Місяць закритий — сторінка показує знімок і не дає його правити. */
+  closed?: boolean;
+  closedAt?: string | null;
   month: string;
   rows: ExpenseDto[];
   salaryRows: SalaryRowDto[];

@@ -3,15 +3,29 @@ import { getDb } from "@/db";
 import { children, paymentReceipts, payments } from "@/db/schema";
 import { firstIssue, paymentRequest } from "@/lib/api-schemas";
 import { FALLBACK_MONTH, monthStart } from "@/lib/period";
+import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { childrenWithPayments, paymentsSummary } from "@/lib/queries";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
 async function snapshot(branchId: number, month: string) {
+  // Закритий місяць віддається таким, яким його зафіксували: перерахунок
+  // сьогоднішньою платою й сьогоднішнім складом дітей показав би не те, що
+  // було насправді.
+  const closed = await loadClose(branchId, month);
+  if (closed)
+    return {
+      ...(closed.snapshot.payments as object),
+      closed: true,
+      closedAt: closed.closedAt,
+    };
+
   const rows = await childrenWithPayments(branchId, month);
   return {
     month: monthStart(month).slice(0, 7),
     rows,
     summary: paymentsSummary(rows),
+    closed: false,
+    closedAt: null,
   };
 }
 
@@ -80,6 +94,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = parsed.data;
+    await assertMonthOpen(branchId, body.month);
 
     if (body.kind === "add") {
       await assertChildInBranch(body.childId, branchId);

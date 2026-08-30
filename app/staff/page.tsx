@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttendanceGrid } from "@/components/AttendanceGrid";
 import { LessonEditor } from "@/components/LessonEditor";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
+import { MonthLock } from "@/components/MonthLock";
 import { Sidebar } from "@/components/Sidebar";
 import type {
   SalaryKind,
@@ -121,7 +122,8 @@ export default function StaffPage() {
     dayOffQuota: "5",
   });
 
-  useEffect(() => {
+  /** Перечитує сторінку — зокрема після закриття чи відкриття місяця. */
+  const reload = useCallback(() => {
     fetch("/api/staff?month=" + month + branchQuery)
       .then((response) => response.json())
       .then((next) => {
@@ -129,6 +131,10 @@ export default function StaffPage() {
         setSelected(null);
       });
   }, [month, branchQuery]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const shown = useMemo(
     () =>
@@ -230,6 +236,14 @@ export default function StaffPage() {
             </button>
           </div>
         )}
+
+        <MonthLock
+          month={month}
+          closed={Boolean(data.closed)}
+          closedAt={data.closedAt ?? null}
+          branchQuery={branchQuery}
+          onChange={reload}
+        />
 
         <div className="payments-month">
           <button

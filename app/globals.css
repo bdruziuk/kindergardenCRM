@@ -536,3 +536,15 @@
 .staff-drawer-head span a{color:var(--accent);text-decoration:none}
 .staff-drawer-head span a:hover{text-decoration:underline}
 .staff-table{min-width:1000px}
+
+/* --- month close -------------------------------------------------------- */
+.month-lock{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:14px;padding:11px 15px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.month-lock span{font-size:10px;color:var(--muted);margin-right:auto;line-height:1.5}
+.month-lock button{height:30px;padding:0 13px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:10px;font-weight:700;color:#5c6a65;cursor:pointer}
+.month-lock button:hover:not(:disabled){border-color:var(--accent-line);color:var(--accent-ink)}
+.month-lock button:disabled{opacity:.5;cursor:not-allowed}
+.month-lock .danger-confirm{border-color:#c9564c;background:#c9564c;color:#fff}
+.month-lock em{width:100%;font-style:normal;font-size:9px;color:#a8433b}
+.month-lock.closed{border-color:var(--accent-line);background:var(--accent-wash)}
+.month-lock.closed span{color:var(--accent-ink)}
+.month-lock>i{font-style:normal;font-size:12px}

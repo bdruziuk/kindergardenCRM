@@ -1,16 +1,11 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import {
-  jobTitles,
-  lessons,
-  staff,
-  staffAttendance,
-} from "@/db/schema";
+import { lessons, staff, staffAttendance } from "@/db/schema";
 import { type SalaryType, firstIssue, staffRequest } from "@/lib/api-schemas";
-import { paidByLesson } from "@/lib/format";
 import { FALLBACK_MONTH } from "@/lib/period";
+import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { mutatePayout } from "@/lib/payouts";
-import { staffWithAttendance } from "@/lib/queries";
+import { staffSnapshot as snapshot } from "@/lib/snapshots";
 import { resolveScope, scopeFailure } from "@/lib/scope";
 
 type RateFields = {
@@ -31,51 +26,20 @@ const rateValues = (body: RateFields): RateFields => ({
   dayOffQuota: body.dayOffQuota,
 });
 
-async function snapshot(branchId: number, month: string) {
-  const { info, rows } = await staffWithAttendance(branchId, month);
-  // Посади філії — вони наповнюють випадайку замість колишнього списку,
-  // зашитого в сторінку.
-  const titles = await getDb()
-    .select({
-      id: jobTitles.id,
-      name: jobTitles.name,
-      addedByOwner: jobTitles.addedByOwner,
-      salaryType: jobTitles.salaryType,
-      rate: jobTitles.rate,
-      lessonRate: jobTitles.lessonRate,
-      vacationQuota: jobTitles.vacationQuota,
-      dayOffQuota: jobTitles.dayOffQuota,
-    })
-    .from(jobTitles)
-    .where(eq(jobTitles.branchId, branchId))
-    .orderBy(asc(jobTitles.id));
-  // Lesson-paid staff may still carry attendance rows from before they were
-  // switched over, but their pay ignores those and the grid shows lessons in
-  // their cells — so counting them here would show days nobody can see.
-  const onAttendance = rows.filter((row) => !paidByLesson(row.salaryType));
-  return {
-    ...info,
-    jobTitles: titles,
-    rows,
-    summary: {
-      staffCount: rows.length,
-      workedDays: onAttendance.reduce((sum, row) => sum + row.workedDays, 0),
-      absentDays: onAttendance.reduce((sum, row) => sum + row.absentDays, 0),
-      vacationDays: onAttendance.reduce((sum, row) => sum + row.vacationDays, 0),
-      dayOffDays: onAttendance.reduce((sum, row) => sum + row.dayOffDays, 0),
-      lessonCount: rows.reduce((sum, row) => sum + row.lessonCount, 0),
-      salaryTotal: rows.reduce((sum, row) => sum + row.salary, 0),
-      paidOutTotal: rows.reduce((sum, row) => sum + row.paidOut.total, 0),
-    },
-  };
-}
 
 export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const { branchId } = await resolveScope(params.get("branch"));
     const month = params.get("month") ?? FALLBACK_MONTH;
-    return Response.json(await snapshot(branchId, month));
+    const closed = await loadClose(branchId, month);
+    // Закритий місяць — зі знімка: ставки й склад колективу відтоді змінилися,
+    // і перерахунок показав би не ту зарплату, яку тоді нарахували.
+    return Response.json(
+      closed
+        ? { ...(closed.snapshot.staff as object), closed: true, closedAt: closed.closedAt }
+        : { ...(await snapshot(branchId, month)), closed: false, closedAt: null },
+    );
   } catch (error) {
     return scopeFailure(error) ?? Response.json(
       { error: error instanceof Error ? error.message : "PostgreSQL error" },
@@ -95,6 +59,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = parsed.data;
+    await assertMonthOpen(branchId, body.month ?? FALLBACK_MONTH);
 
     if (body.kind === "attendance") {
       if (body.state === "unmarked") {

@@ -493,6 +493,38 @@ export const ageCategories = pgTable(
   (t) => [uniqueIndex("idx_age_categories_branch_name").on(t.branchId, t.name)],
 );
 
+/**
+ * Закритий місяць філії.
+ *
+ * Сторінки місяця рахуються з довідників, які живуть далі: плата за садок,
+ * ставки, склад дітей і персоналу. Відкривши минулий місяць, ми побачили б
+ * його перерахованим за сьогоднішніми значеннями — тобто неправду. Тому
+ * закритий місяць віддається зі знімка, знятого на момент закриття, і більше
+ * не редагується.
+ *
+ * Знімок — JSON усіх трьох сторінок місяця. Зберігати обчислене, а не сировину,
+ * тут доречно саме тому, що мета — показати рівно те, що бачили тоді.
+ */
+export const monthCloses = pgTable(
+  "month_closes",
+  {
+    id: serial("id").primaryKey(),
+    branchId: integer("branch_id")
+      .notNull()
+      .references(() => branches.id, { onDelete: "cascade" }),
+    /** Перший день закритого місяця. */
+    month: day("month").notNull(),
+    data: text("data").notNull(),
+    closedAt: timestamp("closed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    closedBy: integer("closed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [uniqueIndex("idx_month_closes_branch_month").on(t.branchId, t.month)],
+);
+
 export const users = pgTable(
   "users",
   {
