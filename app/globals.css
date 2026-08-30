@@ -529,3 +529,10 @@
 .receipt-attach:hover{border-color:var(--accent-line);color:var(--accent-ink)}
 .receipt-attach input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
 .history-list article{flex-wrap:wrap}
+
+.staff-phone{color:var(--accent);text-decoration:none;white-space:nowrap}
+.staff-phone:hover{text-decoration:underline}
+.staff-phone-empty{color:var(--muted)}
+.staff-drawer-head span a{color:var(--accent);text-decoration:none}
+.staff-drawer-head span a:hover{text-decoration:underline}
+.staff-table{min-width:1000px}

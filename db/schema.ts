@@ -284,6 +284,8 @@ export const staff = pgTable(
       .references(() => branches.id, { onDelete: "restrict" }),
     fullName: text("full_name").notNull(),
     role: text("role").notNull(),
+    /** Телефон; порожній — не всі його лишають, і вимагати його немає підстав. */
+    phone: text("phone"),
     birthDate: day("birth_date"),
     salaryType: salaryType("salary_type").notNull().default("monthly"),
     monthlyRate: money("monthly_rate").notNull().default(0),

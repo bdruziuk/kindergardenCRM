@@ -187,6 +187,7 @@ export const staffRequest = z.discriminatedUnion("kind", [
     staffId: id,
     name: z.string().trim().min(1, "Ім’я обов’язкове"),
     role: z.string().trim().default("Вихователь"),
+    phone: z.string().trim().max(40).default(""),
     birthDate: day.nullable().default(null),
     month: month.optional(),
     ...rateFields,
@@ -195,6 +196,7 @@ export const staffRequest = z.discriminatedUnion("kind", [
     kind: z.literal("staff"),
     name: z.string().trim().min(1, "Ім’я обов’язкове"),
     role: z.string().trim().default("Вихователь"),
+    phone: z.string().trim().max(40).default(""),
     birthDate: day.nullable().default(null),
     month: month.optional(),
     ...rateFields,
@@ -415,6 +417,7 @@ export type StaffRowDto = {
   id: number;
   name: string;
   role: string;
+  phone: string;
   birthDate: string | null;
   branch: string;
   salaryType: SalaryType;

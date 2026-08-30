@@ -143,6 +143,7 @@ export async function POST(request: Request) {
         .set({
           fullName: body.name,
           role: body.role,
+          phone: body.phone || null,
           birthDate: body.birthDate,
           ...rateValues(body),
         })
@@ -152,6 +153,7 @@ export async function POST(request: Request) {
         branchId,
         fullName: body.name,
         role: body.role,
+        phone: body.phone || null,
         birthDate: body.birthDate,
         ...rateValues(body),
       });

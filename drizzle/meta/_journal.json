@@ -169,6 +169,13 @@
       "when": 1788073253238,
       "tag": "0023_payment_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788074259925,
+      "tag": "0024_staff_phone",
+      "breakpoints": true
     }
   ]
 }

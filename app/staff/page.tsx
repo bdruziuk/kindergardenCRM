@@ -34,6 +34,7 @@ type StaffDraft = {
   staffId: number;
   name: string;
   role: string;
+  phone: string;
   birthDate: string;
   salaryType: SalaryType;
   monthlyRate: string;
@@ -60,6 +61,7 @@ const emptyPayout = (): PayoutDraft => ({
 type NewStaffDraft = {
   name: string;
   role: string;
+  phone: string;
   birthDate: string;
   salaryType: SalaryType;
   monthlyRate: string;
@@ -109,6 +111,7 @@ export default function StaffPage() {
   const [newStaff, setNewStaff] = useState<NewStaffDraft>({
     name: "",
     role: "Вихователь",
+    phone: "",
     birthDate: "",
     salaryType: "monthly",
     monthlyRate: "25000",
@@ -360,6 +363,7 @@ export default function StaffPage() {
                   {[
                     "Працівник",
                     "Посада",
+                    "Телефон",
                     "Тип оплати",
                     "Дні",
                     "Нараховано",
@@ -392,6 +396,21 @@ export default function StaffPage() {
                     </td>
                     <td>
                       <span className="group-pill">{person.role}</span>
+                    </td>
+                    <td>
+                      {person.phone ? (
+                        // Клік по номеру не має відкривати картку — інакше
+                        // подзвонити з телефона не вийде.
+                        <a
+                          className="staff-phone"
+                          href={`tel:${person.phone.replace(/[^+\d]/g, "")}`}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {person.phone}
+                        </a>
+                      ) : (
+                        <span className="staff-phone-empty">—</span>
+                      )}
                     </td>
                     <td>
                       <b>{SALARY_TYPE_LABELS[person.salaryType]}</b>
@@ -458,6 +477,18 @@ export default function StaffPage() {
                 <span>
                   {selected.role} ·{" "}
                   {months.find((item) => item[0] === month)?.[1]}
+                  {selected.phone ? (
+                    <>
+                      {" · "}
+                      <a
+                        href={`tel:${selected.phone.replace(/[^+\d]/g, "")}`}
+                      >
+                        {selected.phone}
+                      </a>
+                    </>
+                  ) : (
+                    ""
+                  )}
                 </span>
               </div>
             </div>
@@ -493,6 +524,7 @@ export default function StaffPage() {
                     staffId: selected.id,
                     name: selected.name,
                     role: selected.role,
+                    phone: selected.phone,
                     birthDate: selected.birthDate ?? "",
                     salaryType: selected.salaryType,
                     monthlyRate: String(selected.monthlyRate),
@@ -970,6 +1002,17 @@ export default function StaffPage() {
               )}
 
               <label>
+                Телефон
+                <input
+                  type="tel"
+                  value={editing.phone}
+                  placeholder="+380"
+                  onChange={(event) =>
+                    setEditing({ ...editing, phone: event.target.value })
+                  }
+                />
+              </label>
+              <label>
                 Дата народження
                 <input
                   type="date"
@@ -1220,6 +1263,17 @@ export default function StaffPage() {
                   />
                 </label>
               )}
+              <label>
+                Телефон
+                <input
+                  type="tel"
+                  value={newStaff.phone}
+                  placeholder="+380"
+                  onChange={(event) =>
+                    setNewStaff({ ...newStaff, phone: event.target.value })
+                  }
+                />
+              </label>
               <label>
                 Дата народження
                 <input
