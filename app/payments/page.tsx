@@ -586,13 +586,13 @@ export default function PaymentsPage() {
                 disabled={saving || fileBusy || Number(draft.amount) <= 0}
                 onClick={addPayment}
               >
-                {saving ? "Збереження…" : "＋ Додати часткову оплату"}
+                {saving ? "Збереження…" : "＋ Додати оплату"}
               </button>
             </div>
 
             <div className="child-payment-history">
               <div className="history-title">
-                <h3>Часткові оплати</h3>
+                <h3>Оплати</h3>
                 <span>{selected.history.length}</span>
               </div>
               <div className="history-list">
