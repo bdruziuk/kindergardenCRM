@@ -5,10 +5,12 @@ import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { Sidebar } from "@/components/Sidebar";
 import type {
   FinanceSnapshot,
+  PaymentMethod,
   SalaryKind,
   SalaryRowDto,
 } from "@/lib/api-schemas";
-import { SALARY_KIND_LABELS } from "@/lib/format";
+import { paymentMethodValues } from "@/lib/api-schemas";
+import { PAYMENT_METHOD_LABELS, SALARY_KIND_LABELS } from "@/lib/format";
 
 const months = [
   ["2026-07", "Липень 2026"],
@@ -45,11 +47,13 @@ const EMPTY: FinanceSnapshot = {
     balance: 0,
   },
   categories: [],
+  methods: [],
 };
 
 type Draft = {
   category: string;
   amount: string;
+  method: PaymentMethod;
   occurredAt: string;
   note: string;
 };
@@ -57,6 +61,7 @@ type Draft = {
 const emptyDraft = (): Draft => ({
   category: "",
   amount: "",
+  method: "cash",
   occurredAt: new Date().toISOString().slice(0, 10),
   note: "",
 });
@@ -66,6 +71,7 @@ type PayoutDraft = {
   id: number | null;
   kind: SalaryKind;
   amount: string;
+  method: PaymentMethod;
   paidAt: string;
   note: string;
 };
@@ -74,6 +80,7 @@ const emptyPayout = (): PayoutDraft => ({
   id: null,
   kind: "advance",
   amount: "",
+  method: "cash",
   paidAt: new Date().toISOString().slice(0, 10),
   note: "",
 });
@@ -125,6 +132,22 @@ export default function FinancesPage() {
   const selected: SalaryRowDto | null =
     data.salaryRows.find((row) => row.id === openStaff) ?? null;
 
+  const methodSelect = (
+    value: PaymentMethod,
+    onPick: (method: PaymentMethod) => void,
+  ) => (
+    <select
+      value={value}
+      onChange={(event) => onPick(event.target.value as PaymentMethod)}
+    >
+      {paymentMethodValues.map((method) => (
+        <option key={method} value={method}>
+          {PAYMENT_METHOD_LABELS[method]}
+        </option>
+      ))}
+    </select>
+  );
+
   const savePayout = async () => {
     if (!selected || Number(payout.amount) <= 0) return;
     const ok = await send(
@@ -134,6 +157,7 @@ export default function FinancesPage() {
             payoutId: payout.id,
             payoutKind: payout.kind,
             amount: Number(payout.amount),
+            method: payout.method,
             paidAt: payout.paidAt,
             note: payout.note,
           }
@@ -142,6 +166,7 @@ export default function FinancesPage() {
             staffId: selected.id,
             payoutKind: payout.kind,
             amount: Number(payout.amount),
+            method: payout.method,
             paidAt: payout.paidAt,
             note: payout.note,
           },
@@ -206,6 +231,21 @@ export default function FinancesPage() {
         </div>
 
         {error && <div className="empty">{error}</div>}
+
+        <div className="method-totals">
+          {data.methods.map((row) => (
+            <article key={row.method}>
+              <span>{PAYMENT_METHOD_LABELS[row.method]}</span>
+              <div>
+                <b className="green-text">+{money(row.income)}</b>
+                <b className="negative-balance">−{money(row.expense)}</b>
+              </div>
+              <small className={row.balance < 0 ? "negative-balance" : undefined}>
+                залишок {money(row.balance)}
+              </small>
+            </article>
+          ))}
+        </div>
 
         <div className="staff-stats">
           <article>
@@ -399,7 +439,7 @@ export default function FinancesPage() {
             <table className="staff-table">
               <thead>
                 <tr>
-                  {["Дата", "Категорія", "Примітка", "Сума", ""].map((item) => (
+                  {["Дата", "Категорія", "Чим", "Примітка", "Сума", ""].map((item) => (
                     <th key={item}>{item}</th>
                   ))}
                 </tr>
@@ -411,6 +451,7 @@ export default function FinancesPage() {
                     <td>
                       <span className="group-pill">{row.category}</span>
                     </td>
+                    <td>{PAYMENT_METHOD_LABELS[row.method]}</td>
                     <td className="finance-note">{row.note || "—"}</td>
                     <td>
                       <b className="negative-balance">−{money(row.amount)}</b>
@@ -466,6 +507,12 @@ export default function FinancesPage() {
                 }
               />
             </label>
+            <label>
+              Чим заплатили
+              {methodSelect(draft.method, (method) =>
+                setDraft({ ...draft, method }),
+              )}
+            </label>
             <label className="wide-field">
               Категорія
               <input
@@ -505,6 +552,7 @@ export default function FinancesPage() {
                   kind: "add",
                   category: draft.category,
                   amount: Number(draft.amount),
+                  method: draft.method,
                   occurredAt: draft.occurredAt,
                   note: draft.note,
                 });
@@ -541,7 +589,9 @@ export default function FinancesPage() {
                 <div>
                   <b>{money(item.amount)}</b>
                   <small>
-                    {SALARY_KIND_LABELS[item.kind]} · {dayLabel(item.paidAt)}
+                    {SALARY_KIND_LABELS[item.kind]} ·{" "}
+                    {PAYMENT_METHOD_LABELS[item.method]} ·{" "}
+                    {dayLabel(item.paidAt)}
                     {item.note ? ` · ${item.note}` : ""}
                   </small>
                 </div>
@@ -574,6 +624,7 @@ export default function FinancesPage() {
                           id: item.id,
                           kind: item.kind,
                           amount: String(item.amount),
+                          method: item.method,
                           paidAt: item.paidAt,
                           note: item.note,
                         })
@@ -624,6 +675,12 @@ export default function FinancesPage() {
                   setPayout({ ...payout, amount: event.target.value })
                 }
               />
+            </label>
+            <label>
+              Чим видано
+              {methodSelect(payout.method, (method) =>
+                setPayout({ ...payout, method }),
+              )}
             </label>
             <label>
               Коли видано

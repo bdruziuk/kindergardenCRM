@@ -1,0 +1,2 @@
+ALTER TABLE "salary_payments" ADD COLUMN "method" "payment_method" DEFAULT 'cash' NOT NULL;--> statement-breakpoint
+ALTER TABLE "transactions" ADD COLUMN "method" "payment_method" DEFAULT 'cash' NOT NULL;

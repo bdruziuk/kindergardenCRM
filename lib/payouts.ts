@@ -10,6 +10,7 @@ type PayoutAction =
       staffId: number;
       payoutKind: "advance" | "salary";
       amount: number;
+      method: "cash" | "iban" | "card";
       paidAt: string;
       note: string;
       month?: string;
@@ -19,6 +20,7 @@ type PayoutAction =
       payoutId: number;
       payoutKind: "advance" | "salary";
       amount: number;
+      method: "cash" | "iban" | "card";
       paidAt: string;
       note: string;
       month?: string;
@@ -61,6 +63,7 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
       month: monthStart(body.month ?? FALLBACK_MONTH),
       kind: body.payoutKind,
       amount: body.amount,
+      method: body.method,
       paidAt: body.paidAt,
       note: body.note || null,
     });
@@ -81,6 +84,7 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
     .set({
       kind: body.payoutKind,
       amount: body.amount,
+      method: body.method,
       paidAt: body.paidAt,
       note: body.note || null,
     })

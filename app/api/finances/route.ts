@@ -3,7 +3,10 @@ import { getDb } from "@/db";
 import { transactions } from "@/db/schema";
 import {
   type FinanceSnapshot,
+  type MethodTotals,
+  type PaymentMethod,
   firstIssue,
+  paymentMethodValues,
   transactionRequest,
 } from "@/lib/api-schemas";
 import { FALLBACK_MONTH, monthStart } from "@/lib/period";
@@ -46,6 +49,36 @@ async function snapshot(
   for (const row of rows)
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
 
+  // Розклад по видах оплати. Витрата віднімається саме від доходів свого
+  // виду — готівка з готівки, — бо це різні гаманці, і спільний підсумок
+  // ховав би те, що на карті грошей уже немає, поки в касі вони ще є.
+  const zero = () => ({ income: 0, expense: 0 });
+  const perMethod = new Map<PaymentMethod, { income: number; expense: number }>(
+    paymentMethodValues.map((method) => [method, zero()]),
+  );
+
+  for (const child of childRows)
+    for (const item of child.history)
+      perMethod.get(item.method)!.income += item.amount;
+
+  for (const row of rows) perMethod.get(row.method)!.expense += row.amount;
+
+  // Зарплата — теж витрата, і теж має вид: без неї підсумок не сходився б
+  // саме на найбільшій статті.
+  for (const person of salaryRows)
+    for (const item of person.payouts)
+      perMethod.get(item.method)!.expense += item.amount;
+
+  const methods: MethodTotals[] = paymentMethodValues.map((method) => {
+    const totals = perMethod.get(method) ?? zero();
+    return {
+      method,
+      income: Math.round(totals.income * 100) / 100,
+      expense: Math.round(totals.expense * 100) / 100,
+      balance: Math.round((totals.income - totals.expense) * 100) / 100,
+    };
+  });
+
   const categories = [...byCategory.entries()]
     .map(([category, amount]) => ({
       category,
@@ -66,6 +99,7 @@ async function snapshot(
       balance: Math.round((income - total) * 100) / 100,
     },
     categories,
+    methods,
   };
 }
 
@@ -100,6 +134,7 @@ export async function POST(request: Request) {
         branchId,
         category: body.category,
         amount: body.amount,
+        method: body.method,
         occurredAt: body.occurredAt,
         note: body.note || null,
       });

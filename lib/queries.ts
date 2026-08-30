@@ -216,6 +216,7 @@ export async function staffWithAttendance(
         id: row.id,
         kind: row.kind,
         amount: row.amount,
+        method: row.method,
         paidAt: row.paidAt,
         note: row.note ?? "",
       }));
@@ -282,6 +283,7 @@ export async function monthExpenses(
     id: row.id,
     category: row.category,
     amount: row.amount,
+    method: row.method,
     occurredAt: row.occurredAt,
     note: row.note ?? "",
   }));

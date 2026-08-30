@@ -132,6 +132,7 @@ const payoutActions = [
     staffId: id,
     payoutKind: z.enum(salaryKindValues, { error: "Оберіть аванс або зарплату" }),
     amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
+    method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
     paidAt: day,
     note: z.string().trim().max(200).default(""),
     month: month.optional(),
@@ -141,6 +142,7 @@ const payoutActions = [
     payoutId: id,
     payoutKind: z.enum(salaryKindValues, { error: "Оберіть аванс або зарплату" }),
     amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
+    method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
     paidAt: day,
     note: z.string().trim().max(200).default(""),
     month: month.optional(),
@@ -205,6 +207,7 @@ export const transactionRequest = z.discriminatedUnion("kind", [
     kind: z.literal("add"),
     category: z.string().trim().min(1, "Вкажіть категорію").max(60),
     amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
+    method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
     occurredAt: day,
     note: z.string().trim().max(200).default(""),
     month: month.optional(),
@@ -378,6 +381,7 @@ export type PayoutDto = {
   id: number;
   kind: SalaryKind;
   amount: number;
+  method: PaymentMethod;
   paidAt: string;
   note: string;
 };
@@ -463,8 +467,18 @@ export type ExpenseDto = {
   id: number;
   category: string;
   amount: number;
+  method: PaymentMethod;
   occurredAt: string;
   note: string;
+};
+
+/** Скільки прийшло, пішло й лишилось окремо по кожному виду оплати. Витрата
+ *  віднімається саме від доходів свого виду: готівка з готівки. */
+export type MethodTotals = {
+  method: PaymentMethod;
+  income: number;
+  expense: number;
+  balance: number;
 };
 
 /** Salary progress for one person in the selected payroll month. */
@@ -505,6 +519,8 @@ export type FinanceSnapshot = {
   };
   /** Expense structure, salary included, shares relative to total expenses. */
   categories: CategoryTotal[];
+  /** Доходи, витрати й залишок окремо по кожному виду оплати. */
+  methods: MethodTotals[];
   error?: string;
 };
 

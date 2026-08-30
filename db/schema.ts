@@ -308,6 +308,9 @@ export const salaryPayments = pgTable(
     month: day("month").notNull(),
     kind: salaryKind("kind").notNull(),
     amount: money("amount").notNull(),
+    /** Зарплата — теж витрата, і теж має вид: без нього підсумок за видами
+     *  не сходився б саме на найбільшій статті. */
+    method: paymentMethod("method").notNull().default("cash"),
     paidAt: day("paid_at").notNull(),
     note: text("note"),
   },
@@ -328,6 +331,9 @@ export const transactions = pgTable(
       .references(() => branches.id, { onDelete: "restrict" }),
     category: text("category").notNull(),
     amount: money("amount").notNull(),
+    /** Чим заплатили. Потрібно, щоб витрата віднімалася саме від доходів того
+     *  самого виду: готівка з готівки, карта з карти. */
+    method: paymentMethod("method").notNull().default("cash"),
     occurredAt: day("occurred_at").notNull(),
     note: text("note"),
   },
