@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { children, paymentReceipts, payments } from "@/db/schema";
+import { childMonthDays, children, paymentReceipts, payments } from "@/db/schema";
 import { firstIssue, paymentRequest } from "@/lib/api-schemas";
 import { currentMonth, monthStart } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
@@ -125,6 +125,39 @@ export async function POST(request: Request) {
         await db
           .delete(paymentReceipts)
           .where(eq(paymentReceipts.paymentId, body.paymentId));
+      }
+    } else if (body.kind === "days_set") {
+      // Одним запитом: і що дитина цієї філії, і що оплата в неї поденна.
+      // Дні місячній дитині ні на що не впливали б, тож приймати їх — значить
+      // мовчки складати в базу те, чого ніхто ніколи не побачить.
+      const [child] = await db
+        .select({ feeMode: children.feeMode })
+        .from(children)
+        .where(
+          and(eq(children.id, body.childId), eq(children.branchId, branchId)),
+        );
+      if (!child) throw new ScopeError("Немає доступу до цієї дитини", 403);
+      if (child.feeMode !== "daily")
+        throw new ScopeError("Дні рахуються лише за поденної оплати", 400);
+
+      const monthDay = monthStart(body.month);
+      if (body.days === null) {
+        await db
+          .delete(childMonthDays)
+          .where(
+            and(
+              eq(childMonthDays.childId, body.childId),
+              eq(childMonthDays.month, monthDay),
+            ),
+          );
+      } else {
+        await db
+          .insert(childMonthDays)
+          .values({ childId: body.childId, month: monthDay, days: body.days })
+          .onConflictDoUpdate({
+            target: [childMonthDays.childId, childMonthDays.month],
+            set: { days: body.days },
+          });
       }
     } else {
       const [payment] = await db

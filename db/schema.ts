@@ -20,6 +20,15 @@ const money = (name: string) =>
 const day = (name: string) => date(name, { mode: "string" });
 
 export const childStatus = pgEnum("child_status", ["active", "paused", "left"]);
+/**
+ * Як нараховується плата дитині.
+ *
+ * `monthly` — та сама сума щомісяця: плата філії або індивідуальна.
+ * `daily` — стільки, скільки дитина відходила: ставка за день на кількість
+ * днів, яку заводять за місяць. Такій дитині місячна плата не нараховується
+ * взагалі, тож у «Заплановано» вона потрапляє лише після того, як дні внесли.
+ */
+export const feeMode = pgEnum("fee_mode", ["monthly", "daily"]);
 export const paymentMethod = pgEnum("payment_method", ["cash", "iban", "card"]);
 export const salaryType = pgEnum("salary_type", [
   "monthly",
@@ -198,6 +207,13 @@ export const children = pgTable(
     birthDate: day("birth_date"),
     // null means "use the branch monthly fee"
     customFee: money("custom_fee"),
+    /** Місячна плата чи поденна — див. `feeMode`. */
+    feeMode: feeMode("fee_mode").notNull().default("monthly"),
+    /** Ставка за один день. Має сенс лише при `feeMode = 'daily'`; за місячної
+     *  оплати лишається нулем і ні на що не впливає. Своя в кожної дитини:
+     *  поденні умови тут — виняток, узгоджений із конкретною сім'єю, а не
+     *  тариф філії. */
+    dailyRate: money("daily_rate").notNull().default(0),
     status: childStatus("status").notNull().default("active"),
     /** Enrolment window. A report for a period counts a child when the two
      *  overlap, so a child who left in May no longer inflates September and a
@@ -222,6 +238,32 @@ export const relatives = pgTable(
     email: text("email"),
   },
   (t) => [index("idx_relatives_child").on(t.childId)],
+);
+
+/**
+ * Скільки днів дитина відходила за місяць — основа нарахування при поденній
+ * оплаті.
+ *
+ * Одне число на місяць, а не рядок на кожен день: у садочку відвідування
+ * зводять наприкінці місяця й називають підсумок, тож зберігати ще й
+ * поденний табель означало б вести облік, якого ніхто не веде. Якщо колись
+ * знадобиться саме табель, ця таблиця стане його підсумком, а не завадою.
+ *
+ * Рядка може не бути зовсім — це і означає «дні ще не внесли»: тоді дитині
+ * нічого не нараховано, і вона не роздуває «Заплановано» нулем чи здогадкою.
+ */
+export const childMonthDays = pgTable(
+  "child_month_days",
+  {
+    id: serial("id").primaryKey(),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+    /** Перший день місяця — так само, як `payments.billingMonth`. */
+    month: day("month").notNull(),
+    days: integer("days").notNull(),
+  },
+  (t) => [uniqueIndex("idx_child_month_days").on(t.childId, t.month)],
 );
 
 export const payments = pgTable(

@@ -25,7 +25,8 @@ const columns = {
   transactions: ["id", "branchId", "occurredAt", "amount", "category", "method", "note"],
   monthCloses: ["id", "branchId", "month", "data", "closedAt"],
   branches: ["id", "kindergartenId", "monthlyFee"],
-  children: ["id", "branchId", "groupId", "fullName", "customFee", "status", "birthDate", "enrolledAt", "leftAt"],
+  children: ["id", "branchId", "groupId", "fullName", "customFee", "feeMode", "dailyRate", "status", "birthDate", "enrolledAt", "leftAt"],
+  childMonthDays: ["id", "childId", "month", "days"],
   groups: ["id", "branchId", "name", "ageRange", "icon", "color"],
   relatives: ["id", "childId", "fullName", "relation", "phone"],
   staff: ["id", "branchId", "fullName", "role", "active"],
@@ -53,7 +54,7 @@ export function fixture() {
   for (const branchId of [1, 2, 3]) {
     data.branches.push({ id: branchId, kindergartenId: branchId === 3 ? 2 : 1, monthlyFee: 1000 });
     data.groups.push({ id: branchId, branchId, name: `Group ${branchId}` });
-    data.children.push({ id: branchId, branchId, groupId: branchId, fullName: `Child ${branchId}` });
+    data.children.push({ id: branchId, branchId, groupId: branchId, fullName: `Child ${branchId}`, feeMode: "monthly", dailyRate: 0 });
     data.relatives.push({ id: branchId, childId: branchId, fullName: `Parent ${branchId}` });
     data.staff.push({ id: branchId, branchId, fullName: `Staff ${branchId}`, active: true });
     data.lessons.push({ id: branchId, staffId: branchId, workDate: "2026-09-01", note: "Original" });

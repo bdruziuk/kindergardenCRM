@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   branches,
+  childMonthDays,
   children,
   groups,
   paymentReceipts,
@@ -38,13 +39,15 @@ export async function childrenWithPayments(
 ): Promise<ChildPaymentsDto[]> {
   const db = getDb();
   const billingMonth = monthStart(month);
-  const [defaultFee, childRows, paymentRows] = await Promise.all([
+  const [defaultFee, childRows, paymentRows, dayRows] = await Promise.all([
     branchFee(branchId),
     db
       .select({
         id: children.id,
         fullName: children.fullName,
         customFee: children.customFee,
+        feeMode: children.feeMode,
+        dailyRate: children.dailyRate,
         status: children.status,
         groupName: groups.name,
       })
@@ -70,7 +73,21 @@ export async function childrenWithPayments(
       .leftJoin(paymentReceipts, eq(paymentReceipts.paymentId, payments.id))
       .where(and(eq(payments.billingMonth, billingMonth), eq(children.branchId, branchId)))
       .orderBy(desc(payments.paidAt), desc(payments.id)),
+    // Дні поденних дітей за цей місяць. Через `children`, бо філія в дитини,
+    // а не в самому записі — так само, як в оплатах.
+    db
+      .select({ childId: childMonthDays.childId, days: childMonthDays.days })
+      .from(childMonthDays)
+      .innerJoin(children, eq(children.id, childMonthDays.childId))
+      .where(
+        and(
+          eq(childMonthDays.month, billingMonth),
+          eq(children.branchId, branchId),
+        ),
+      ),
   ]);
+
+  const daysByChild = new Map(dayRows.map((row) => [row.childId, row.days]));
 
   // Вибуття не скасовує отримані гроші. Лишаємо рядок з історією оплат
   // за цей місяць, але не додаємо вибулим дітям нарахувань у місяцях без оплат.
@@ -91,7 +108,14 @@ export async function childrenWithPayments(
             }
           : null,
       }));
-    const fee = child.customFee ?? defaultFee;
+    const daily = child.feeMode === "daily";
+    // Поки дні не внесли, рядка немає — і нараховувати нема з чого. Нуль тут
+    // означає саме «ще не рахували», а не «відходила нуль днів»: різницю
+    // видно за `days`, яке лишається null.
+    const days = daily ? daysByChild.get(child.id) ?? null : null;
+    const fee = daily
+      ? Math.round((days ?? 0) * child.dailyRate * 100) / 100
+      : child.customFee ?? defaultFee;
     const paid = history.reduce((sum, payment) => sum + payment.amount, 0);
     return {
       id: child.id,
@@ -106,6 +130,9 @@ export async function childrenWithPayments(
         : paid < fee
           ? "Частково"
           : "Сплачено") as ChildPaymentsDto["status"],
+      feeMode: child.feeMode,
+      dailyRate: child.dailyRate,
+      days,
       history,
     };
   });

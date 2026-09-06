@@ -95,6 +95,9 @@ export default function PaymentsPage() {
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("Усі групи");
   const [selected, setSelected] = useState<ChildPaymentsDto | null>(null);
+  /** Поле «відходжено днів» відкритої картки. Порожній рядок — дні ще не
+   *  вносили, і це не те саме, що нуль днів. */
+  const [daysDraft, setDaysDraft] = useState("");
   const [saving, setSaving] = useState(false);
   /** Яку оплату зараз перепитуємо перед видаленням. */
   const [confirming, setConfirming] = useState<number | null>(null);
@@ -197,6 +200,7 @@ export default function PaymentsPage() {
 
   const openChild = (row: ChildPaymentsDto) => {
     setSelected(row);
+    setDaysDraft(row.days === null ? "" : String(row.days));
     setDraft({
       amount: row.balance ? String(row.balance) : "",
       method: "cash",
@@ -225,6 +229,7 @@ export default function PaymentsPage() {
     if (selected) {
       const updated = next.rows.find((row) => row.id === selected.id);
       setSelected(updated ?? null);
+      setDaysDraft(updated?.days == null ? "" : String(updated.days));
       setDraft({
         amount: updated?.balance ? String(updated.balance) : "",
         method: "cash",
@@ -239,6 +244,19 @@ export default function PaymentsPage() {
   const removePayment = async (paymentId: number) => {
     await send({ kind: "remove", paymentId, month });
     setConfirming(null);
+  };
+
+  /** Зберігає відходжені дні. Порожнє поле означає «прибрати внесене», а не
+   *  нуль днів, тож і йде на сервер як null. */
+  const saveDays = async () => {
+    if (!selected) return;
+    const entered = daysDraft.trim();
+    await send({
+      kind: "days_set",
+      childId: selected.id,
+      month,
+      days: entered === "" ? null : Number(entered),
+    });
   };
 
   const addPayment = async () => {
@@ -404,6 +422,13 @@ export default function PaymentsPage() {
                     </td>
                     <td>
                       <b>{money(row.fee)}</b>
+                      {row.feeMode === "daily" && (
+                        <small className="fee-note">
+                          {row.days === null
+                            ? "дні не внесені"
+                            : `${row.days} дн × ${money(row.dailyRate)}`}
+                        </small>
+                      )}
                     </td>
                     <td>
                       <span
@@ -475,6 +500,38 @@ export default function PaymentsPage() {
                 {selected.status}
               </span>
             </div>
+
+            {selected.feeMode === "daily" && (
+              <div className="child-days">
+                <h3>Відходжено днів</h3>
+                <p>
+                  Ставка {money(selected.dailyRate)} за день. Місячна плата
+                  такій дитині не нараховується.
+                </p>
+                <div className="child-days-row">
+                  <input
+                    type="number"
+                    min="0"
+                    max="31"
+                    step="1"
+                    placeholder="—"
+                    value={daysDraft}
+                    onChange={(event) => setDaysDraft(event.target.value)}
+                  />
+                  <b>{money(Number(daysDraft || 0) * selected.dailyRate)}</b>
+                  <button
+                    className="outline"
+                    disabled={saving}
+                    onClick={saveDays}
+                  >
+                    Зберегти
+                  </button>
+                </div>
+                {selected.days === null && (
+                  <small>Дні ще не вносили — нараховувати нема з чого</small>
+                )}
+              </div>
+            )}
 
             <div className="child-payment-form">
               <h3>Додати оплату</h3>

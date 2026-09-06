@@ -549,3 +549,21 @@
 .month-lock.closed span{color:var(--accent-ink)}
 .month-lock>i{font-style:normal;font-size:12px}
 .payments-month input[type="month"]{border:0;background:transparent;color:inherit;font:inherit;padding:6px;min-width:150px}.payments-month input[type="month"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.month .payments-month{margin:0}
+
+.form-grid .fee-mode{grid-column:1/-1;display:grid;grid-template-columns:16px 1fr;column-gap:10px;row-gap:3px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.form-grid .fee-mode:hover{background:var(--accent-tint)}
+.form-grid .fee-mode:has(input:checked){border-color:var(--accent-line);background:var(--accent-wash)}
+.form-grid .fee-mode input{grid-row:1 / span 2;width:16px;height:16px;margin:0;padding:0;accent-color:var(--accent);cursor:pointer}
+.form-grid .fee-mode b{grid-column:2;font-size:11px;color:var(--ink)}
+.form-grid .fee-mode small{grid-column:2;font-size:9px;font-weight:400;color:var(--muted);line-height:1.35}
+
+.child-days{padding:3px 0 20px;border-bottom:1px solid var(--line)}
+.child-days h3{font-size:11px;margin:0 0 6px}
+.child-days>p{margin:0 0 12px;font-size:9px;color:var(--muted);line-height:1.4}
+.child-days>small{display:block;margin-top:9px;font-size:9px;color:#b07d2d}
+.child-days-row{display:grid;grid-template-columns:88px 1fr auto;gap:10px;align-items:center}
+.child-days-row input{height:37px;border:1px solid var(--line);border-radius:9px;padding:0 9px;background:#fff;font-size:11px;width:100%}
+.child-days-row input:focus{border-color:var(--accent-focus);outline:0}
+.child-days-row>b{font-size:14px;color:var(--accent)}
+.child-days-row button{height:37px}
+.fee-note{display:block;margin-top:3px;font-size:8px;color:#99a49f}

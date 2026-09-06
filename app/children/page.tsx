@@ -5,6 +5,7 @@ import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { Sidebar } from "@/components/Sidebar";
 import {
   type ChildDto,
+  type FeeMode,
   type GroupDto,
   type GroupStaffDto,
   type RelativeDto,
@@ -20,6 +21,8 @@ type EditDraft = {
   birthDate: string;
   groupName: string;
   fee: string;
+  feeMode: FeeMode;
+  dailyRate: string;
   status: ChildStatus;
   enrolledAt: string;
   leftAt: string;
@@ -60,6 +63,8 @@ export default function Page() {
       // Порожнє, поки не завантажилась філія: підставляти вигадане число, яке
       // потім розійдеться з платою філії, гірше, ніж не підставляти нічого.
       fee: "",
+      feeMode: "monthly" as FeeMode,
+      dailyRate: "",
       // Дитину зараховують сьогодні, поки не сказано інакше — щоб у звітах за
       // минулі місяці вона не з’являлася заднім числом.
       enrolledAt: new Date().toISOString().slice(0, 10),
@@ -403,6 +408,8 @@ export default function Page() {
                   birthDate: selected.birthDate ?? "",
                   groupName: selected.groupName,
                   fee: String(selected.fee),
+                  feeMode: selected.feeMode,
+                  dailyRate: selected.dailyRate ? String(selected.dailyRate) : "",
                   status: selected.status,
                   enrolledAt: selected.enrolledAt ?? "",
                   leftAt: selected.leftAt ?? "",
@@ -456,14 +463,37 @@ export default function Page() {
                 </select>
               </label>
               <label>
-                Місячна плата
+                {editing.feeMode === "daily" ? "Ставка за день" : "Місячна плата"}
                 <input
                   type="number"
-                  value={editing.fee}
+                  value={
+                    editing.feeMode === "daily" ? editing.dailyRate : editing.fee
+                  }
                   onChange={(e) =>
-                    setEditing({ ...editing, fee: e.target.value })
+                    setEditing(
+                      editing.feeMode === "daily"
+                        ? { ...editing, dailyRate: e.target.value }
+                        : { ...editing, fee: e.target.value },
+                    )
                   }
                 />
+              </label>
+              <label className="fee-mode">
+                <input
+                  type="checkbox"
+                  checked={editing.feeMode === "daily"}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      feeMode: e.target.checked ? "daily" : "monthly",
+                    })
+                  }
+                />
+                <b>Поденна оплата</b>
+                <small>
+                  Місячна плата не нараховується — сума рахується від днів,
+                  які дитина відходила
+                </small>
               </label>
               <label className="status-field">
                 Статус
@@ -625,6 +655,8 @@ export default function Page() {
                         birthDate: editing.birthDate || null,
                         groupName: editing.groupName,
                         fee: Number(editing.fee || 0),
+                        feeMode: editing.feeMode,
+                        dailyRate: Number(editing.dailyRate || 0),
                         status: editing.status,
                         enrolledAt: editing.enrolledAt || null,
                         leftAt: editing.leftAt || null,
@@ -693,14 +725,37 @@ export default function Page() {
                 </select>
               </label>
               <label>
-                Місячна плата
+                {newKid.feeMode === "daily" ? "Ставка за день" : "Місячна плата"}
                 <input
-                  value={newKid.fee}
+                  value={
+                    newKid.feeMode === "daily" ? newKid.dailyRate : newKid.fee
+                  }
                   onChange={(e) =>
-                    setNewKid({ ...newKid, fee: e.target.value })
+                    setNewKid(
+                      newKid.feeMode === "daily"
+                        ? { ...newKid, dailyRate: e.target.value }
+                        : { ...newKid, fee: e.target.value },
+                    )
                   }
                   type="number"
                 />
+              </label>
+              <label className="fee-mode">
+                <input
+                  type="checkbox"
+                  checked={newKid.feeMode === "daily"}
+                  onChange={(e) =>
+                    setNewKid({
+                      ...newKid,
+                      feeMode: e.target.checked ? "daily" : "monthly",
+                    })
+                  }
+                />
+                <b>Поденна оплата</b>
+                <small>
+                  Місячна плата не нараховується — сума рахується від днів,
+                  які дитина відходила
+                </small>
               </label>
               <div className="relatives-editor">
                 <div className="relatives-title">
@@ -804,6 +859,8 @@ export default function Page() {
                         birthDate: newKid.birthDate || null,
                         groupName: newKid.group,
                         fee: Number(newKid.fee || 0),
+                        feeMode: newKid.feeMode,
+                        dailyRate: Number(newKid.dailyRate || 0),
                         status: "active",
                         enrolledAt: newKid.enrolledAt || null,
                         leftAt: null,
@@ -821,6 +878,8 @@ export default function Page() {
                       group: "",
                       birthDate: "",
                       fee: String(branchFee),
+                      feeMode: "monthly",
+                      dailyRate: "",
                       enrolledAt: new Date().toISOString().slice(0, 10),
                       relatives: [{ name: "", note: "Мама", phone: "" }],
                     });

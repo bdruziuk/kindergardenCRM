@@ -51,6 +51,8 @@ async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
         fullName: children.fullName,
         birthDate: children.birthDate,
         customFee: children.customFee,
+        feeMode: children.feeMode,
+        dailyRate: children.dailyRate,
         status: children.status,
         enrolledAt: children.enrolledAt,
         leftAt: children.leftAt,
@@ -99,8 +101,17 @@ async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
       birthDate: child.birthDate,
       groupName: child.groupName ?? "",
       fee: child.customFee ?? fee,
-      feeLabel: moneyLabel(child.customFee ?? fee),
-      customFee: child.customFee !== null,
+      // Поденній дитині місячна плата не нараховується, тож у списку показуємо
+      // ставку за день, а не суму, якої з неї ніхто не візьме.
+      feeLabel:
+        child.feeMode === "daily"
+          ? `${moneyLabel(child.dailyRate)}/день`
+          : moneyLabel(child.customFee ?? fee),
+      // «Індивідуальна» — підпис саме до місячної плати. У поденної дитини
+      // місячної плати немає взагалі, тож і казати тут нічого.
+      customFee: child.feeMode === "monthly" && child.customFee !== null,
+      feeMode: child.feeMode,
+      dailyRate: child.dailyRate,
       status: child.status,
       enrolledAt: child.enrolledAt,
       leftAt: child.leftAt,
@@ -131,7 +142,19 @@ async function childValues(BRANCH_ID: number, input: ChildInput) {
     groupId: await groupIdByName(BRANCH_ID, input.groupName),
     fullName: input.fullName,
     birthDate: input.birthDate,
-    customFee: input.fee === (await branchFee(BRANCH_ID)) ? null : input.fee,
+    // Поденній дитині місячна плата не потрібна, і форма шле сюди те, що
+    // випадково лишилось у полі. Зберігаємо null — «плата філії»: інакше
+    // повернення на місячну оплату дало б не суму, а забутий нуль.
+    customFee:
+      input.feeMode === "daily" ||
+      input.fee === (await branchFee(BRANCH_ID))
+        ? null
+        : input.fee,
+    feeMode: input.feeMode,
+    // Ставка тримається лише за поденної оплати. Повернувши дитину на місячну,
+    // обнуляємо: інакше стара ставка чекала б у полі й одного дня нарахувала б
+    // те, про що вже ніхто не пам'ятає.
+    dailyRate: input.feeMode === "daily" ? input.dailyRate : 0,
     status: input.status,
     enrolledAt: input.enrolledAt,
     leftAt: input.leftAt,

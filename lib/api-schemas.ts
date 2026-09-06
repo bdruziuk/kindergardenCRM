@@ -9,6 +9,8 @@ const id = z.number({ error: "Не вказано запис" }).int().positive(
 const amount = z.coerce.number().nonnegative();
 
 export const childStatusValues = ["active", "paused", "left"] as const;
+export const feeModeValues = ["monthly", "daily"] as const;
+export type FeeMode = (typeof feeModeValues)[number];
 export const paymentMethodValues = ["cash", "iban", "card"] as const;
 export const salaryTypeValues = [
   "monthly",
@@ -52,6 +54,10 @@ export const childInput = z.object({
   birthDate: day.nullable().default(null),
   groupName: z.string().trim().min(1, "Оберіть групу"),
   fee: amount,
+  /** `daily` — платить за відходжені дні, і місячна плата до неї не
+   *  застосовується; `fee` у такої дитини лишається, але не нараховується. */
+  feeMode: z.enum(feeModeValues, { error: "Невідомий вид оплати" }).default("monthly"),
+  dailyRate: amount.default(0),
   /** Коли дитина зарахована й коли вибула; null — «невідомо», і тоді дитина
    *  рахується в будь-якому періоді. */
   enrolledAt: day.nullable().default(null),
@@ -130,6 +136,21 @@ export const paymentRequest = z.discriminatedUnion("kind", [
     paymentId: id,
     /** Місяць потрібен, щоб повернути знімок тієї самої сторінки. */
     month,
+  }),
+  z.object({
+    /** Скільки днів дитина відходила за місяць — для поденної оплати. */
+    kind: z.literal("days_set"),
+    childId: id,
+    month,
+    /** null — прибрати внесене: дитина повертається до стану «дні ще не
+     *  рахували», а не до нуля відходжених днів. Різниця видима: у першому
+     *  випадку нараховувати ще нічого, у другому нараховано рівно нуль. */
+    days: z.coerce
+      .number()
+      .int()
+      .min(0, "Днів не може бути менше нуля")
+      .max(31, "У місяці не буває більше 31 дня")
+      .nullable(),
   }),
 ], unknownAction);
 
@@ -352,6 +373,8 @@ export type ChildDto = {
   fee: number;
   feeLabel: string;
   customFee: boolean;
+  feeMode: FeeMode;
+  dailyRate: number;
   status: (typeof childStatusValues)[number];
   enrolledAt: string | null;
   leftAt: string | null;
@@ -387,10 +410,17 @@ export type ChildPaymentsDto = {
   name: string;
   initials: string;
   group: string;
+  /** Нараховано за місяць. При поденній оплаті — `days × dailyRate`, і поки
+   *  дні не внесли, це нуль. */
   fee: number;
   paid: number;
   balance: number;
   status: "Сплачено" | "Частково" | "Не сплачено";
+  feeMode: FeeMode;
+  dailyRate: number;
+  /** Внесені дні місяця; null — ще не вносили. Для місячної оплати завжди
+   *  null: сторінка за цим і розрізняє, кому показувати поле з днями. */
+  days: number | null;
   history: PaymentEntry[];
 };
 
