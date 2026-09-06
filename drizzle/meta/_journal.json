@@ -183,6 +183,13 @@
       "when": 1788074632427,
       "tag": "0025_month_closes",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788696000000,
+      "tag": "0026_move_july_payments_to_september",
+      "breakpoints": true
     }
   ]
 }
