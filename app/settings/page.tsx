@@ -39,6 +39,35 @@ const EMPTY: SettingsSnapshot = {
   invites: [],
 };
 
+/**
+ * Чернетка заготовок посади.
+ *
+ * Числа тут рядками, а не числами: у полі `type="number"` очищення дає
+ * порожній рядок, `Number("")` перетворює його на 0, і нуль одразу малюється
+ * назад — стерти поле ставало неможливо, доводилося спершу дописати цифру й
+ * аж тоді прибрати нулик. Рядок зберігається як набрано, а в число переходить
+ * лише на порівнянні й на відправці, де його все одно приводить `z.coerce`.
+ */
+type TitleDraft = {
+  salaryType: JobTitleDto["salaryType"];
+  rate: string;
+  lessonRate: string;
+  vacationQuota: string;
+  dayOffQuota: string;
+};
+
+/** Нуль показуємо порожнім полем із підказкою «0»: так одразу видно, що
+ *  значення не задане, і в поле можна писати, нічого не стираючи. */
+const numberDraft = (value: number) => (value ? String(value) : "");
+
+const toTitleDraft = (title: JobTitleDto): TitleDraft => ({
+  salaryType: title.salaryType,
+  rate: numberDraft(title.rate),
+  lessonRate: numberDraft(title.lessonRate),
+  vacationQuota: numberDraft(title.vacationQuota),
+  dayOffQuota: numberDraft(title.dayOffQuota),
+});
+
 type BranchDraft = { name: string; address: string };
 
 /** Власник запрошує лише керуючих, тож ролі у формі немає — тільки філія. */
@@ -117,15 +146,7 @@ export default function SettingsPage() {
   /** Нова посада: окремо для бібліотеки й для кожної філії. */
   const [titleDraft, setTitleDraft] = useState<Record<string, string>>({});
   /** Заготовки, які зараз правлять. Ключ — id посади. */
-  const [titleEdits, setTitleEdits] = useState<
-    Record<
-      number,
-      Pick<
-        JobTitleDto,
-        "salaryType" | "rate" | "lessonRate" | "vacationQuota" | "dayOffQuota"
-      >
-    >
-  >({});
+  const [titleEdits, setTitleEdits] = useState<Record<number, TitleDraft>>({});
 
   /** Чернетки полів заводимо від знімка, щоб недописане не зникало. */
   const apply = (next: SettingsSnapshot) => {
@@ -224,7 +245,7 @@ export default function SettingsPage() {
     <div className="title-block">
       <div className="title-rows">
         {titles.map((title) => {
-          const draft = titleEdits[title.id] ?? title;
+          const draft = titleEdits[title.id] ?? toTitleDraft(title);
           const rateLabel =
             draft.salaryType === "monthly"
               ? "Ставка / місяць"
@@ -296,10 +317,9 @@ export default function SettingsPage() {
                   <input
                     type="number"
                     min="0"
+                    placeholder="0"
                     value={draft.rate}
-                    onChange={(event) =>
-                      patch({ rate: Number(event.target.value) })
-                    }
+                    onChange={(event) => patch({ rate: event.target.value })}
                   />
                 </label>
                 {draft.salaryType === "base_lesson" && (
@@ -308,10 +328,9 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       min="0"
+                      placeholder="0"
                       value={draft.lessonRate}
-                      onChange={(event) =>
-                        patch({ lessonRate: Number(event.target.value) })
-                      }
+                      onChange={(event) => patch({ lessonRate: event.target.value })}
                     />
                   </label>
                 )}
@@ -320,10 +339,9 @@ export default function SettingsPage() {
                   <input
                     type="number"
                     min="0"
+                    placeholder="0"
                     value={draft.vacationQuota}
-                    onChange={(event) =>
-                      patch({ vacationQuota: Number(event.target.value) })
-                    }
+                    onChange={(event) => patch({ vacationQuota: event.target.value })}
                   />
                 </label>
                 <label>
@@ -331,10 +349,9 @@ export default function SettingsPage() {
                   <input
                     type="number"
                     min="0"
+                    placeholder="0"
                     value={draft.dayOffQuota}
-                    onChange={(event) =>
-                      patch({ dayOffQuota: Number(event.target.value) })
-                    }
+                    onChange={(event) => patch({ dayOffQuota: event.target.value })}
                   />
                 </label>
                 <button
