@@ -15,7 +15,7 @@ import {
   kindergartenRequest,
 } from "@/lib/api-schemas";
 import { ageLabel, initialsOf, moneyLabel } from "@/lib/format";
-import { resolveScope, scopeFailure } from "@/lib/scope";
+import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
 async function branchFee(BRANCH_ID: number) {
   const db = getDb();
@@ -186,10 +186,12 @@ export async function POST(request: Request) {
         .onConflictDoNothing();
     } else if (body.kind === "update_group") {
       // Children reference the group by id, so a rename needs no cascade.
-      await db
+      const [updated] = await db
         .update(groups)
         .set({ name: body.name, ageRange: body.ageRange })
-        .where(eq(groups.id, body.groupId));
+        .where(and(eq(groups.id, body.groupId), eq(groups.branchId, BRANCH_ID)))
+        .returning({ id: groups.id });
+      if (!updated) throw new ScopeError("Групу не знайдено", 404);
     } else if (body.kind === "group_staff") {
       // Група й усі названі працівники мають належати цій філії — інакше
       // чужого можна було б закріпити, підставивши його номер руками.
@@ -243,7 +245,13 @@ export async function POST(request: Request) {
       const childId = body.childId;
       const values = await childValues(BRANCH_ID, body.child);
       await db.transaction(async (tx) => {
-        await tx.update(children).set(values).where(eq(children.id, childId));
+        const [updated] = await tx
+          .update(children)
+          .set(values)
+          .where(and(eq(children.id, childId), eq(children.branchId, BRANCH_ID)))
+          .returning({ id: children.id });
+        // Родичів змінюємо лише після успішного оновлення дитини своєї філії.
+        if (!updated) throw new ScopeError("Дитину не знайдено", 404);
         await tx.delete(relatives).where(eq(relatives.childId, childId));
         const kin = relativeValues(body.child.relatives, childId);
         if (kin.length) await tx.insert(relatives).values(kin);

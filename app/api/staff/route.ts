@@ -6,7 +6,7 @@ import { FALLBACK_MONTH } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { mutatePayout } from "@/lib/payouts";
 import { staffSnapshot as snapshot } from "@/lib/snapshots";
-import { resolveScope, scopeFailure } from "@/lib/scope";
+import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
 type RateFields = {
   salaryType: SalaryType;
@@ -61,6 +61,26 @@ export async function POST(request: Request) {
     const body = parsed.data;
     await assertMonthOpen(branchId, body.month ?? FALLBACK_MONTH);
 
+    // Кожен переданий ID перевіряємо в межах філії до будь-якого запису.
+    if (
+      body.kind === "attendance" ||
+      body.kind === "lesson_add" ||
+      body.kind === "update_staff"
+    ) {
+      const [person] = await db
+        .select({ id: staff.id })
+        .from(staff)
+        .where(and(eq(staff.id, body.staffId), eq(staff.branchId, branchId)));
+      if (!person) throw new ScopeError("Працівника не знайдено", 404);
+    } else if (body.kind === "lesson_note" || body.kind === "lesson_remove") {
+      const [lesson] = await db
+        .select({ id: lessons.id })
+        .from(lessons)
+        .innerJoin(staff, eq(staff.id, lessons.staffId))
+        .where(and(eq(lessons.id, body.lessonId), eq(staff.branchId, branchId)));
+      if (!lesson) throw new ScopeError("Заняття не знайдено", 404);
+    }
+
     if (body.kind === "attendance") {
       if (body.state === "unmarked") {
         await db
@@ -112,7 +132,7 @@ export async function POST(request: Request) {
           birthDate: body.birthDate,
           ...rateValues(body),
         })
-        .where(eq(staff.id, body.staffId));
+        .where(and(eq(staff.id, body.staffId), eq(staff.branchId, branchId)));
     } else {
       await db.insert(staff).values({
         branchId,
