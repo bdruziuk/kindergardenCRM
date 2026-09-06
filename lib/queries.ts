@@ -117,7 +117,8 @@ export function paymentsSummary(rows: ChildPaymentsDto[]) {
   return {
     planned,
     received,
-    balance: Math.max(planned - received, 0),
+    // Переплата однієї сім’ї не погашає борг іншої.
+    balance: Math.round(rows.reduce((sum, row) => sum + Math.max(row.fee - row.paid, 0), 0) * 100) / 100,
     progress: planned ? Math.round((received / planned) * 100) : 0,
     paidCount: rows.filter((row) => row.status === "Сплачено").length,
     partialCount: rows.filter((row) => row.status === "Частково").length,

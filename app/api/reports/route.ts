@@ -13,10 +13,12 @@ import {
   type CategoryTotal,
   type ReportMonthDto,
   type ReportsSnapshot,
+  type StaffSnapshot,
   type WaitlistStatus,
   MONTH,
   waitlistStatusValues,
 } from "@/lib/api-schemas";
+import { loadClose } from "@/lib/month-close";
 import { staffWithAttendance } from "@/lib/queries";
 import { resolveScope, scopeFailure } from "@/lib/scope";
 
@@ -34,6 +36,7 @@ async function snapshot(
   month: string | null,
 ): Promise<ReportsSnapshot> {
   const db = getDb();
+  const closed = month ? await loadClose(BRANCH_ID, month) : null;
   const yearFrom = `${year}-01-01`;
   const yearTo = `${year + 1}-01-01`;
   const from = month ? `${month}-01` : yearFrom;
@@ -161,7 +164,11 @@ async function snapshot(
       .groupBy(waitlist.status),
     // Accrued salary needs the timesheet, so it is only affordable for one
     // month; a yearly report reports what was handed over and nothing else.
-    month ? staffWithAttendance(BRANCH_ID, month) : Promise.resolve(null),
+    month
+      ? closed
+        ? Promise.resolve(closed.snapshot.staff as StaffSnapshot)
+        : staffWithAttendance(BRANCH_ID, month)
+      : Promise.resolve(null),
   ]);
 
   const pick = (rows: { month: string; total: number }[], key: string) =>
@@ -237,13 +244,17 @@ async function snapshot(
       left: 0,
       paused: 0,
     },
-    staff: payoutRows.map((person) => {
-      const timesheet = monthly?.rows.find((row) => row.id === person.id);
-      return {
-        ...person,
-        accrued: timesheet ? timesheet.salary : null,
-        remaining: timesheet ? timesheet.remaining : null,
-      };
+    // Закритий місяць зберігає і суми, і склад колективу: працівника могли
+    // звільнити або перейменувати після закриття. Поточний список тут не підходить.
+    staff: monthly ? monthly.rows.map((person) => ({
+      id: person.id,
+      name: person.name,
+      role: person.role,
+      paid: person.paidOut.total,
+      accrued: person.salary,
+      remaining: person.remaining,
+    })) : payoutRows.map((person) => {
+      return { ...person, accrued: null, remaining: null };
     }),
     waitlist: {
       ...waitlistCounts,

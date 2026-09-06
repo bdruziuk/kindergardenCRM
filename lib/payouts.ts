@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { salaryPayments, staff } from "@/db/schema";
-import { FALLBACK_MONTH, monthStart } from "./period";
+import { currentMonth, monthStart } from "./period";
 import { ScopeError } from "./scope";
 import { assertMonthOpen } from "./month-close";
 
@@ -59,10 +59,10 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
 
   if (body.kind === "payout_add") {
     await assertStaffInBranch(body.staffId);
-    await assertMonthOpen(branchId, body.month ?? FALLBACK_MONTH);
+    await assertMonthOpen(branchId, body.month ?? currentMonth());
     await db.insert(salaryPayments).values({
       staffId: body.staffId,
-      month: monthStart(body.month ?? FALLBACK_MONTH),
+      month: monthStart(body.month ?? currentMonth()),
       kind: body.payoutKind,
       amount: body.amount,
       method: body.method,

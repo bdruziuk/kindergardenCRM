@@ -1,4 +1,4 @@
-import { FALLBACK_MONTH } from "@/lib/period";
+import { currentMonth } from "@/lib/period";
 import { upcomingBirthdays } from "@/lib/queries";
 import { loadClose } from "@/lib/month-close";
 import { resolveScope, scopeFailure } from "@/lib/scope";
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const { branchId } = await resolveScope(params.get("branch"));
-    const month = params.get("month") ?? FALLBACK_MONTH;
+    const month = params.get("month") ?? currentMonth();
 
     const closed = await loadClose(branchId, month);
     if (closed?.snapshot.dashboard)

@@ -1,4 +1,6 @@
 "use client";
+import { MonthPicker } from "@/components/MonthPicker";
+import { currentMonth } from "@/lib/period";
 import { useCallback, useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
@@ -13,11 +15,6 @@ import type {
 import { paymentMethodValues } from "@/lib/api-schemas";
 import { PAYMENT_METHOD_LABELS, SALARY_KIND_LABELS } from "@/lib/format";
 
-const months = [
-  ["2026-07", "Липень 2026"],
-  ["2026-08", "Серпень 2026"],
-  ["2026-09", "Вересень 2026"],
-];
 
 const money = (value: number) =>
   value.toLocaleString("uk-UA", { maximumFractionDigits: 2 }) + " ₴";
@@ -90,7 +87,7 @@ export default function FinancesPage() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
   const branch = branchName;
-  const [month, setMonth] = useState("2026-08");
+  const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState<FinanceSnapshot>(EMPTY);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -180,11 +177,6 @@ export default function FinancesPage() {
     if (ok) setPayout(emptyPayout());
   };
 
-  const monthIndex = months.findIndex((item) => item[0] === month);
-  const step = (delta: number) =>
-    setMonth(
-      months[Math.min(months.length - 1, Math.max(0, monthIndex + delta))][0],
-    );
 
   const { income, expense, salaryAccrued, salaryRemaining, balance } =
     data.summary;
@@ -229,20 +221,7 @@ export default function FinancesPage() {
           onChange={reload}
         />
 
-        <div className="payments-month">
-          <button onClick={() => step(-1)}>‹</button>
-          <select
-            value={month}
-            onChange={(event) => setMonth(event.target.value)}
-          >
-            {months.map((item) => (
-              <option value={item[0]} key={item[0]}>
-                {item[1]}
-              </option>
-            ))}
-          </select>
-          <button onClick={() => step(1)}>›</button>
-        </div>
+        <MonthPicker month={month} onChange={setMonth} />
 
         {error && <div className="empty">{error}</div>}
 

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { transactions } from "@/db/schema";
 import { firstIssue, transactionRequest } from "@/lib/api-schemas";
-import { FALLBACK_MONTH } from "@/lib/period";
+import { currentMonth } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { mutatePayout } from "@/lib/payouts";
 import { financeSnapshot as snapshot } from "@/lib/snapshots";
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const { branchId } = await resolveScope(params.get("branch"));
-    const month = params.get("month") ?? FALLBACK_MONTH;
+    const month = params.get("month") ?? currentMonth();
     const closed = await loadClose(branchId, month);
     return Response.json(
       closed
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = parsed.data;
-    await assertMonthOpen(branchId, body.month ?? FALLBACK_MONTH);
+    await assertMonthOpen(branchId, body.month ?? currentMonth());
 
     if (body.kind === "add") {
       await assertMonthOpen(branchId, body.occurredAt.slice(0, 7));
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       await mutatePayout(branchId, body);
     }
 
-    return Response.json(await snapshot(branchId, body.month ?? FALLBACK_MONTH));
+    return Response.json(await snapshot(branchId, body.month ?? currentMonth()));
   } catch (error) {
     return scopeFailure(error) ?? Response.json(
       { error: error instanceof Error ? error.message : "PostgreSQL error" },

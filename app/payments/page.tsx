@@ -1,4 +1,6 @@
 "use client";
+import { MonthPicker } from "@/components/MonthPicker";
+import { currentMonth, monthLabel } from "@/lib/period";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
@@ -61,11 +63,6 @@ async function prepareFile(file: File): Promise<{ name: string; dataUrl: string 
   return { name: file.name, dataUrl };
 }
 
-const months = [
-  ["2026-07", "Липень 2026"],
-  ["2026-08", "Серпень 2026"],
-  ["2026-09", "Вересень 2026"],
-];
 const money = (value: number) =>
   value.toLocaleString("uk-UA", { maximumFractionDigits: 2 }) + " ₴";
 
@@ -81,7 +78,7 @@ export default function PaymentsPage() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
   const branch = branchName;
-  const [month, setMonth] = useState("2026-08");
+  const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState<PaymentsSnapshot>({
     month: "",
     rows: [],
@@ -189,7 +186,7 @@ export default function PaymentsPage() {
           name: groupName,
           planned,
           paid,
-          balance: Math.max(planned - paid, 0),
+          balance: Math.round(rows.reduce((sum, row) => sum + Math.max(row.fee - row.paid, 0), 0) * 100) / 100,
           progress: planned
             ? Math.min(100, Math.round((paid / planned) * 100))
             : 0,
@@ -288,43 +285,7 @@ export default function PaymentsPage() {
           onChange={reload}
         />
 
-        <div className="payments-month">
-          <button
-            onClick={() =>
-              setMonth(
-                months[
-                  Math.max(0, months.findIndex((item) => item[0] === month) - 1)
-                ][0],
-              )
-            }
-          >
-            ‹
-          </button>
-          <select
-            value={month}
-            onChange={(event) => setMonth(event.target.value)}
-          >
-            {months.map((item) => (
-              <option value={item[0]} key={item[0]}>
-                {item[1]}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() =>
-              setMonth(
-                months[
-                  Math.min(
-                    months.length - 1,
-                    months.findIndex((item) => item[0] === month) + 1,
-                  )
-                ][0],
-              )
-            }
-          >
-            ›
-          </button>
-        </div>
+        <MonthPicker month={month} onChange={setMonth} />
 
         <section className="payment-results">
           <div className="method-stats">
@@ -484,7 +445,7 @@ export default function PaymentsPage() {
                 <h2>{selected.name}</h2>
                 <span>
                   {selected.group} ·{" "}
-                  {months.find((item) => item[0] === month)?.[1]}
+                  {monthLabel(month)}
                 </span>
               </div>
             </div>

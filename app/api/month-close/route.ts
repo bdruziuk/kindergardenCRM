@@ -5,7 +5,7 @@ import { users } from "@/db/schema";
 import { MONTH, firstIssue, monthCloseRequest } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
 import { closeMonth, loadClose, openMonth } from "@/lib/month-close";
-import { FALLBACK_MONTH } from "@/lib/period";
+import { currentMonth } from "@/lib/period";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 import {
   dashboardSnapshot,
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const { branchId } = await resolveScope(params.get("branch"));
     const raw = params.get("month");
-    const month = raw && MONTH.test(raw) ? raw : FALLBACK_MONTH;
+    const month = raw && MONTH.test(raw) ? raw : currentMonth();
 
     const closed = await loadClose(branchId, month);
     return Response.json({

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { children, paymentReceipts, payments } from "@/db/schema";
 import { firstIssue, paymentRequest } from "@/lib/api-schemas";
-import { FALLBACK_MONTH, monthStart } from "@/lib/period";
+import { currentMonth, monthStart } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { childrenWithPayments, paymentsSummary } from "@/lib/queries";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const { branchId } = await resolveScope(params.get("branch"));
-    const month = params.get("month") ?? FALLBACK_MONTH;
+    const month = params.get("month") ?? currentMonth();
     return Response.json(await snapshot(branchId, month));
   } catch (error) {
     return scopeFailure(error) ?? Response.json(

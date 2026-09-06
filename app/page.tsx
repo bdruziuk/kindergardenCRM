@@ -1,4 +1,6 @@
 "use client";
+import { MonthPicker } from "@/components/MonthPicker";
+import { currentMonth, monthLabel } from "@/lib/period";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
@@ -7,11 +9,6 @@ import { Sidebar } from "@/components/Sidebar";
 import type { DashboardDto } from "@/app/api/dashboard/route";
 import { initialsOf, moneyLabel, yearsLabel } from "@/lib/format";
 
-const months = [
-  ["2026-07", "Липень 2026"],
-  ["2026-08", "Серпень 2026"],
-  ["2026-09", "Вересень 2026"],
-];
 
 /** Feeds a percentage into the conic-gradient rings via a CSS variable. */
 const pct = (value: number) =>
@@ -43,7 +40,7 @@ const today = () =>
 
 export default function Home() {
   const { scope, branchId, choose, branchQuery } = useBranch();
-  const [month, setMonth] = useState("2026-08");
+  const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState<DashboardDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState("");
@@ -67,11 +64,6 @@ export default function Home() {
     reload();
   }, [reload]);
 
-  const monthIndex = months.findIndex((item) => item[0] === month);
-  const step = (delta: number) =>
-    setMonth(
-      months[Math.min(months.length - 1, Math.max(0, monthIndex + delta))][0],
-    );
 
   return (
     <main className="shell">
@@ -104,11 +96,7 @@ export default function Home() {
         />
 
         <div className="month">
-          <div>
-            <button onClick={() => step(-1)}>‹</button>
-            <b>{months[monthIndex]?.[1] ?? month}</b>
-            <button onClick={() => step(1)}>›</button>
-          </div>
+          <MonthPicker month={month} onChange={setMonth} />
           <p>
             <i className="green" />
             Сплачено <i className="yellow" />
@@ -150,7 +138,7 @@ export default function Home() {
           <article className="panel">
             <Top
               title="Оплата за садочок"
-              sub={`Прогрес по групах · ${months[monthIndex]?.[1] ?? month}`}
+              sub={`Прогрес по групах · ${monthLabel(month)}`}
               href="/payments"
             />
             <div className="chart">
@@ -186,7 +174,7 @@ export default function Home() {
           <article className="panel">
             <Top
               title="Виплата зарплат"
-              sub={months[monthIndex]?.[1] ?? month}
+              sub={monthLabel(month)}
               href="/staff"
             />
             <div className="salary">
