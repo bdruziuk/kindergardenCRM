@@ -31,7 +31,7 @@ export async function branchFee(branchId: number) {
   return branch?.monthlyFee ?? 0;
 }
 
-/** One row per enrolled child, with the month's payments folded in. */
+/** Current children and any former children with payments in this billing month. */
 export async function childrenWithPayments(
   branchId: number,
   month: string,
@@ -45,11 +45,12 @@ export async function childrenWithPayments(
         id: children.id,
         fullName: children.fullName,
         customFee: children.customFee,
+        status: children.status,
         groupName: groups.name,
       })
       .from(children)
       .leftJoin(groups, eq(groups.id, children.groupId))
-      .where(and(eq(children.branchId, branchId), ne(children.status, "left")))
+      .where(eq(children.branchId, branchId))
       .orderBy(asc(children.fullName)),
     db
       .select({
@@ -63,14 +64,18 @@ export async function childrenWithPayments(
         receiptSize: paymentReceipts.size,
       })
       .from(payments)
+      .innerJoin(children, eq(children.id, payments.childId))
       // Приєднуємо лише метадані квитанції: сам вміст лишається в базі, поки
       // його не попросять, інакше кожне відкриття сторінки тягнуло б файли.
       .leftJoin(paymentReceipts, eq(paymentReceipts.paymentId, payments.id))
-      .where(eq(payments.billingMonth, billingMonth))
+      .where(and(eq(payments.billingMonth, billingMonth), eq(children.branchId, branchId)))
       .orderBy(desc(payments.paidAt), desc(payments.id)),
   ]);
 
-  return childRows.map((child) => {
+  // Вибуття не скасовує отримані гроші. Лишаємо рядок з історією оплат
+  // за цей місяць, але не додаємо вибулим дітям нарахувань у місяцях без оплат.
+  const paidChildIds = new Set(paymentRows.map((payment) => payment.childId));
+  return childRows.filter((child) => child.status !== "left" || paidChildIds.has(child.id)).map((child) => {
     const history = paymentRows
       .filter((payment) => payment.childId === child.id)
       .map((payment) => ({

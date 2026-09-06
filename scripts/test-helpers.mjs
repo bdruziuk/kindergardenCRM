@@ -43,6 +43,7 @@ export const orm = {
   and: (...conditions) => (row) => conditions.every((condition) => condition(row)),
   inArray: (column, values) => (row) => values.includes(value(column, row)),
   asc: () => null,
+  desc: () => null,
   sql: (strings, ...args) => strings.join("").includes(" and ")
     ? (row) => value(args[0], row) === args[1] && value(args[2], row) === args[3]
     : 0,
