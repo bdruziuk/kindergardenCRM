@@ -284,11 +284,11 @@ const waitlistEntry = {
   childBirthDate: day.nullable().default(null),
   parentName: z.string().trim().min(1, "Вкажіть ім’я контактної особи").max(120),
   parentPhone: z.string().trim().min(1, "Вкажіть телефон").max(40),
-  parentEmail: z.string().trim().max(120).default(""),
+  parentEmail: z.string().trim().max(120, "Пошта задовга — до 120 символів").default(""),
   /** null = no preference */
   preferredGroupId: id.nullable().default(null),
   desiredFrom: month.nullable().default(null),
-  note: z.string().trim().max(400).default(""),
+  note: z.string().trim().max(400, "Примітка задовга — до 400 символів").default(""),
 };
 
 const year = z.coerce

@@ -61,6 +61,33 @@ const categoryOf = (
   return match ? String(match.id) : NO_CATEGORY;
 };
 
+const MONTH_NAMES = [
+  "Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
+  "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень",
+];
+
+/** Розбирає «YYYY-MM» на два списки. Порожній рік — поточний: місяць без року
+ *  нічого не означає, а змушувати обирати обидва там, де рік майже завжди
+ *  найближчий, — зайвий клік. */
+const splitMonth = (value: string) => ({
+  month: value.slice(5, 7),
+  year: value.slice(0, 4) || String(new Date().getFullYear()),
+});
+
+/** Порожній місяць означає «не вказано» — тоді й року немає. */
+const joinMonth = (month: string, year: string) =>
+  month ? `${year}-${month}` : "";
+
+/** Найближчі роки плюс той, що вже стоїть у заявці: інакше, відкривши стару
+ *  заявку, ми мовчки пересунули б її на інший рік. */
+const yearChoices = (selected: string) => {
+  const now = new Date().getFullYear();
+  const years = [now, now + 1, now + 2, now + 3];
+  const picked = Number(selected);
+  if (picked && !years.includes(picked)) years.unshift(picked);
+  return years;
+};
+
 const emptyDraft = (): Draft => ({
   id: null,
   childName: "",
@@ -115,6 +142,9 @@ export default function WaitlistPage() {
     setError(null);
     return true;
   };
+
+  /** «Бажаний початок» показується двома списками, тож тримаємо його розібраним. */
+  const desired = splitMonth(draft?.desiredFrom ?? "");
 
   const shown = useMemo(
     () =>
@@ -437,9 +467,19 @@ export default function WaitlistPage() {
       </section>
 
       {draft && (
-        <Modal className="modal waitlist-modal" onClose={() => setDraft(null)}>
+        <Modal
+          className="modal waitlist-modal"
+          onClose={() => {
+            setDraft(null);
+            setError(null);
+          }}
+        >
           <h2>{draft.id ? "Змінити заявку" : "Нова заявка"}</h2>
           <p>Дитина, контактна особа та побажання щодо групи й початку</p>
+          {/* Той самий текст, що й на сторінці: там він лишається під
+              оверлеєм модалки, і відмова сервера виглядала б так, ніби кнопка
+              просто не працює. */}
+          {error && <p className="modal-error">{error}</p>}
           <div className="form-grid">
             <label>
               Ім’я дитини
@@ -510,13 +550,45 @@ export default function WaitlistPage() {
             </label>
             <label>
               Бажаний початок
-              <input
-                type="month"
-                value={draft.desiredFrom}
-                onChange={(e) =>
-                  setDraft({ ...draft, desiredFrom: e.target.value })
-                }
-              />
+              {/* Два списки, а не `type="month"`: десктопний Safari цього типу
+                  не підтримує й показує звичайне текстове поле, куди людина
+                  пише «вересень 2027» — і заявка мовчки не проходить перевірку
+                  формату на сервері. Списки виглядають однаково скрізь. */}
+              <div className="month-select">
+                <select
+                  aria-label="Місяць"
+                  value={desired.month}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      desiredFrom: joinMonth(e.target.value, desired.year),
+                    })
+                  }
+                >
+                  <option value="">Не вказано</option>
+                  {MONTH_NAMES.map((name, index) => (
+                    <option key={name} value={String(index + 1).padStart(2, "0")}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Рік"
+                  value={desired.year}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      desiredFrom: joinMonth(desired.month, e.target.value),
+                    })
+                  }
+                >
+                  {yearChoices(desired.year).map((year) => (
+                    <option key={year} value={String(year)}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
             <label className="wide-field">
               Примітка
@@ -528,7 +600,14 @@ export default function WaitlistPage() {
             </label>
           </div>
           <div className="modal-actions">
-            <button onClick={() => setDraft(null)}>Скасувати</button>
+            <button
+              onClick={() => {
+                setDraft(null);
+                setError(null);
+              }}
+            >
+              Скасувати
+            </button>
             <button
               className="primary"
               disabled={

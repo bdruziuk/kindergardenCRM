@@ -567,3 +567,8 @@
 .child-days-row>b{font-size:14px;color:var(--accent)}
 .child-days-row button{height:37px}
 .fee-note{display:block;margin-top:3px;font-size:8px;color:#99a49f}
+
+.month-select{display:grid;grid-template-columns:1fr 88px;gap:8px;margin-top:6px}
+.month-select select{width:100%;height:38px;margin:0;border:1px solid var(--line);border-radius:9px;padding:0 10px;background:#fff;font-size:10px;outline:none}
+.month-select select:focus{border-color:var(--accent-focus)}
+.modal-error{margin:0 0 18px!important;padding:10px 12px;border:1px solid #f0cac5;border-radius:9px;background:#fdf4f3;color:#ce5751;font-size:10px!important;line-height:1.4}
