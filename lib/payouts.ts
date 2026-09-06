@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { salaryPayments, staff } from "@/db/schema";
 import { FALLBACK_MONTH, monthStart } from "./period";
 import { ScopeError } from "./scope";
+import { assertMonthOpen } from "./month-close";
 
 type PayoutAction =
   | {
@@ -48,7 +49,7 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
 
   const loadPayout = async (payoutId: number) => {
     const [payout] = await db
-      .select({ id: salaryPayments.id, staffId: salaryPayments.staffId })
+      .select({ id: salaryPayments.id, staffId: salaryPayments.staffId, month: salaryPayments.month })
       .from(salaryPayments)
       .where(eq(salaryPayments.id, payoutId));
     if (!payout) throw new ScopeError("Виплату не знайдено", 404);
@@ -58,6 +59,7 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
 
   if (body.kind === "payout_add") {
     await assertStaffInBranch(body.staffId);
+    await assertMonthOpen(branchId, body.month ?? FALLBACK_MONTH);
     await db.insert(salaryPayments).values({
       staffId: body.staffId,
       month: monthStart(body.month ?? FALLBACK_MONTH),
@@ -71,6 +73,8 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
   }
 
   const payout = await loadPayout(body.payoutId);
+  // Період виплати береться з БД: month у запиті лише вибирає сторінку.
+  await assertMonthOpen(branchId, payout.month.slice(0, 7));
 
   if (body.kind === "payout_remove") {
     await db.delete(salaryPayments).where(eq(salaryPayments.id, payout.id));

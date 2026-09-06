@@ -112,11 +112,12 @@ export async function POST(request: Request) {
       if (body.receipt) await attachReceipt(created.id, body.receipt);
     } else if (body.kind === "receipt_set" || body.kind === "receipt_remove") {
       const [payment] = await db
-        .select({ childId: payments.childId })
+        .select({ childId: payments.childId, billingMonth: payments.billingMonth })
         .from(payments)
         .where(eq(payments.id, body.paymentId));
       if (!payment) throw new ScopeError("Оплату не знайдено", 404);
       await assertChildInBranch(payment.childId, branchId);
+      await assertMonthOpen(branchId, payment.billingMonth.slice(0, 7));
 
       if (body.kind === "receipt_set") {
         await attachReceipt(body.paymentId, body.receipt);
@@ -127,13 +128,14 @@ export async function POST(request: Request) {
       }
     } else {
       const [payment] = await db
-        .select({ childId: payments.childId })
+        .select({ childId: payments.childId, billingMonth: payments.billingMonth })
         .from(payments)
         .where(eq(payments.id, body.paymentId));
       if (!payment)
         throw new ScopeError("Оплату не знайдено", 404);
 
       await assertChildInBranch(payment.childId, branchId);
+      await assertMonthOpen(branchId, payment.billingMonth.slice(0, 7));
       await db.delete(payments).where(eq(payments.id, body.paymentId));
     }
 

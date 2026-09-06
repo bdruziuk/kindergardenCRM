@@ -74,14 +74,16 @@ export async function POST(request: Request) {
       if (!person) throw new ScopeError("Працівника не знайдено", 404);
     } else if (body.kind === "lesson_note" || body.kind === "lesson_remove") {
       const [lesson] = await db
-        .select({ id: lessons.id })
+        .select({ id: lessons.id, workDate: lessons.workDate })
         .from(lessons)
         .innerJoin(staff, eq(staff.id, lessons.staffId))
         .where(and(eq(lessons.id, body.lessonId), eq(staff.branchId, branchId)));
       if (!lesson) throw new ScopeError("Заняття не знайдено", 404);
+      await assertMonthOpen(branchId, lesson.workDate.slice(0, 7));
     }
 
     if (body.kind === "attendance") {
+      await assertMonthOpen(branchId, body.date.slice(0, 7));
       if (body.state === "unmarked") {
         await db
           .delete(staffAttendance)
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
           });
       }
     } else if (body.kind === "lesson_add") {
+      await assertMonthOpen(branchId, body.date.slice(0, 7));
       await db
         .insert(lessons)
         .values({

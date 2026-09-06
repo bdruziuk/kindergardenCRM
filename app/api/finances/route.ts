@@ -6,7 +6,7 @@ import { FALLBACK_MONTH } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { mutatePayout } from "@/lib/payouts";
 import { financeSnapshot as snapshot } from "@/lib/snapshots";
-import { resolveScope, scopeFailure } from "@/lib/scope";
+import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
 
 export async function GET(request: Request) {
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     await assertMonthOpen(branchId, body.month ?? FALLBACK_MONTH);
 
     if (body.kind === "add") {
+      await assertMonthOpen(branchId, body.occurredAt.slice(0, 7));
       await db.insert(transactions).values({
         branchId,
         category: body.category,
@@ -51,6 +52,12 @@ export async function POST(request: Request) {
         note: body.note || null,
       });
     } else if (body.kind === "remove") {
+      const [expense] = await db
+        .select({ occurredAt: transactions.occurredAt })
+        .from(transactions)
+        .where(and(eq(transactions.id, body.transactionId), eq(transactions.branchId, branchId)));
+      if (!expense) throw new ScopeError("Витрату не знайдено", 404);
+      await assertMonthOpen(branchId, expense.occurredAt.slice(0, 7));
       // Умова по філії, а не лише по id: чужу витрату не стерти, підставивши
       // її номер руками.
       await db
