@@ -318,8 +318,10 @@ export default function WaitlistPage() {
 
         {error && <div className="empty">{error}</div>}
 
+        {/* Класи статусів тут не декоративні: з них плитка бере той самий
+            колір, що й позначка статусу в рядку. */}
         <div className="staff-stats">
-          <article>
+          <article className="waiting">
             <i>◷</i>
             <div>
               <span>У черзі</span>
@@ -327,7 +329,7 @@ export default function WaitlistPage() {
               <small>усього заявок {data.summary.total}</small>
             </div>
           </article>
-          <article>
+          <article className="invited">
             <i>✉</i>
             <div>
               <span>Запрошено</span>
@@ -335,7 +337,7 @@ export default function WaitlistPage() {
               <small>чекають на відповідь</small>
             </div>
           </article>
-          <article className="salary-stat">
+          <article className="enrolled">
             <i>✓</i>
             <div>
               <span>Зараховано</span>
@@ -343,7 +345,7 @@ export default function WaitlistPage() {
               <small>із черги</small>
             </div>
           </article>
-          <article className="absent-stat">
+          <article className="declined">
             <i>×</i>
             <div>
               <span>Відмовились</span>
@@ -377,7 +379,7 @@ export default function WaitlistPage() {
                   ] as [string, string][]
                 ).map(([value, label]) => (
                   <button
-                    className={filter === value ? "active" : ""}
+                    className={value + (filter === value ? " active" : "")}
                     key={value}
                     onClick={() => setFilter(value as "all" | WaitlistStatus)}
                   >

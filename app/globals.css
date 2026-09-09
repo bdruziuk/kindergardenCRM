@@ -182,10 +182,23 @@
 /* --- waitlist ----------------------------------------------------------- */
 .waitlist-table{min-width:980px}
 .waitlist-status{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:11px;font-weight:600;background:#fff;color:var(--ink);cursor:pointer}
-.waitlist-status.waiting{background:#fdf5e6;border-color:#f0e0c0;color:#a3691f}
-.waitlist-status.invited{background:#e8f0fa;border-color:#cfdff7;color:#2f5aa8}
-.waitlist-status.enrolled{background:var(--accent-soft-2);border-color:var(--accent-line);color:var(--accent-ink)}
-.waitlist-status.declined{background:#f3f5f4;border-color:var(--line);color:#8b978f}
+/* Кожен статус черги має власний колір, і він той самий у всіх кольорових
+   схемах — те саме правило, що вгорі файлу. «Зараховано» раніше брало акцент
+   філії: під синьою схемою воно ставало таким же синім, як «Запрошено», а під
+   жовтою — таким же бежевим, як «Очікує». Чотири статуси зливались у два. */
+.waitlist-page{--waiting-ink:#a3691f;--waiting-soft:#fdf5e6;--waiting-line:#f0e0c0;--invited-ink:#2f5aa8;--invited-soft:#e8f0fa;--invited-line:#cfdff7;--enrolled-ink:#1f7a52;--enrolled-soft:#e4f3ec;--enrolled-line:#bfe0ce;--declined-ink:#6f7c76;--declined-soft:#f3f5f4;--declined-line:#e2e7e4}
+/* Одне зіставлення статусу з кольором на всю сторінку: далі його читають і
+   випадний список у рядку, і плитки згори, і кнопки фільтра. */
+.waitlist-page .waiting{--status-ink:var(--waiting-ink);--status-soft:var(--waiting-soft);--status-line:var(--waiting-line)}
+.waitlist-page .invited{--status-ink:var(--invited-ink);--status-soft:var(--invited-soft);--status-line:var(--invited-line)}
+.waitlist-page .enrolled{--status-ink:var(--enrolled-ink);--status-soft:var(--enrolled-soft);--status-line:var(--enrolled-line)}
+.waitlist-page .declined{--status-ink:var(--declined-ink);--status-soft:var(--declined-soft);--status-line:var(--declined-line)}
+.waitlist-status.waiting,.waitlist-status.invited,.waitlist-status.enrolled,.waitlist-status.declined{background:var(--status-soft);border-color:var(--status-line);color:var(--status-ink)}
+.waitlist-page .staff-stats article>i{background:var(--status-soft,var(--accent-soft));color:var(--status-ink,var(--accent))}
+.waitlist-page .staff-stats article b{color:var(--status-ink,var(--ink))}
+.waitlist-page .view-switch button::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;vertical-align:middle;background:var(--status-ink)}
+.waitlist-page .view-switch button.all::before{display:none}
+.waitlist-page .view-switch button.active{background:var(--status-soft,var(--accent-soft));color:var(--status-ink,var(--accent-ink))}
 .waitlist-actions{white-space:nowrap}
 .waitlist-year th{text-align:left;padding:9px 14px;background:#f7f9f8;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .waitlist-year th span{display:inline-grid;place-items:center;min-width:20px;height:18px;padding:0 6px;margin-left:8px;border-radius:9px;background:var(--accent-soft);color:var(--accent);letter-spacing:0}
