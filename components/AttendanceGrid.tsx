@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import type { CalendarDay, StaffRowDto } from "@/lib/api-schemas";
 import {
   ATTENDANCE_KIND_LABELS,
@@ -29,12 +30,51 @@ export function AttendanceGrid({
   onCycleAttendance: (person: StaffRowDto, date: string) => void;
   onOpenLessons: (person: StaffRowDto, date: string) => void;
 }) {
-  if (!rows.length)
-    return <div className="empty">Колективу за цей місяць немає.</div>;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const floatingRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <div className="grid-scroll">
-      <table className="attendance-grid-table">
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    const table = tableRef.current;
+    const floating = floatingRef.current;
+    if (!scroll || !table || !floating) return;
+    const copy = floating.querySelector("table");
+    if (!copy) return;
+    const align = () => {
+      const cells = table.tHead?.rows[0].cells;
+      const copies = copy.tHead?.rows[0].cells;
+      if (!cells || !copies) return;
+      copy.style.width = table.getBoundingClientRect().width + "px";
+      floating.style.width = scroll.clientWidth + "px";
+      Array.from(cells).forEach((cell, index) => {
+        const width = cell.getBoundingClientRect().width + "px";
+        copies[index].style.width = width;
+        copies[index].style.minWidth = width;
+        copies[index].style.maxWidth = width;
+      });
+      // Give sticky positioning its actual height so it stops at the last row.
+      const sticky = floating.parentElement;
+      if (sticky) {
+        const height = floating.getBoundingClientRect().height;
+        sticky.style.height = height + "px";
+        sticky.style.marginBottom = -height + "px";
+      }
+      floating.scrollLeft = scroll.scrollLeft;
+    };
+    const syncScroll = () => { floating.scrollLeft = scroll.scrollLeft; };
+    const observer = new ResizeObserver(align);
+    observer.observe(table);
+    observer.observe(scroll);
+    scroll.addEventListener("scroll", syncScroll, { passive: true });
+    align();
+    return () => {
+      observer.disconnect();
+      scroll.removeEventListener("scroll", syncScroll);
+    };
+  }, [rows, calendar]);
+
+  const header = (
         <thead>
           <tr>
             <th className="grid-name">Працівник</th>
@@ -51,6 +91,21 @@ export function AttendanceGrid({
             <th className="grid-total">Разом</th>
           </tr>
         </thead>
+  );
+
+  if (!rows.length)
+    return <div className="empty">Колективу за цей місяць немає.</div>;
+
+  return (
+    <div className="attendance-grid-wrap">
+      <div className="attendance-floating-head" aria-hidden="true">
+        <div ref={floatingRef} className="attendance-head-clip">
+          <table className="attendance-grid-table">{header}</table>
+        </div>
+      </div>
+      <div className="grid-scroll" ref={scrollRef}>
+      <table className="attendance-grid-table" ref={tableRef}>
+        {header}
         <tbody>
           {rows.map((person) => {
             const byLesson = paidByLesson(person.salaryType);
@@ -154,6 +209,7 @@ export function AttendanceGrid({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
