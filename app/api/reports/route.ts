@@ -51,6 +51,7 @@ async function snapshot(
       and (${children.leftAt} is null or ${children.leftAt} >= ${from}::date)`;
 
   const [
+    otherIncomeRows,
     incomeRows,
     salaryRows,
     expenseRows,
@@ -61,6 +62,18 @@ async function snapshot(
     waitlistRows,
     monthly,
   ] = await Promise.all([
+    db
+      .select({
+        month: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
+        total: sql<number>`sum(${transactions.amount})::float8`,
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.branchId, BRANCH_ID),
+        eq(transactions.direction, "income"),
+        sql`${transactions.occurredAt} >= ${yearFrom}::date and ${transactions.occurredAt} < ${yearTo}::date`,
+      ))
+      .groupBy(sql`1`),
     db
       .select({
         month: sql<string>`to_char(${payments.billingMonth}, 'YYYY-MM')`,
@@ -100,6 +113,7 @@ async function snapshot(
       .where(
         and(
           eq(transactions.branchId, BRANCH_ID),
+          eq(transactions.direction, "expense"),
           sql`${transactions.occurredAt} >= ${yearFrom}::date and ${transactions.occurredAt} < ${yearTo}::date`,
         ),
       )
@@ -113,6 +127,7 @@ async function snapshot(
       .where(
         and(
           eq(transactions.branchId, BRANCH_ID),
+          eq(transactions.direction, "expense"),
           sql`${transactions.occurredAt} >= ${from}::date and ${transactions.occurredAt} < ${until}`,
         ),
       )
@@ -176,7 +191,7 @@ async function snapshot(
 
   const months: ReportMonthDto[] = Array.from({ length: 12 }, (_, index) => {
     const key = `${year}-${String(index + 1).padStart(2, "0")}`;
-    const income = pick(incomeRows, key);
+    const income = pick(incomeRows, key) + pick(otherIncomeRows, key);
     const salaryPaid = pick(salaryRows, key);
     const otherExpenses = pick(expenseRows, key);
     const expenses = salaryPaid + otherExpenses;

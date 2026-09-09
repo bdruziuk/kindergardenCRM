@@ -110,9 +110,9 @@ export default function Home() {
         <div className="stats">
           <Card
             icon="₴"
-            title="Отримано оплат"
-            value={moneyLabel(data?.payments.received ?? 0)}
-            note={`${data?.payments.progress ?? 0}% від запланованих`}
+            title="Загальний дохід"
+            value={moneyLabel(data?.income?.total ?? data?.payments.received ?? 0)}
+            note={`інший дохід ${moneyLabel(data?.income?.other ?? 0)}`}
           />
           <Card
             icon="♧"

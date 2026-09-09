@@ -87,21 +87,22 @@ export async function financeSnapshot(
     monthExpenses(branchId, month),
   ]);
 
-  // Income is not a ledger of its own: the only money coming in is the
-  // monthly fee, so it is whatever the parents have actually paid.
-  const income = paymentsSummary(childRows).received;
+  const incomeRows = rows.filter((row) => row.direction === "income");
+  const expenseRows = rows.filter((row) => row.direction !== "income");
+  const otherIncome = incomeRows.reduce((sum, row) => sum + row.amount, 0);
+  const income = paymentsSummary(childRows).received + otherIncome;
 
   // The expense is the cash that actually left, mirroring income being what
   // parents actually paid. What the timesheet accrued is reported alongside.
   const salaryAccrued = salaryRows.reduce((sum, row) => sum + row.accrued, 0);
   const salary = salaryRows.reduce((sum, row) => sum + row.paid, 0);
   const salaryRemaining = Math.round((salaryAccrued - salary) * 100) / 100;
-  const other = rows.reduce((sum, row) => sum + row.amount, 0);
+  const other = expenseRows.reduce((sum, row) => sum + row.amount, 0);
   const total = salary + other;
 
   const byCategory = new Map<string, number>();
   if (salary) byCategory.set(SALARY_CATEGORY, salary);
-  for (const row of rows)
+  for (const row of expenseRows)
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
 
   // Розклад по видах оплати. Витрата віднімається саме від доходів свого
@@ -116,7 +117,8 @@ export async function financeSnapshot(
     for (const item of child.history)
       perMethod.get(item.method)!.income += item.amount;
 
-  for (const row of rows) perMethod.get(row.method)!.expense += row.amount;
+  for (const row of expenseRows) perMethod.get(row.method)!.expense += row.amount;
+  for (const row of incomeRows) perMethod.get(row.method)!.income += row.amount;
 
   // Зарплата — теж витрата, і теж має вид: без неї підсумок не сходився б
   // саме на найбільшій статті.
@@ -148,6 +150,7 @@ export async function financeSnapshot(
     salaryRows,
     summary: {
       income,
+      otherIncome,
       expense: { salary, other, total },
       salaryAccrued,
       salaryRemaining,
@@ -173,7 +176,7 @@ export async function dashboardSnapshot(branchId: number, month: string) {
       .from(children)
       .where(eq(children.branchId, branchId)),
     db
-      .select({ amount: transactions.amount })
+      .select({ amount: transactions.amount, direction: transactions.direction })
       .from(transactions)
       .where(
         and(
@@ -191,7 +194,8 @@ export async function dashboardSnapshot(branchId: number, month: string) {
   );
   const summary = paymentsSummary(childRows);
   const salaryAccrued = staffData.rows.reduce((sum, row) => sum + row.salary, 0);
-  const otherExpenses = expenseRows.reduce((sum, row) => sum + row.amount, 0);
+  const otherExpenses = expenseRows.filter((row) => row.direction !== "income").reduce((sum, row) => sum + row.amount, 0);
+  const otherIncome = expenseRows.filter((row) => row.direction === "income").reduce((sum, row) => sum + row.amount, 0);
 
   // Progress per group, ordered by how much is still outstanding.
   const byGroup = new Map<string, { planned: number; paid: number }>();
@@ -205,6 +209,7 @@ export async function dashboardSnapshot(branchId: number, month: string) {
   return {
     month: billingMonth.slice(0, 7),
     payments: summary,
+    income: { total: summary.received + otherIncome, other: otherIncome },
     children: {
       active: counts[0]?.activeChildren ?? 0,
       groups: counts[0]?.groupCount ?? 0,

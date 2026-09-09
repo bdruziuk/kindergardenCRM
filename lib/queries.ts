@@ -316,7 +316,7 @@ export async function staffWithAttendance(
   return { info, rows };
 }
 
-/** Hand-entered expenses for the month, newest first. */
+/** Hand-entered income and expenses for the month, newest first. */
 export async function monthExpenses(
   branchId: number,
   month: string,
@@ -336,6 +336,7 @@ export async function monthExpenses(
 
   return rows.map((row) => ({
     id: row.id,
+    direction: row.direction,
     category: row.category,
     amount: row.amount,
     method: row.method,

@@ -41,6 +41,7 @@ function setup(closedMonth, recordMonth = "2026-08") {
   return { data, post: (route) => load(`app/api/${route}/route.ts`, mocks).POST };
 }
 const cases = [
+  ["finances", { kind: "add", direction: "income", category: "Other income", amount: 100, method: "iban" }, "occurredAt"],
   ["payments", { kind: "remove", paymentId: 1 }],
   ["payments", { kind: "receipt_set", paymentId: 1, receipt }],
   ["payments", { kind: "receipt_remove", paymentId: 1 }],

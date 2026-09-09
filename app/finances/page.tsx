@@ -49,6 +49,7 @@ const EMPTY: FinanceSnapshot = {
 };
 
 type Draft = {
+  direction: "expense" | "income";
   category: string;
   amount: string;
   method: PaymentMethod;
@@ -57,6 +58,7 @@ type Draft = {
 };
 
 const emptyDraft = (): Draft => ({
+  direction: "expense",
   category: "",
   amount: "",
   method: "cash",
@@ -192,7 +194,7 @@ export default function FinancesPage() {
             <h1>Доходи й витрати</h1>
             <p className="page-sub">
               Дохід — це оплата за садок, вона рахується автоматично. Тут
-              додаються витрати
+              додаються інші доходи та витрати
             </p>
           </div>
           <div className="actions">
@@ -201,6 +203,9 @@ export default function FinancesPage() {
               branchId={branchId}
               onChange={choose}
             />
+            <button className="primary staff-primary" disabled={Boolean(data.closed)} onClick={() => {
+              setDraft({ ...emptyDraft(), direction: "income" }); setAdding(true);
+            }}>＋ Інший дохід</button>
             <button
               className="primary staff-primary"
               onClick={() => {
@@ -246,7 +251,7 @@ export default function FinancesPage() {
             <div>
               <span>Дохід</span>
               <b>{money(income)}</b>
-              <small>оплата за садок</small>
+              <small>з них інший дохід {money(data.summary.otherIncome ?? 0)}</small>
             </div>
           </article>
           <article>
@@ -423,7 +428,7 @@ export default function FinancesPage() {
           <div className="payment-toolbar">
             <div>
               <h2>
-                Витрати <span>{data.rows.length}</span>
+                Інші доходи та витрати <span>{data.rows.length}</span>
               </h2>
               <p>Філія «{branch}» · без зарплат, вони окремою таблицею вище</p>
             </div>
@@ -447,13 +452,13 @@ export default function FinancesPage() {
                     <td>{PAYMENT_METHOD_LABELS[row.method]}</td>
                     <td className="finance-note">{row.note || "—"}</td>
                     <td>
-                      <b className="negative-balance">−{money(row.amount)}</b>
+                      <b className={row.direction === "income" ? "green-text" : "negative-balance"}>{row.direction === "income" ? "+" : "−"}{money(row.amount)}</b>
                     </td>
                     <td>
                       <button
                         className="remove-relative"
                         disabled={saving}
-                        aria-label="Видалити витрату"
+                        aria-label="Видалити операцію"
                         onClick={() =>
                           send({ kind: "remove", transactionId: row.id })
                         }
@@ -467,7 +472,7 @@ export default function FinancesPage() {
             </table>
             {!data.rows.length && (
               <div className="empty">
-                Витрат за цей місяць ще немає.
+                Операцій за цей місяць ще немає.
               </div>
             )}
           </div>
@@ -476,8 +481,8 @@ export default function FinancesPage() {
 
       {adding && (
         <Modal className="modal" onClose={() => setAdding(false)}>
-          <h2>Додати витрату</h2>
-          <p>Те, чого застосунок не рахує сам — продукти, оренда, комунальні</p>
+          <h2>{draft.direction === "income" ? "Додати інший дохід" : "Додати витрату"}</h2>
+          <p>{draft.direction === "income" ? "Вкажіть джерело, суму та спосіб отримання доходу" : "Продукти, оренда, комунальні та інші витрати"}</p>
           <div className="form-grid">
             <label>
               Дата
@@ -493,7 +498,8 @@ export default function FinancesPage() {
               Сума
               <input
                 type="number"
-                min="0"
+                min="0.01"
+                step="0.01"
                 value={draft.amount}
                 onChange={(event) =>
                   setDraft({ ...draft, amount: event.target.value })
@@ -501,7 +507,7 @@ export default function FinancesPage() {
               />
             </label>
             <label>
-              Чим заплатили
+              {draft.direction === "income" ? "Як отримали" : "Чим заплатили"}
               {methodSelect(draft.method, (method) =>
                 setDraft({ ...draft, method }),
               )}
@@ -514,10 +520,10 @@ export default function FinancesPage() {
                 onChange={(event) =>
                   setDraft({ ...draft, category: event.target.value })
                 }
-                placeholder="Наприклад, Продукти"
+                placeholder={draft.direction === "income" ? "Наприклад, додаткові заняття" : "Наприклад, Продукти"}
               />
               <datalist id="finance-categories">
-                {CATEGORIES.map((item) => (
+                {(draft.direction === "income" ? ["Додаткові заняття", "Повернення коштів", "Інше"] : CATEGORIES).map((item) => (
                   <option key={item} value={item} />
                 ))}
               </datalist>
@@ -543,6 +549,7 @@ export default function FinancesPage() {
               onClick={async () => {
                 const ok = await send({
                   kind: "add",
+                  direction: draft.direction,
                   category: draft.category,
                   amount: Number(draft.amount),
                   method: draft.method,

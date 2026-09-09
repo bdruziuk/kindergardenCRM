@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       await assertMonthOpen(branchId, body.occurredAt.slice(0, 7));
       await db.insert(transactions).values({
         branchId,
+        direction: body.direction,
         category: body.category,
         amount: body.amount,
         method: body.method,
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
         .select({ occurredAt: transactions.occurredAt })
         .from(transactions)
         .where(and(eq(transactions.id, body.transactionId), eq(transactions.branchId, branchId)));
-      if (!expense) throw new ScopeError("Витрату не знайдено", 404);
+      if (!expense) throw new ScopeError("Операцію не знайдено", 404);
       await assertMonthOpen(branchId, expense.occurredAt.slice(0, 7));
       // Умова по філії, а не лише по id: чужу витрату не стерти, підставивши
       // її номер руками.

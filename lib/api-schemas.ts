@@ -248,6 +248,7 @@ export const staffRequest = z.discriminatedUnion("kind", [
 export const transactionRequest = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("add"),
+    direction: z.enum(["expense", "income"]).default("expense"),
     category: z.string().trim().min(1, "Вкажіть категорію").max(60),
     amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
     method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
@@ -539,9 +540,10 @@ export type StaffSnapshot = {
   error?: string;
 };
 
-/** A hand-entered expense. Income is not part of this ledger: the only money
- *  coming in is the monthly fee, which is derived from `payments`. */
+/** A hand-entered expense or other income. */
 export type ExpenseDto = {
+  /** Absent in historical closed snapshots means expense. */
+  direction?: "expense" | "income";
   id: number;
   category: string;
   amount: number;
@@ -587,7 +589,8 @@ export type FinanceSnapshot = {
   rows: ExpenseDto[];
   salaryRows: SalaryRowDto[];
   summary: {
-    /** Parent payments received this month. */
+    otherIncome?: number;
+    /** Parent payments plus other income. */
     income: number;
     /** Cash that left this month: salary handed over plus other expenses. */
     expense: { salary: number; other: number; total: number };

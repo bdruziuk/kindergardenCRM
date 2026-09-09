@@ -395,8 +395,9 @@ export const salaryPayments = pgTable(
   ],
 );
 
-/** Hand-entered expenses. Income is never entered by hand: the only money
- *  coming in is the monthly fee, which lives in `payments`. */
+/** Hand-entered expenses and other income; parent payments stay in payments. */
+export const transactionDirection = pgEnum("transaction_direction", ["expense", "income"]);
+
 export const transactions = pgTable(
   "transactions",
   {
@@ -404,6 +405,7 @@ export const transactions = pgTable(
     branchId: integer("branch_id")
       .notNull()
       .references(() => branches.id, { onDelete: "restrict" }),
+    direction: transactionDirection("direction").notNull().default("expense"),
     category: text("category").notNull(),
     amount: money("amount").notNull(),
     /** Чим заплатили. Потрібно, щоб витрата віднімалася саме від доходів того

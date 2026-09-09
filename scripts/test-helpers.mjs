@@ -22,7 +22,7 @@ const columns = {
   payments: ["id", "childId", "billingMonth", "amount", "method", "paidAt"],
   paymentReceipts: ["id", "paymentId", "fileName", "mime", "data", "size"],
   salaryPayments: ["id", "staffId", "month", "amount", "kind", "method", "paidAt", "note"],
-  transactions: ["id", "branchId", "occurredAt", "amount", "category", "method", "note"],
+  transactions: ["direction", "id", "branchId", "occurredAt", "amount", "category", "method", "note"],
   monthCloses: ["id", "branchId", "month", "data", "closedAt"],
   branches: ["id", "kindergartenId", "monthlyFee"],
   children: ["id", "branchId", "groupId", "fullName", "customFee", "feeMode", "dailyRate", "status", "birthDate", "enrolledAt", "leftAt"],
