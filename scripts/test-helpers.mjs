@@ -28,11 +28,13 @@ const columns = {
   children: ["id", "branchId", "groupId", "fullName", "customFee", "feeMode", "dailyRate", "status", "birthDate", "enrolledAt", "leftAt"],
   childMonthDays: ["id", "childId", "month", "days"],
   groups: ["id", "branchId", "name", "ageRange", "icon", "color"],
-  relatives: ["id", "childId", "fullName", "relation", "phone"],
+  relatives: ["id", "childId", "fullName", "relation", "phone", "email"],
   staff: ["id", "branchId", "fullName", "role", "active"],
   lessons: ["id", "staffId", "workDate", "note"],
   staffAttendance: ["id", "staffId", "workDate", "kind"],
   groupStaff: ["groupId", "staffId"],
+  waitlist: ["id", "branchId", "enrolledChildId", "childName", "childBirthDate", "parentName", "parentPhone", "parentEmail", "preferredGroupId", "desiredFrom", "status", "note", "createdAt"],
+  ageCategories: ["id", "branchId", "name", "fromYear", "toYear"],
 };
 export const tables = Object.fromEntries(Object.entries(columns).map(([name, keys]) => [name, {
   tableName: name,
@@ -72,6 +74,9 @@ export function database(data) {
       values: (next) => { fields = next; return chain; },
       returning: (next) => { selection = next; return chain; },
       orderBy: () => chain,
+      // Рядкове блокування ні на що не впливає, поки все в пам'яті й на одному
+      // потоці, — але виклик має пройти, бо так пишуться справжні запити.
+      for: () => chain,
       groupBy: () => chain,
       onConflictDoUpdate: (next) => { conflict = next; return chain; },
       innerJoin: (next, on) => { joins.push({ next, on, left: false }); return chain; },

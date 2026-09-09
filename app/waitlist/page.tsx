@@ -38,6 +38,17 @@ type Draft = {
 /** Заявка разом із її місцем у черзі своєї вікової категорії. */
 type QueueEntry = { row: WaitlistEntryDto; position: number };
 
+/** Перенесення заявки в групу: з неї постає дитина в розділі «Діти та групи».
+ *  `fromStatus` — питання виникло зі зміни статусу на «Зараховано», тож у
+ *  діалозі є ще й вибір лишити саму позначку без переносу. */
+type Enroll = {
+  entryId: number;
+  childName: string;
+  groupId: string;
+  enrolledAt: string;
+  fromStatus: boolean;
+};
+
 type CategoryDraft = {
   id: number | null;
   name: string;
@@ -113,6 +124,7 @@ export default function WaitlistPage() {
   );
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [enroll, setEnroll] = useState<Enroll | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -145,6 +157,20 @@ export default function WaitlistPage() {
 
   /** «Бажаний початок» показується двома списками, тож тримаємо його розібраним. */
   const desired = splitMonth(draft?.desiredFrom ?? "");
+
+  /** Заявка, яку редагують, у тому вигляді, як її знає сервер: із чернетки не
+   *  видно, чи дитину вже перенесли в групу. */
+  const editedRow = draft?.id
+    ? data.rows.find((row) => row.id === draft.id)
+    : undefined;
+
+  /** Обов’язковий мінімум заявки — без нього сервер її не прийме ні на
+   *  збереження, ні на перенесення. */
+  const filled = Boolean(
+    draft?.childName.trim() &&
+      draft?.parentName.trim() &&
+      draft?.parentPhone.trim(),
+  );
 
   const shown = useMemo(
     () =>
@@ -207,6 +233,39 @@ export default function WaitlistPage() {
     return category.fromYear === category.toYear
       ? `${category.name} · ${category.fromYear}`
       : `${category.name} · ${category.fromYear}–${category.toYear}`;
+  };
+
+  /** Поля заявки в тому вигляді, в якому їх приймає сервер. */
+  const entryPayload = (source: Draft) => ({
+    childName: source.childName,
+    childBirthDate: source.childBirthDate || null,
+    parentName: source.parentName,
+    parentPhone: source.parentPhone,
+    parentEmail: source.parentEmail,
+    preferredGroupId: source.preferredGroupId
+      ? Number(source.preferredGroupId)
+      : null,
+    desiredFrom: source.desiredFrom || null,
+    note: source.note,
+  });
+
+  const openEnroll = (
+    entryId: number,
+    childName: string,
+    preferredGroupId: number | null,
+    fromStatus: boolean,
+  ) => {
+    setError(null);
+    setEnroll({
+      entryId,
+      childName,
+      // Побажання батьків — найімовірніша група, але останнє слово за садочком.
+      groupId: preferredGroupId ? String(preferredGroupId) : "",
+      // Дитину зараховують сьогодні, поки не сказано інакше — інакше вона
+      // з’явиться у звітах за минулі місяці заднім числом.
+      enrolledAt: new Date().toISOString().slice(0, 10),
+      fromStatus,
+    });
   };
 
   const openEdit = (row: WaitlistEntryDto) =>
@@ -380,7 +439,12 @@ export default function WaitlistPage() {
                         <i className="avatar">{initialsOf(row.childName)}</i>
                         <div>
                           <b>{row.childName}</b>
-                          <small>{row.ageLabel}</small>
+                          <small>
+                            {row.ageLabel}
+                            {row.enrolledChildId ? (
+                              <em className="enrolled-mark">у групі</em>
+                            ) : null}
+                          </small>
                         </div>
                       </td>
                       <td>
@@ -415,13 +479,25 @@ export default function WaitlistPage() {
                           className={"waitlist-status " + row.status}
                           value={row.status}
                           disabled={saving}
-                          onChange={(event) =>
-                            send({
-                              kind: "status",
-                              entryId: row.id,
-                              status: event.target.value,
-                            })
-                          }
+                          onChange={(event) => {
+                            const status = event.target.value as WaitlistStatus;
+                            // «Зараховано» майже завжди означає, що дитина йде
+                            // в групу, — але не завжди, тож питаємо, а не
+                            // переносимо мовчки. Уже перенесену не питаємо.
+                            if (status === "enrolled" && !row.enrolledChildId)
+                              openEnroll(
+                                row.id,
+                                row.childName,
+                                row.preferredGroupId,
+                                true,
+                              );
+                            else
+                              send({
+                                kind: "status",
+                                entryId: row.id,
+                                status,
+                              });
+                          }}
                         >
                           {waitlistStatusValues.map((status) => (
                             <option key={status} value={status}>
@@ -466,7 +542,9 @@ export default function WaitlistPage() {
         </article>
       </section>
 
-      {draft && (
+      {/* Поки триває питання про перенесення, редагування ховається: два
+          діалоги один над одним ловили б Escape разом. */}
+      {draft && !enroll && (
         <Modal
           className="modal waitlist-modal"
           onClose={() => {
@@ -600,6 +678,28 @@ export default function WaitlistPage() {
             </label>
           </div>
           <div className="modal-actions">
+            {draft.id ? (
+              editedRow?.enrolledChildId ? (
+                <span className="enroll-done">Дитина вже в групі</span>
+              ) : (
+                <button
+                  className="enroll-action"
+                  disabled={saving || !filled}
+                  onClick={() =>
+                    openEnroll(
+                      draft.id as number,
+                      draft.childName,
+                      draft.preferredGroupId
+                        ? Number(draft.preferredGroupId)
+                        : null,
+                      false,
+                    )
+                  }
+                >
+                  ↦ Перенести в групу
+                </button>
+              )
+            ) : null}
             <button
               onClick={() => {
                 setDraft(null);
@@ -610,25 +710,9 @@ export default function WaitlistPage() {
             </button>
             <button
               className="primary"
-              disabled={
-                saving ||
-                !draft.childName.trim() ||
-                !draft.parentName.trim() ||
-                !draft.parentPhone.trim()
-              }
+              disabled={saving || !filled}
               onClick={async () => {
-                const payload = {
-                  childName: draft.childName,
-                  childBirthDate: draft.childBirthDate || null,
-                  parentName: draft.parentName,
-                  parentPhone: draft.parentPhone,
-                  parentEmail: draft.parentEmail,
-                  preferredGroupId: draft.preferredGroupId
-                    ? Number(draft.preferredGroupId)
-                    : null,
-                  desiredFrom: draft.desiredFrom || null,
-                  note: draft.note,
-                };
+                const payload = entryPayload(draft);
                 const ok = await send(
                   draft.id
                     ? { kind: "update", entryId: draft.id, ...payload }
@@ -638,6 +722,108 @@ export default function WaitlistPage() {
               }}
             >
               {saving ? "Збереження…" : draft.id ? "Зберегти" : "Додати"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {enroll && (
+        <Modal
+          className="modal enroll-modal"
+          onClose={() => {
+            setEnroll(null);
+            setError(null);
+          }}
+        >
+          <h2>Перенести в групу?</h2>
+          <p>
+            {enroll.fromStatus
+              ? `«${enroll.childName}» отримує статус «Зараховано». Перенести дитину в групу — вона з’явиться в розділі «Діти та групи» разом із контактною особою.`
+              : `«${enroll.childName}» з’явиться в розділі «Діти та групи» разом із контактною особою, а заявка отримає статус «Зараховано». Зміни в заявці збережуться разом із перенесенням.`}
+          </p>
+          {error && <p className="modal-error">{error}</p>}
+          <div className="form-grid enroll-form">
+            <label>
+              Група
+              <select
+                value={enroll.groupId}
+                onChange={(e) =>
+                  setEnroll({ ...enroll, groupId: e.target.value })
+                }
+              >
+                <option value="">Оберіть групу</option>
+                {data.groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Зарахований з
+              <input
+                type="date"
+                value={enroll.enrolledAt}
+                onChange={(e) =>
+                  setEnroll({ ...enroll, enrolledAt: e.target.value })
+                }
+              />
+            </label>
+          </div>
+          {!data.groups.length && (
+            <p className="enroll-hint">
+              У філії ще немає жодної групи — створіть її в розділі «Діти та
+              групи».
+            </p>
+          )}
+          <div className="modal-actions">
+            <button
+              onClick={() => {
+                setEnroll(null);
+                setError(null);
+              }}
+            >
+              Скасувати
+            </button>
+            {/* Статус можна поставити й без переносу: дитину бувало заводять
+                руками або вона вже є в списках. */}
+            {enroll.fromStatus && (
+              <button
+                disabled={saving}
+                onClick={async () => {
+                  const ok = await send({
+                    kind: "status",
+                    entryId: enroll.entryId,
+                    status: "enrolled",
+                  });
+                  if (ok) setEnroll(null);
+                }}
+              >
+                Лише змінити статус
+              </button>
+            )}
+            <button
+              className="primary"
+              disabled={saving || !enroll.groupId || !enroll.enrolledAt}
+              onClick={async () => {
+                const ok = await send({
+                  kind: "enroll",
+                  entryId: enroll.entryId,
+                  groupId: Number(enroll.groupId),
+                  enrolledAt: enroll.enrolledAt,
+                  // Заявку відкривали на редагування — переносимо її разом із
+                  // правками, інакше вони мовчки пропали б.
+                  ...(draft?.id === enroll.entryId && filled
+                    ? { entry: entryPayload(draft) }
+                    : {}),
+                });
+                if (ok) {
+                  setEnroll(null);
+                  setDraft(null);
+                }
+              }}
+            >
+              {saving ? "Перенесення…" : "Перенести в групу"}
             </button>
           </div>
         </Modal>
