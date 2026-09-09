@@ -19,7 +19,7 @@ export function load(relative, mocks = {}) {
 }
 export const schemas = load("lib/api-schemas.ts");
 const columns = {
-  payments: ["id", "childId", "billingMonth", "amount", "method", "paidAt"],
+  payments: ["purpose", "id", "childId", "billingMonth", "amount", "method", "paidAt"],
   paymentReceipts: ["id", "paymentId", "fileName", "mime", "data", "size"],
   salaryPayments: ["id", "staffId", "month", "amount", "kind", "method", "paidAt", "note"],
   transactions: ["direction", "id", "branchId", "occurredAt", "amount", "category", "method", "note"],

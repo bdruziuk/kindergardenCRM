@@ -121,6 +121,7 @@ export const paymentRequest = z.discriminatedUnion("kind", [
     month,
     amount: z.coerce.number().positive("Сума має бути більшою за нуль"),
     method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
+    purpose: z.enum(["tuition", "entrance"]).default("tuition"),
     paidAt: day.optional(),
     receipt: receiptFile.nullable().default(null),
   }),
@@ -305,6 +306,7 @@ const categoryFields = {
 };
 
 export const waitlistRequest = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("enroll"), entryId: id, groupId: id, enrolledAt: z.iso.date(), entry: z.object(waitlistEntry).optional() }),
   z.object({ kind: z.literal("add"), ...waitlistEntry }),
   z.object({ kind: z.literal("update"), entryId: id, ...waitlistEntry }),
   z.object({
@@ -399,6 +401,7 @@ export type PaymentMethod = (typeof paymentMethodValues)[number];
 export type ReceiptDto = { name: string; mime: string; size: number };
 
 export type PaymentEntry = {
+  purpose?: "tuition" | "entrance";
   id: number;
   amount: number;
   method: PaymentMethod;
@@ -407,6 +410,7 @@ export type PaymentEntry = {
 };
 
 export type ChildPaymentsDto = {
+  entrancePaid?: number;
   id: number;
   name: string;
   initials: string;
@@ -611,6 +615,7 @@ export type FinanceSnapshot = {
 export type WaitlistStatus = (typeof waitlistStatusValues)[number];
 
 export type WaitlistEntryDto = {
+  enrolledChildId?: number | null;
   id: number;
   childName: string;
   childBirthDate: string | null;

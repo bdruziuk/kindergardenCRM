@@ -1,0 +1,2 @@
+ALTER TABLE "waitlist" ADD COLUMN "enrolled_child_id" integer;--> statement-breakpoint
+ALTER TABLE "waitlist" ADD CONSTRAINT "waitlist_enrolled_child_id_children_id_fk" FOREIGN KEY ("enrolled_child_id") REFERENCES "public"."children"("id") ON DELETE restrict ON UPDATE no action;

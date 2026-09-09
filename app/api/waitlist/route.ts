@@ -9,7 +9,8 @@ import {
   waitlistStatusValues,
 } from "@/lib/api-schemas";
 import { ageLabel } from "@/lib/format";
-import { resolveScope, scopeFailure } from "@/lib/scope";
+import { enrollFromWaitlist } from "@/lib/waitlist-enrollment";
+import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
 /** A stored month is the first of that month; the API speaks "YYYY-MM". */
 const toMonthStart = (month: string | null) => (month ? `${month}-01` : null);
@@ -20,6 +21,7 @@ async function snapshot(BRANCH_ID: number): Promise<WaitlistSnapshot> {
     db
       .select({
         id: waitlist.id,
+        enrolledChildId: waitlist.enrolledChildId,
         childName: waitlist.childName,
         childBirthDate: waitlist.childBirthDate,
         parentName: waitlist.parentName,
@@ -65,6 +67,7 @@ async function snapshot(BRANCH_ID: number): Promise<WaitlistSnapshot> {
   return {
     rows: rows.map((row) => ({
       id: row.id,
+      enrolledChildId: row.enrolledChildId,
       childName: row.childName,
       childBirthDate: row.childBirthDate,
       ageLabel: ageLabel(row.childBirthDate),
@@ -110,6 +113,15 @@ export async function POST(request: Request) {
     const db = getDb();
     const body = parsed.data;
 
+    if (body.kind === "enroll") {
+      await enrollFromWaitlist(branchId, body);
+      return Response.json(await snapshot(branchId));
+    }
+    if ((body.kind === "add" || body.kind === "update") && body.preferredGroupId) {
+      const [group] = await db.select({ id: groups.id }).from(groups)
+        .where(and(eq(groups.id, body.preferredGroupId), eq(groups.branchId, branchId)));
+      if (!group) throw new ScopeError("Групу не знайдено", 404);
+    }
     if (body.kind === "category_add") {
       await db.insert(ageCategories).values({
         branchId,
@@ -143,7 +155,7 @@ export async function POST(request: Request) {
           ),
         );
     } else if (body.kind === "remove") {
-      await db.delete(waitlist).where(eq(waitlist.id, body.entryId));
+      await db.delete(waitlist).where(and(eq(waitlist.id, body.entryId), eq(waitlist.branchId, branchId)));
     } else if (body.kind === "status") {
       await db
         .update(waitlist)

@@ -266,6 +266,8 @@ export const childMonthDays = pgTable(
   (t) => [uniqueIndex("idx_child_month_days").on(t.childId, t.month)],
 );
 
+export const paymentPurpose = pgEnum("payment_purpose", ["tuition", "entrance"]);
+
 export const payments = pgTable(
   "payments",
   {
@@ -275,6 +277,7 @@ export const payments = pgTable(
       .references(() => children.id, { onDelete: "cascade" }),
     // first day of the billing month
     billingMonth: day("billing_month").notNull(),
+    purpose: paymentPurpose("purpose").notNull().default("tuition"),
     amount: money("amount").notNull(),
     method: paymentMethod("method").notNull(),
     paidAt: day("paid_at").notNull(),
@@ -426,6 +429,7 @@ export const waitlist = pgTable(
     branchId: integer("branch_id")
       .notNull()
       .references(() => branches.id, { onDelete: "restrict" }),
+    enrolledChildId: integer("enrolled_child_id").references(() => children.id, { onDelete: "restrict" }),
     childName: text("child_name").notNull(),
     childBirthDate: day("child_birth_date"),
     parentName: text("parent_name").notNull(),

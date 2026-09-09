@@ -103,6 +103,7 @@ export async function POST(request: Request) {
         .values({
           childId: body.childId,
           billingMonth: monthStart(body.month),
+          purpose: body.purpose,
           amount: body.amount,
           method: body.method,
           paidAt: body.paidAt ?? new Date().toISOString().slice(0, 10),

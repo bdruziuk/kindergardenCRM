@@ -59,6 +59,7 @@ export async function childrenWithPayments(
       .select({
         id: payments.id,
         childId: payments.childId,
+        purpose: payments.purpose,
         amount: payments.amount,
         method: payments.method,
         paidAt: payments.paidAt,
@@ -97,6 +98,7 @@ export async function childrenWithPayments(
       .filter((payment) => payment.childId === child.id)
       .map((payment) => ({
         id: payment.id,
+        purpose: payment.purpose ?? "tuition",
         amount: payment.amount,
         method: payment.method,
         paidAt: payment.paidAt,
@@ -116,7 +118,8 @@ export async function childrenWithPayments(
     const fee = daily
       ? Math.round((days ?? 0) * child.dailyRate * 100) / 100
       : child.customFee ?? defaultFee;
-    const paid = history.reduce((sum, payment) => sum + payment.amount, 0);
+    const paid = history.filter((payment) => payment.purpose !== "entrance").reduce((sum, payment) => sum + payment.amount, 0);
+    const entrancePaid = history.filter((payment) => payment.purpose === "entrance").reduce((sum, payment) => sum + payment.amount, 0);
     return {
       id: child.id,
       name: child.fullName,
@@ -124,6 +127,7 @@ export async function childrenWithPayments(
       group: child.groupName ?? "",
       fee,
       paid,
+      entrancePaid,
       balance: Math.max(fee - paid, 0),
       status: (paid <= 0
         ? "Не сплачено"
@@ -140,13 +144,14 @@ export async function childrenWithPayments(
 
 export function paymentsSummary(rows: ChildPaymentsDto[]) {
   const planned = rows.reduce((sum, row) => sum + row.fee, 0);
-  const received = rows.reduce((sum, row) => sum + row.paid, 0);
+  const tuitionReceived = rows.reduce((sum, row) => sum + row.paid, 0);
+  const received = tuitionReceived + rows.reduce((sum, row) => sum + (row.entrancePaid ?? 0), 0);
   return {
     planned,
     received,
     // Переплата однієї сім’ї не погашає борг іншої.
     balance: Math.round(rows.reduce((sum, row) => sum + Math.max(row.fee - row.paid, 0), 0) * 100) / 100,
-    progress: planned ? Math.round((received / planned) * 100) : 0,
+    progress: planned ? Math.round((tuitionReceived / planned) * 100) : 0,
     paidCount: rows.filter((row) => row.status === "Сплачено").length,
     partialCount: rows.filter((row) => row.status === "Частково").length,
     unpaidCount: rows.filter((row) => row.status === "Не сплачено").length,

@@ -578,3 +578,5 @@
 .attendance-floating-head{position:sticky;top:0;height:0;z-index:10}
 .attendance-head-clip{overflow:hidden;background:#fff;box-shadow:0 2px 4px #223d3614;border-top:1px solid var(--line)}
 .attendance-head-clip .attendance-grid-table{table-layout:fixed;margin:0}
+
+.child-fee-line{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:4px 0}.child-fee-tag{padding:3px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);font-size:9px;font-weight:600}.child-fee-tag.contribution{background:#efeaf8;color:#6a54a3}

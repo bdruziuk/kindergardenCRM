@@ -130,6 +130,7 @@ export default function PaymentsPage() {
   };
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<{
+    purpose?: "tuition" | "entrance";
     amount: string;
     method: Method;
     paidAt: string;
@@ -263,6 +264,7 @@ export default function PaymentsPage() {
     if (!selected || Number(draft.amount) <= 0) return;
     const next = await send({
       kind: "add",
+      purpose: draft.purpose ?? "tuition",
       childId: selected.id,
       month,
       amount: Number(draft.amount),
@@ -421,7 +423,8 @@ export default function PaymentsPage() {
                       <span className="group-pill">{row.group}</span>
                     </td>
                     <td>
-                      <b>{money(row.fee)}</b>
+                      <div className="child-fee-line"><b>{money(row.fee)}</b><span className="child-fee-tag">{row.feeMode === "daily" ? "Поденна оплата" : "Місячна оплата"}</span></div>
+                      {(row.entrancePaid ?? 0) > 0 && <div className="child-fee-line"><b>{money(row.entrancePaid ?? 0)}</b><span className="child-fee-tag contribution">Разовий внесок · сплачено</span></div>}
                       {row.feeMode === "daily" && (
                         <small className="fee-note">
                           {row.days === null
@@ -534,8 +537,16 @@ export default function PaymentsPage() {
             )}
 
             <div className="child-payment-form">
-              <h3>Додати оплату</h3>
+              <h3>Додати оплату або разовий внесок</h3>
+              <p>Разові внески за місяць: {money(selected.entrancePaid ?? 0)}</p>
+              <p>Разовий внесок необов’язковий і не погашає плату за садок.</p>
               <div className="payment-entry-grid">
+                <label>Призначення
+                  <select value={draft.purpose ?? "tuition"} onChange={(event) => setDraft({ ...draft, purpose: event.target.value as "tuition" | "entrance", amount: "" })}>
+                    <option value="tuition">Оплата за садок</option>
+                    <option value="entrance">Разовий внесок</option>
+                  </select>
+                </label>
                 <label>
                   Сума
                   <input
@@ -634,6 +645,7 @@ export default function PaymentsPage() {
                     <i>{METHOD_ICONS[item.method]}</i>
                     <div>
                       <b>{money(item.amount)}</b>
+                      <small>{item.purpose === "entrance" ? "Разовий внесок" : "Оплата за садок"}</small>
                       <small>
                         {PAYMENT_METHOD_LABELS[item.method]} ·{" "}
                         {new Date(item.paidAt + "T00:00:00").toLocaleDateString(
