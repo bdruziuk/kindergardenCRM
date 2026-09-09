@@ -381,6 +381,10 @@ export type ChildDto = {
   status: (typeof childStatusValues)[number];
   enrolledAt: string | null;
   leftAt: string | null;
+  /** Дитина вибула раніше цього місяця, тобто до складу садочка вже не
+   *  належить. Рахує сервер: місяць там визначає той самий часовий пояс, що й
+   *  усюди, а не годинник браузера. */
+  former: boolean;
   relatives: RelativeDto[];
 };
 

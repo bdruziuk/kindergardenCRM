@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   branches,
@@ -15,6 +15,7 @@ import {
   kindergartenRequest,
 } from "@/lib/api-schemas";
 import { ageLabel, initialsOf, moneyLabel } from "@/lib/format";
+import { currentMonth, monthStart } from "@/lib/period";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
 async function branchFee(BRANCH_ID: number) {
@@ -26,9 +27,27 @@ async function branchFee(BRANCH_ID: number) {
   return branch?.monthlyFee ?? 0;
 }
 
+/**
+ * Чи вибула дитина раніше цього місяця.
+ *
+ * Той, хто вибув цього місяця, зі списку не зникає: місяць ще триває, і його
+ * склад має бути видно цілком. А от вибулі з минулих місяців до складу вже не
+ * належать — саме вони накопичувались у списку роками.
+ *
+ * Порожня дата вибуття означає, що її просто не заповнили, а не що дитина
+ * вибула вчора: такий запис теж рахуємо колишнім, інакше кожен статус без дати
+ * лишався б у списку назавжди.
+ */
+const hasLeftEarlier = (
+  status: string,
+  leftAt: string | null,
+  monthStarted: string,
+) => status === "left" && (leftAt === null || leftAt < monthStarted);
+
 async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
   const db = getDb();
   const fee = await branchFee(BRANCH_ID);
+  const monthStarted = monthStart(currentMonth());
   const [groupRows, childRows, relativeRows, staffRows, assignments] =
     await Promise.all([
     db
@@ -41,7 +60,13 @@ async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
         childCount: sql<number>`count(${children.id})::int`,
       })
       .from(groups)
-      .leftJoin(children, eq(children.groupId, groups.id))
+      // Вибулі в складі групи не рахуються: інакше картка з роками накопичує
+      // тих, хто давно не ходить, і показує число, якого в групі немає.
+      // Призупинені лишаються — вони повертаються.
+      .leftJoin(
+        children,
+        and(eq(children.groupId, groups.id), ne(children.status, "left")),
+      )
       .where(eq(groups.branchId, BRANCH_ID))
       .groupBy(groups.id)
       .orderBy(asc(groups.id)),
@@ -115,6 +140,7 @@ async function snapshot(BRANCH_ID: number): Promise<KindergartenSnapshot> {
       status: child.status,
       enrolledAt: child.enrolledAt,
       leftAt: child.leftAt,
+      former: hasLeftEarlier(child.status, child.leftAt, monthStarted),
       relatives: relativeRows
         .filter((r) => r.childId === child.id)
         .map((r) => ({

@@ -35,11 +35,22 @@ const STATUS_HINTS: Record<ChildStatus, string> = {
   left: "Дитина більше не відвідує садочок",
 };
 
+/** Кого показувати в списку. Типово — чинний склад: вибулі з минулих місяців
+ *  інакше накопичуються роками й роблять список довшим за сам садочок. */
+const VIEWS = [
+  ["current", "Чинний склад"],
+  ["former", "Вибулі"],
+  ["all", "Усі"],
+] as const;
+
+type View = (typeof VIEWS)[number][0];
+
 export default function Page() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
   const branch = branchName;
   const [group, setGroup] = useState("Усі групи"),
+    [view, setView] = useState<View>("current"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<ChildDto | null>(null),
     [add, setAdd] = useState(false),
@@ -104,10 +115,18 @@ export default function Page() {
     () =>
       kidsList.filter(
         (child) =>
+          (view === "all" || child.former === (view === "former")) &&
           (group === "Усі групи" || child.groupName === group) &&
           child.fullName.toLowerCase().includes(query.toLowerCase()),
       ),
-    [group, query, kidsList],
+    [view, group, query, kidsList],
+  );
+
+  /** Скільки вибулих ховає типовий вигляд — інакше «Вибулі» виглядали б як
+   *  порожня вкладка, і незрозуміло, чи там хтось є. */
+  const formerCount = useMemo(
+    () => kidsList.filter((child) => child.former).length,
+    [kidsList],
   );
   return (
     <main className="shell">
@@ -216,9 +235,15 @@ export default function Page() {
           <div className="directory-head">
             <div>
               <h2>
-                Усі діти <span>{shown.length}</span>
+                {view === "former" ? "Вибулі" : "Усі діти"}{" "}
+                <span>{shown.length}</span>
               </h2>
-              <p>Філія «{branch}»</p>
+              <p>
+                Філія «{branch}»
+                {view === "current" && formerCount
+                  ? ` · приховано вибулих: ${formerCount}`
+                  : ""}
+              </p>
             </div>
             <div className="directory-tools">
               <label className="search">
@@ -229,6 +254,17 @@ export default function Page() {
                   placeholder="Пошук за ім’ям…"
                 />
               </label>
+              <select
+                aria-label="Кого показувати"
+                value={view}
+                onChange={(e) => setView(e.target.value as View)}
+              >
+                {VIEWS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
               <select value={group} onChange={(e) => setGroup(e.target.value)}>
                 <option>Усі групи</option>
                 {groupList.map((g) => (

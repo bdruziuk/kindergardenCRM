@@ -43,6 +43,7 @@ export const tables = Object.fromEntries(Object.entries(columns).map(([name, key
 const value = (column, row) => column?.table ? row[column.table]?.[column.key] : column;
 export const orm = {
   eq: (a, b) => (row) => value(a, row) === value(b, row),
+  ne: (a, b) => (row) => value(a, row) !== value(b, row),
   and: (...conditions) => (row) => conditions.every((condition) => condition(row)),
   inArray: (column, values) => (row) => values.includes(value(column, row)),
   asc: () => null,

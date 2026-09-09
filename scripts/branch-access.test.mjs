@@ -23,7 +23,7 @@ for (const [route, action, idField] of actions) {
         "@/db": { getDb: () => database(data) },
         "@/db/schema": tables,
         "@/lib/api-schemas": schemas,
-        "@/lib/period": { currentMonth: () => "2026-09" },
+        "@/lib/period": { currentMonth: () => "2026-09", monthStart: (month) => `${month}-01` },
         "@/lib/month-close": { assertMonthOpen: async () => {} },
         "@/lib/payouts": {},
         "@/lib/snapshots": { staffSnapshot: async () => ({}) },
