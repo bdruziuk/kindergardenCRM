@@ -74,6 +74,29 @@ const METHOD_ICONS: Record<Method, string> = {
   card: "▣",
 };
 
+/**
+ * З чого склалась внесена сума: скільки якимось способом.
+ *
+ * Порядок сталий і той самий, що в плитках угорі, а не порядок оплат: інакше
+ * два сусідні рядки називали б способи по-різному, і колонку довелось би
+ * читати, а не бачити.
+ */
+const byMethod = (
+  history: ChildPaymentsDto["history"],
+  purpose: "tuition" | "entrance",
+) => {
+  const totals = new Map<Method, number>();
+  for (const payment of history)
+    if ((payment.purpose ?? "tuition") === purpose)
+      totals.set(
+        payment.method,
+        (totals.get(payment.method) ?? 0) + payment.amount,
+      );
+  return paymentMethodValues
+    .filter((method) => totals.has(method))
+    .map((method) => [method, totals.get(method) as number] as const);
+};
+
 export default function PaymentsPage() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
@@ -317,7 +340,7 @@ export default function PaymentsPage() {
               </div>
             </article>
             {paymentMethodValues.map((method) => (
-              <article className="method-stat" key={method}>
+              <article className={"method-stat " + method} key={method}>
                 <i>{METHOD_ICONS[method]}</i>
                 <div>
                   <span>{PAYMENT_METHOD_LABELS[method]}</span>
@@ -424,7 +447,37 @@ export default function PaymentsPage() {
                     </td>
                     <td>
                       <div className="child-fee-line"><b>{money(row.fee)}</b><span className="child-fee-tag">{row.feeMode === "daily" ? "Поденна оплата" : "Місячна оплата"}</span></div>
-                      {(row.entrancePaid ?? 0) > 0 && <div className="child-fee-line"><b>{money(row.entrancePaid ?? 0)}</b><span className="child-fee-tag contribution">Разовий внесок · сплачено</span></div>}
+                      {/* Скільки з нарахованого вже внесли й чим саме. Суму
+                          біля способу показуємо лише тоді, коли способів
+                          кілька: за одного вона просто повторювала б внесене. */}
+                      {row.paid > 0 && (
+                        <div className="child-fee-line">
+                          <span className="child-fee-caption">внесено</span>
+                          <b className="green-text">{money(row.paid)}</b>
+                          {byMethod(row.history, "tuition").map(
+                            ([method, amount], _index, all) => (
+                              <span className={"child-fee-tag " + method} key={method}>
+                                {PAYMENT_METHOD_LABELS[method]}
+                                {all.length > 1 ? ` ${money(amount)}` : ""}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      )}
+                      {(row.entrancePaid ?? 0) > 0 && (
+                        <div className="child-fee-line">
+                          <b>{money(row.entrancePaid ?? 0)}</b>
+                          <span className="child-fee-tag contribution">Разовий внесок</span>
+                          {byMethod(row.history, "entrance").map(
+                            ([method, amount], _index, all) => (
+                              <span className={"child-fee-tag " + method} key={method}>
+                                {PAYMENT_METHOD_LABELS[method]}
+                                {all.length > 1 ? ` ${money(amount)}` : ""}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      )}
                       {row.feeMode === "daily" && (
                         <small className="fee-note">
                           {row.days === null
