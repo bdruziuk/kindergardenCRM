@@ -75,7 +75,6 @@ export default function Home() {
             <h1>Огляд</h1>
           </div>
           <div className="actions">
-            <button className="bell">♢</button>
             <BranchPicker
               scope={scope}
               branchId={branchId}

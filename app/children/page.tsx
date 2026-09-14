@@ -141,7 +141,6 @@ export default function Page() {
             </p>
           </div>
           <div className="actions">
-            <button className="bell">♢</button>
             <BranchPicker
               scope={scope}
               branchId={branchId}
