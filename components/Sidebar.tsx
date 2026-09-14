@@ -4,19 +4,22 @@ import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { USER_ROLE_LABELS } from "@/lib/format";
 
+/** `short` is what the phone tab bar shows — a tab is about 40px wide there,
+ *  so the full label cannot fit. It is presentation only: `label` stays the
+ *  accessible name at every width. */
 const NAV = [
-  { icon: "⌂", label: "Огляд", href: "/" },
-  { icon: "♧", label: "Діти та групи", href: "/children" },
-  { icon: "◷", label: "Черга", href: "/waitlist" },
-  { icon: "₴", label: "Оплати", href: "/payments" },
-  { icon: "♙", label: "Колектив", href: "/staff" },
-  { icon: "↗", label: "Доходи й витрати", href: "/finances" },
-  { icon: "▤", label: "Звіти", href: "/reports" },
-  { icon: "⚙", label: "Налаштування", href: "/settings" },
+  { icon: "⌂", label: "Огляд", short: "Огляд", href: "/" },
+  { icon: "♧", label: "Діти та групи", short: "Діти", href: "/children" },
+  { icon: "◷", label: "Черга", short: "Черга", href: "/waitlist" },
+  { icon: "₴", label: "Оплати", short: "Оплати", href: "/payments" },
+  { icon: "♙", label: "Колектив", short: "Колектив", href: "/staff" },
+  { icon: "↗", label: "Доходи й витрати", short: "Доходи", href: "/finances" },
+  { icon: "▤", label: "Звіти", short: "Звіти", href: "/reports" },
+  { icon: "⚙", label: "Налаштування", short: "Налашт.", href: "/settings" },
 ];
 
 /** Only the owner manages branches, so this sits outside the shared list. */
-const OWNER_NAV = { icon: "⌗", label: "Філії", href: "/branches" };
+const OWNER_NAV = { icon: "⌗", label: "Філії", short: "Філії", href: "/branches" };
 
 /** `active` is the href of the current page — by path rather than position, so
  *  inserting a nav item does not renumber every page. */
@@ -39,12 +42,16 @@ export function Sidebar({ active }: { active: string }) {
       <nav>
         {nav.map((item) => (
           <Link
+            aria-current={item.href === active ? "page" : undefined}
+            aria-label={item.label}
             className={item.href === active ? "active" : ""}
             href={item.href}
             key={item.label}
+            title={item.label}
           >
-            <span>{item.icon}</span>
-            {item.label}
+            <span aria-hidden="true">{item.icon}</span>
+            <b className="nav-label">{item.label}</b>
+            <b className="nav-label-short">{item.short}</b>
           </Link>
         ))}
       </nav>
