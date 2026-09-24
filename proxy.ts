@@ -7,7 +7,8 @@ import type { NextRequest } from "next/server";
  * their parents' phone numbers. The anonymous surfaces are `/login`,
  * `/forgot`, and `/register` and `/reset` — both useless without a token from
  * an invite or a letter — plus `/api/auth/*`, `/api/register/*`,
- * `/api/forgot`, `/api/reset` and `/api/health`, excluded via the matcher.
+ * `/api/forgot`, `/api/reset`, `/api/health` and the PWA files (manifest,
+ * service worker, offline page, icons), excluded via the matcher.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -63,6 +64,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/auth|api/register|api/forgot|api/reset|api/health|_next/static|_next/image|favicon.svg|og.png|.*\\.svg$).*)",
+    // manifest, sw.js, offline.html та іконки браузер тягне без сесії, щоб
+    // встановити застосунок; даних у них немає.
+    "/((?!api/auth|api/register|api/forgot|api/reset|api/health|_next/static|_next/image|favicon.svg|og.png|manifest.webmanifest|sw.js|offline.html|icons/|.*\\.svg$).*)",
   ],
 };

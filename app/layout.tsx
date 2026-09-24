@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { resolveTheme } from "@/lib/theme";
 import { Providers } from "./providers";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -16,7 +17,15 @@ export const metadata: Metadata = {
   ),
   title: "Малеча — облік дитячого садочка",
   description: "Філії, групи, оплати, колектив та фінансові звіти в одному місці.",
-  icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+  applicationName: "Малеча",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/icons/apple-touch-icon.png",
+  },
+  // iOS не читає manifest для цього: без appleWebApp застосунок з головного
+  // екрана відкрився б у Safari з адресним рядком.
+  appleWebApp: { capable: true, title: "Малеча", statusBarStyle: "default" },
   openGraph: {
     title: "Малеча",
     description: "Облік садочка без зайвого клопоту",
@@ -28,6 +37,15 @@ export const metadata: Metadata = {
     description: "Облік садочка без зайвого клопоту",
     images: ["/og.png"],
   },
+};
+
+/** `viewport-fit=cover` вмикає `env(safe-area-inset-*)`: без нього нижня
+ *  панель на iPhone лягала б під смужку жесту «додому». */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f5f7f6",
 };
 
 /** Схему ставимо на сервері, щоб сторінка не блимнула типовою й лише потім
@@ -44,6 +62,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>{children}</Providers>
+        <ServiceWorker />
       </body>
     </html>
   );

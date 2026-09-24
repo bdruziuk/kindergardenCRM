@@ -643,3 +643,8 @@
 .payroll-figures span{font-size:8px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);font-weight:700}
 .payroll-figures b{font-size:14px}
 @media(max-width:720px){.payroll-figures{grid-template-columns:1fr}}
+/* --- безпечні зони iPhone (viewport-fit=cover) ----------------------------
+   Телефон в альбомній орієнтації потрапляє у вузьку бічну панель, і виріз
+   камери лягає зліва або справа. На всіх інших пристроях env() дає 0, тож
+   ці правила нічого не змінюють. */
+@media(min-width:721px) and (max-width:1050px){aside{width:calc(74px + env(safe-area-inset-left,0px));padding-left:calc(10px + env(safe-area-inset-left,0px));padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}.work{margin-left:calc(74px + env(safe-area-inset-left,0px));width:calc(100% - 74px - env(safe-area-inset-left,0px));padding-right:calc(24px + env(safe-area-inset-right,0px))}}
