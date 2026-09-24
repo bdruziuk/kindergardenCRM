@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { load, schemas, tables, orm } from "./test-helpers.mjs";
+import { load, schemas, tables, orm, cashMocks } from "./test-helpers.mjs";
 
 function setup({ closed = null, error = null } = {}) {
   const calls = { close: [], live: [] };
@@ -18,6 +18,7 @@ function setup({ closed = null, error = null } = {}) {
     },
   };
   const { GET } = load("app/api/reports/route.ts", {
+    ...cashMocks(),
     "drizzle-orm": orm, "@/db": { getDb: () => db },
     "@/db/schema": { ...tables, waitlist: { status: "status", branchId: "branch" } },
     "@/lib/api-schemas": schemas,

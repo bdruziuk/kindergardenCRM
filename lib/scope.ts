@@ -7,6 +7,8 @@ import { authOptions } from "./auth";
 export type BranchRef = { id: number; name: string };
 
 export type Scope = {
+  /** Хто дивиться — щоб запис міг зберегти, чиїх це рук справа. */
+  userId: number;
   /** Садочок, якому належить усе в цьому запиті. Зовнішня межа ізоляції:
    *  філії з інших садочків не потрапляють сюди навіть до власника. */
   kindergartenId: number;
@@ -105,6 +107,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
     return {
       kindergartenId,
       branchId: own.id,
+      userId,
       branchName: own.name,
       isOwner: false,
       branches: [own],
@@ -114,6 +117,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
 
   const chosen = all.find((branch) => branch.id === wanted) ?? all[0];
   return {
+    userId,
     kindergartenId,
     branchId: chosen.id,
     branchName: chosen.name,

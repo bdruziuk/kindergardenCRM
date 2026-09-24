@@ -1,7 +1,10 @@
 import { z } from "zod";
 
-export const MONTH = /^\d{4}-\d{2}$/;
-export const DAY = /^\d{4}-\d{2}-\d{2}$/;
+// Номер місяця й дня перевіряються тут, а не лише за довжиною: «2026-13»
+// проходило б формат, а далі ставало б або датою, яку відкидає Postgres,
+// або місяцем, за яким перевірка закриття шукає невідомо що.
+export const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 const month = z.string().regex(MONTH, "Очікується місяць у форматі YYYY-MM");
 const day = z.string().regex(DAY, "Очікується дата у форматі YYYY-MM-DD");
@@ -178,6 +181,9 @@ const payoutActions = [
     paidAt: day,
     note: z.string().trim().max(200).default(""),
     month: month.optional(),
+    /** Місяць роботи, за який платять. Окремо від `month`: той лише каже, з
+     *  якої сторінки прийшов запит, і сам по собі нічого не вирішує. */
+    payrollMonth: month.optional(),
   }),
   z.object({
     kind: z.literal("payout_update"),
@@ -260,6 +266,21 @@ export const transactionRequest = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("remove"),
     transactionId: id,
+    month: month.optional(),
+  }),
+  /**
+   * Скільки грошей було в касі на задану дату.
+   *
+   * Вивести це з операцій неможливо: до першого запису в системі каса вже була
+   * не порожня. Тому залишок вносять руками, і доходом він не стає.
+   */
+  z.object({
+    kind: z.literal("opening_set"),
+    method: z.enum(paymentMethodValues, { error: "Невідомий спосіб оплати" }),
+    // Нуль дозволений: «на цю дату готівки не було» — теж відповідь.
+    amount: z.coerce.number().min(0, "Залишок не може бути відʼємним"),
+    asOf: day,
+    note: z.string().trim().max(200).default(""),
     month: month.optional(),
   }),
   ...payoutActions,
@@ -476,6 +497,8 @@ export type StaffRowDto = {
   phone: string;
   birthDate: string | null;
   branch: string;
+  /** Звільнений лишається в місяці, де за ним є записи чи невиплачене. */
+  active: boolean;
   salaryType: SalaryType;
   monthlyRate: number;
   dailyRate: number;
@@ -564,9 +587,32 @@ export type ExpenseDto = {
  *  віднімається саме від доходів свого виду: готівка з готівки. */
 export type MethodTotals = {
   method: PaymentMethod;
+  /** Залишок на початок періоду; нуль, поки залишки не внесли. */
+  opening: number;
   income: number;
   expense: number;
+  /** Рух за період: доходи мінус витрати. */
   balance: number;
+  /** Залишок на кінець: початок + доходи − витрати. */
+  closing: number;
+};
+
+/** Скільки винні одному працівникові, з розкладом по місяцях роботи. */
+export type StaffDebtDto = {
+  staffId: number;
+  name: string;
+  role: string;
+  /** Звільнені лишаються у списку, поки за ними числиться борг. */
+  active: boolean;
+  months: {
+    month: string;
+    accrued: number;
+    paid: number;
+    remaining: number;
+    overpaid: number;
+  }[];
+  remaining: number;
+  overpaid: number;
 };
 
 /** Salary progress for one person in the selected payroll month. */
@@ -605,10 +651,23 @@ export type FinanceSnapshot = {
     /** What the timesheet accrued this month, for comparison with
      *  `expense.salary`. Not part of the balance. */
     salaryAccrued: number;
-    /** Accrued but not yet handed over. */
+    /** Нараховано за цей місяць роботи, але ще не видано. */
     salaryRemaining: number;
+    /** Борг по зарплаті за всі місяці, не лише за цей. */
+    salaryDebtTotal: number;
+    /** Видано понад нараховане; борг цим не гаситься. */
+    salaryOverpaidTotal: number;
+    /** Рух коштів за період: доходи мінус витрати. Це не залишок каси. */
     balance: number;
+    /** Залишок на кінець періоду, якщо початкові залишки внесені. */
+    closing: number;
+    /** Поки залишки не внесені, сторінка називає це рухом коштів. */
+    openingKnown: boolean;
+    /** Дата, на яку внесені початкові залишки. */
+    openingSince: string | null;
   };
+  /** Борг по зарплаті за всіма місяцями, по кожному працівникові. */
+  debt: StaffDebtDto[];
   /** Expense structure, salary included, shares relative to total expenses. */
   categories: CategoryTotal[];
   /** Доходи, витрати й залишок окремо по кожному виду оплати. */
@@ -942,6 +1001,10 @@ export type ReportsSnapshot = {
     expenses: number;
     balance: number;
     bestMonth: string | null;
+    /** Невиплачена зарплата станом на кінець періоду: враховані лише виплати,
+     *  зроблені до цієї дати, тож пізніша виплата минулий звіт не змінює. */
+    salaryDebtAtEnd: number;
+    debtAsOf: string;
   };
   /** Expense structure for the year, salary included. */
   categories: CategoryTotal[];

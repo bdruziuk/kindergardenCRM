@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { load, schemas, orm, tables, fixture, database, ScopeError } from "./test-helpers.mjs";
+import { load, schemas, orm, tables, fixture, database, cashMocks, ScopeError } from "./test-helpers.mjs";
 const period = load("lib/period.ts", { "./api-schemas": schemas });
 for (const method of ["cash", "card", "iban"]) {
   test(`Other income increases ${method} balance without inflating expenses`, async () => {
@@ -9,14 +9,26 @@ for (const method of ["cash", "card", "iban"]) {
       { id: 2, direction: "expense", amount: 100, method, category: "Rent" },
       { id: 3, amount: 50, method, category: "Legacy expense" },
     ];
+    // Гроші, що справді надійшли та вийшли цього місяця, за фактичними датами.
+    const arrived = () => [
+      { amount: 1000, method, date: "2026-09-05" },
+      ...rows.filter((row) => row.direction === "income")
+        .map((row) => ({ amount: row.amount, method, date: "2026-09-06" })),
+    ];
+    const left = () => ({
+      salary: [{ amount: 200, method, date: "2026-09-25" }],
+      other: rows.filter((row) => row.direction !== "income")
+        .map((row) => ({ amount: row.amount, method, date: "2026-09-07", category: row.category })),
+    });
     const { financeSnapshot } = load("lib/snapshots.ts", {
       "drizzle-orm": orm, "@/db": {}, "@/db/schema": tables,
       "@/lib/api-schemas": schemas, "@/lib/format": {}, "@/lib/period": period,
+      ...cashMocks({ cashIncome: async () => arrived(), cashExpense: async () => left() }),
       "@/lib/queries": {
         childrenWithPayments: async () => [{ history: [{ method, amount: 1000 }] }],
         paymentsSummary: () => ({ received: 1000 }),
         monthExpenses: async () => rows,
-        salaryProgress: async () => [{ accrued: 300, paid: 200, payouts: [{ method, amount: 200 }] }],
+        salaryProgress: async () => [{ accrued: 300, paid: 200, remaining: 100, payouts: [{ method, amount: 200 }] }],
       },
     });
     const result = await financeSnapshot(1, "2026-09");
@@ -24,7 +36,7 @@ for (const method of ["cash", "card", "iban"]) {
     assert.equal(result.summary.otherIncome, 600);
     assert.equal(result.summary.expense.total, 350);
     assert.equal(result.summary.balance, 1250);
-    assert.deepEqual(result.methods.find((row) => row.method === method), { method, income: 1600, expense: 350, balance: 1250 });
+    assert.deepEqual(result.methods.find((row) => row.method === method), { method, opening: 0, income: 1600, expense: 350, balance: 1250, closing: 1250 });
     assert.equal(result.categories.some((row) => row.category === "Extra"), false);
     rows.shift();
     assert.equal((await financeSnapshot(1, "2026-09")).summary.income, 1000);
@@ -65,6 +77,7 @@ test("Reports include other income in monthly and yearly totals", async () => {
     const { GET } = load("app/api/reports/route.ts", {
       "drizzle-orm": reportOrm, "@/db": { getDb: () => db }, "@/db/schema": { ...tables, waitlist: {} },
       "@/lib/api-schemas": schemas, "@/lib/month-close": { loadClose: async () => null },
+      ...cashMocks(),
       "@/lib/queries": { staffWithAttendance: async () => ({ rows: [] }) },
       "@/lib/scope": { resolveScope: async () => ({ branchId: 1 }), scopeFailure: () => null },
     });
@@ -87,6 +100,16 @@ test("Dashboard includes other income without changing parent debt or expense to
   const { dashboardSnapshot } = load("lib/snapshots.ts", {
     "drizzle-orm": orm, "@/db": { getDb: () => db }, "@/db/schema": tables,
     "@/lib/api-schemas": schemas, "@/lib/period": period, "@/lib/format": {},
+    ...cashMocks({
+      cashIncome: async () => [
+        { amount: 1000, method: "cash", date: "2026-09-05" },
+        { amount: 600, method: "cash", date: "2026-09-06" },
+      ],
+      cashExpense: async () => ({
+        salary: [],
+        other: [{ amount: 100, method: "cash", date: "2026-09-07", category: "Rent" }],
+      }),
+    }),
     "@/lib/queries": {
       childrenWithPayments: async () => [],
       paymentsSummary: () => ({ received: 1000, balance: 400, partialCount: 1, unpaidCount: 0 }),

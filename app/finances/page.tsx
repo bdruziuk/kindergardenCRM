@@ -1,6 +1,6 @@
 "use client";
 import { MonthPicker } from "@/components/MonthPicker";
-import { currentMonth } from "@/lib/period";
+import { currentMonth, monthLabel } from "@/lib/period";
 import { useCallback, useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
@@ -42,8 +42,14 @@ const EMPTY: FinanceSnapshot = {
     expense: { salary: 0, other: 0, total: 0 },
     salaryAccrued: 0,
     salaryRemaining: 0,
+    salaryDebtTotal: 0,
+    salaryOverpaidTotal: 0,
     balance: 0,
+    closing: 0,
+    openingKnown: false,
+    openingSince: null,
   },
+  debt: [],
   categories: [],
   methods: [],
 };
@@ -72,15 +78,19 @@ type PayoutDraft = {
   kind: SalaryKind;
   amount: string;
   method: PaymentMethod;
+  /** Місяць роботи, за який платять. */
+  payrollMonth: string;
+  /** Дата, коли гроші справді видали. */
   paidAt: string;
   note: string;
 };
 
-const emptyPayout = (): PayoutDraft => ({
+const emptyPayout = (payrollMonth: string): PayoutDraft => ({
   id: null,
   kind: "advance",
   amount: "",
   method: "cash",
+  payrollMonth,
   paidAt: new Date().toISOString().slice(0, 10),
   note: "",
 });
@@ -97,7 +107,7 @@ export default function FinancesPage() {
   const [saving, setSaving] = useState(false);
   /** Відкритий працівник і чернетка виплати в його картці. */
   const [openStaff, setOpenStaff] = useState<number | null>(null);
-  const [payout, setPayout] = useState<PayoutDraft>(emptyPayout);
+  const [payout, setPayout] = useState<PayoutDraft>(() => emptyPayout(month));
   const [confirming, setConfirming] = useState<number | null>(null);
 
   /** Перечитує сторінку — зокрема після закриття чи відкриття місяця. */
@@ -172,16 +182,34 @@ export default function FinancesPage() {
             payoutKind: payout.kind,
             amount: Number(payout.amount),
             method: payout.method,
+            payrollMonth: payout.payrollMonth,
             paidAt: payout.paidAt,
             note: payout.note,
           },
     );
-    if (ok) setPayout(emptyPayout());
+    if (ok) setPayout(emptyPayout(month));
   };
 
 
   const { income, expense, salaryAccrued, salaryRemaining, balance } =
     data.summary;
+  const { openingKnown, closing, salaryDebtTotal, salaryOverpaidTotal } =
+    data.summary;
+  /** Нараховане й виплачене саме за той місяць роботи, який обрано у формі —
+   *  він не обов'язково збігається з місяцем сторінки. */
+  const payrollFigures = openStaff
+    ? data.debt
+        .find((person) => person.staffId === openStaff)
+        ?.months.find((row) => row.month === payout.payrollMonth)
+    : undefined;
+
+  /** Борг за місяці, крім показаного: те, що тягнеться з минулого. */
+  const earlierDebt = data.debt
+    .map((person) => ({
+      ...person,
+      months: person.months.filter((row) => row.month !== month && row.remaining > 0),
+    }))
+    .filter((person) => person.months.length);
 
   return (
     <main className="shell">
@@ -238,8 +266,16 @@ export default function FinancesPage() {
                 <b className="green-text">+{money(row.income)}</b>
                 <b className="negative-balance">−{money(row.expense)}</b>
               </div>
-              <small className={row.balance < 0 ? "negative-balance" : undefined}>
-                залишок {money(row.balance)}
+              <small
+                className={
+                  (openingKnown ? row.closing : row.balance) < 0
+                    ? "negative-balance"
+                    : undefined
+                }
+              >
+                {openingKnown
+                  ? `залишок ${money(row.closing)}`
+                  : `рух ${money(row.balance)}`}
               </small>
             </article>
           ))}
@@ -268,12 +304,23 @@ export default function FinancesPage() {
           <article className="salary-stat">
             <i>Σ</i>
             <div>
-              <span>Баланс</span>
-              <b className={balance < 0 ? "negative-balance" : undefined}>
-                {money(balance)}
+              {/* Різниця доходів і витрат — це рух грошей за місяць, а не те,
+                  скільки їх лишилося. Залишком її можна назвати лише тоді,
+                  коли внесено, з чого рахувати. */}
+              <span>{openingKnown ? "Залишок грошей" : "Рух коштів"}</span>
+              <b
+                className={
+                  (openingKnown ? closing : balance) < 0
+                    ? "negative-balance"
+                    : undefined
+                }
+              >
+                {money(openingKnown ? closing : balance)}
               </b>
               <small>
-                {balance < 0 ? "витрати перевищують дохід" : "у плюсі"}
+                {openingKnown
+                  ? `на кінець періоду · початок ${money(closing - balance)}`
+                  : "доходи мінус витрати; початкові залишки не внесені"}
               </small>
             </div>
           </article>
@@ -281,13 +328,61 @@ export default function FinancesPage() {
             <i>▤</i>
             <div>
               <span>Ще виплатити</span>
-              <b className={salaryRemaining > 0 ? "negative-balance" : undefined}>
-                {money(salaryRemaining)}
+              <b className={salaryDebtTotal > 0 ? "negative-balance" : undefined}>
+                {money(salaryDebtTotal)}
               </b>
-              <small>зарплат за цей місяць</small>
+              <small>
+                зарплат за всі місяці · за цей {money(salaryRemaining)}
+                {salaryOverpaidTotal > 0
+                  ? ` · переплата ${money(salaryOverpaidTotal)}`
+                  : ""}
+              </small>
             </div>
           </article>
         </div>
+
+        {earlierDebt.length > 0 && (
+          <article className="panel earlier-debt">
+            <div className="group-chart-head">
+              <div>
+                <h2>Невиплачені зарплати за минулі місяці</h2>
+                <p>
+                  Натисніть на працівника, щоб виплатити — виплата піде у
+                  витрати тим місяцем, яким її видано
+                </p>
+              </div>
+            </div>
+            <div className="earlier-debt-list">
+              {earlierDebt.map((person) => (
+                <button
+                  className="earlier-debt-row"
+                  key={person.staffId}
+                  onClick={() => {
+                    setOpenStaff(person.staffId);
+                    setPayout({
+                      ...emptyPayout(person.months[0].month),
+                      kind: "salary",
+                      amount: String(person.months[0].remaining),
+                    });
+                  }}
+                >
+                  <div>
+                    <b>
+                      {person.name}
+                      {!person.active && <em className="left-mark">звільнений</em>}
+                    </b>
+                    <small>
+                      {person.months
+                        .map((row) => `${monthLabel(row.month)} — ${money(row.remaining)}`)
+                        .join(" · ")}
+                    </small>
+                  </div>
+                  <b className="negative-balance">{money(person.remaining)}</b>
+                </button>
+              ))}
+            </div>
+          </article>
+        )}
 
         <article className="panel group-payment-chart">
           <div className="group-chart-head">
@@ -374,7 +469,7 @@ export default function FinancesPage() {
                     className="salary-row"
                     onClick={() => {
                       setOpenStaff(row.id);
-                      setPayout(emptyPayout());
+                      setPayout(emptyPayout(month));
                       setConfirming(null);
                     }}
                   >
@@ -574,10 +669,11 @@ export default function FinancesPage() {
         >
           <h2>{selected.name}</h2>
           <p>
-            {selected.role} · нараховано {money(selected.accrued)}, видано{" "}
+            {selected.role} · за {monthLabel(month)}: нараховано{" "}
+            {money(selected.accrued)}, виплачено за цей місяць роботи{" "}
             {money(selected.paid)}
             {selected.remaining > 0
-              ? `, залишок ${money(selected.remaining)}`
+              ? `, ще виплатити ${money(selected.remaining)}`
               : selected.remaining < 0
                 ? `, переплата ${money(-selected.remaining)}`
                 : ""}
@@ -606,7 +702,7 @@ export default function FinancesPage() {
                           payoutId: item.id,
                         });
                         setConfirming(null);
-                        if (payout.id === item.id) setPayout(emptyPayout());
+                        if (payout.id === item.id) setPayout(emptyPayout(month));
                       }}
                     >
                       {saving ? "…" : "Видалити"}
@@ -625,6 +721,7 @@ export default function FinancesPage() {
                           kind: item.kind,
                           amount: String(item.amount),
                           method: item.method,
+                          payrollMonth: month,
                           paidAt: item.paidAt,
                           note: item.note,
                         })
@@ -645,11 +742,60 @@ export default function FinancesPage() {
               </article>
             ))}
             {!selected.payouts.length && (
-              <div className="empty">За цей місяць виплат ще не було.</div>
+              <div className="empty">
+                За {monthLabel(month)} виплат ще не було.
+              </div>
             )}
           </div>
 
+          <p className="payout-hint">
+            Виплата гасить зарплату за вибраний місяць роботи, а у витрати
+            потрапляє за датою, коли гроші справді видали. Це різні місяці,
+            якщо за вересень платять у жовтні.
+          </p>
+
+          <div className="payroll-figures">
+            <div>
+              <span>Нараховано за {monthLabel(payout.payrollMonth)}</span>
+              <b>{money(payrollFigures?.accrued ?? 0)}</b>
+            </div>
+            <div>
+              <span>Виплачено за цей місяць роботи</span>
+              <b>{money(payrollFigures?.paid ?? 0)}</b>
+            </div>
+            <div>
+              <span>
+                {payrollFigures?.overpaid ? "Переплата" : "Ще виплатити"}
+              </span>
+              <b
+                className={
+                  payrollFigures?.remaining
+                    ? "negative-balance"
+                    : payrollFigures?.overpaid
+                      ? undefined
+                      : "green-text"
+                }
+              >
+                {money(payrollFigures?.overpaid || payrollFigures?.remaining || 0)}
+              </b>
+            </div>
+          </div>
+
           <div className="form-grid payout-form">
+            <label>
+              За який місяць
+              {payout.id ? (
+                <input value={monthLabel(payout.payrollMonth)} readOnly />
+              ) : (
+                <input
+                  type="month"
+                  value={payout.payrollMonth}
+                  onChange={(event) =>
+                    setPayout({ ...payout, payrollMonth: event.target.value || month })
+                  }
+                />
+              )}
+            </label>
             <label>
               Вид
               <select
@@ -683,7 +829,7 @@ export default function FinancesPage() {
               )}
             </label>
             <label>
-              Коли видано
+              Дата фактичної виплати
               <input
                 type="date"
                 value={payout.paidAt}
@@ -706,7 +852,7 @@ export default function FinancesPage() {
 
           <div className="modal-actions">
             {payout.id && (
-              <button onClick={() => setPayout(emptyPayout())}>
+              <button onClick={() => setPayout(emptyPayout(month))}>
                 Скасувати правку
               </button>
             )}

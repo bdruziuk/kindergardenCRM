@@ -59,7 +59,14 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = parsed.data;
-    await assertMonthOpen(branchId, body.month ?? currentMonth());
+    const isPayout =
+      body.kind === "payout_add" ||
+      body.kind === "payout_update" ||
+      body.kind === "payout_remove";
+    // Виплати мають власні перевірки за датою руху грошей, а не за місяцем
+    // сторінки: за закритий місяць роботи платять уже наступного місяця, і
+    // спільна перевірка тут забороняла б саме це.
+    if (!isPayout) await assertMonthOpen(branchId, body.month ?? currentMonth());
 
     // Кожен переданий ID перевіряємо в межах філії до будь-якого запису.
     if (
@@ -119,11 +126,7 @@ export async function POST(request: Request) {
         .where(eq(lessons.id, body.lessonId));
     } else if (body.kind === "lesson_remove") {
       await db.delete(lessons).where(eq(lessons.id, body.lessonId));
-    } else if (
-      body.kind === "payout_add" ||
-      body.kind === "payout_update" ||
-      body.kind === "payout_remove"
-    ) {
+    } else if (isPayout) {
       await mutatePayout(branchId, body);
     } else if (body.kind === "update_staff") {
       await db

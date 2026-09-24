@@ -573,6 +573,47 @@ export const monthCloses = pgTable(
   (t) => [uniqueIndex("idx_month_closes_branch_month").on(t.branchId, t.month)],
 );
 
+/**
+ * Скільки грошей було в касі на задану дату — те, що неможливо вивести з
+ * операцій: до першого запису в системі каса вже була не порожня.
+ *
+ * Домовленість про дату одна й без винятків: запис описує стан на ранок
+ * `asOf`, тобто операції самого цього дня в нього ще не входять і додаються
+ * далі звичайним рухом. Інакше оплата, внесена того самого дня, потрапила б у
+ * підсумок двічі.
+ *
+ * Рядки не перезаписуються, а додаються: виправлення — це новий запис із
+ * новішою датою, тож видно, хто і коли поправив. Початковий залишок доходом
+ * не є й у «Доходи за період» не потрапляє.
+ */
+export const cashOpeningBalances = pgTable(
+  "cash_opening_balances",
+  {
+    id: serial("id").primaryKey(),
+    branchId: integer("branch_id")
+      .notNull()
+      .references(() => branches.id, { onDelete: "cascade" }),
+    method: paymentMethod("method").notNull(),
+    amount: money("amount").notNull().default(0),
+    /** Стан на ранок цього дня. */
+    asOf: day("as_of").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: integer("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    uniqueIndex("idx_cash_opening_branch_method_date").on(
+      t.branchId,
+      t.method,
+      t.asOf,
+    ),
+  ],
+);
+
 export const users = pgTable(
   "users",
   {

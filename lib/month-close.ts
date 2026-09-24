@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { monthCloses } from "@/db/schema";
 import { monthStart } from "./period";
@@ -22,6 +22,29 @@ export type MonthSnapshot = {
   /** Може бути відсутнім у знімках, знятих до появи «Огляду» в закритті. */
   dashboard?: unknown;
 };
+
+/** Досить того, що вміє виконати запит: і пул, і транзакція підходять. */
+type Executor = { execute: (query: ReturnType<typeof sql>) => Promise<unknown> };
+
+/**
+ * Закриття місяця й запис руху грошей у той самий місяць змагаються за один
+ * стан: перевірка «місяць ще відкритий» і сам запис — це два кроки, і між ними
+ * місяць може закритися. Порадче блокування на пару «філія + місяць» ставить
+ * обидві дії в чергу, тож операція або встигає до закриття, або дістає
+ * відмову — але не потрапляє в уже знятий знімок.
+ *
+ * Блокування тримається до кінця транзакції й знімається само.
+ */
+export async function lockFinancialMonth(
+  db: Executor,
+  branchId: number,
+  month: string,
+) {
+  const key = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
+  await db.execute(
+    sql`select pg_advisory_xact_lock(${branchId}::int, ${key}::int)`,
+  );
+}
 
 export type CloseState = {
   closed: boolean;
@@ -72,17 +95,22 @@ export async function closeMonth(
   userId: number,
   snapshot: MonthSnapshot,
 ) {
-  await getDb()
-    .insert(monthCloses)
-    .values({
-      branchId,
-      month: monthStart(month),
-      data: JSON.stringify(snapshot),
-      closedBy: userId,
-    })
-    // Повторне закриття не має перезаписувати знімок: тоді «закрити ще раз»
-    // тихо оновило б минуле сьогоднішніми числами — рівно те, чого уникаємо.
-    .onConflictDoNothing();
+  await getDb().transaction(async (tx) => {
+    // Той самий ключ, що беруть виплати: поки одна з двох дій у роботі, друга
+    // чекає, і знімок не розходиться з тим, що встигли записати.
+    await lockFinancialMonth(tx, branchId, month);
+    await tx
+      .insert(monthCloses)
+      .values({
+        branchId,
+        month: monthStart(month),
+        data: JSON.stringify(snapshot),
+        closedBy: userId,
+      })
+      // Повторне закриття не має перезаписувати знімок: тоді «закрити ще раз»
+      // тихо оновило б минуле сьогоднішніми числами — рівно те, чого уникаємо.
+      .onConflictDoNothing();
+  });
 }
 
 export async function openMonth(branchId: number, month: string) {

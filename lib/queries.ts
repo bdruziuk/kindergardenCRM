@@ -183,10 +183,14 @@ export async function staffWithAttendance(
         lessonRate: staff.lessonRate,
         vacationQuota: staff.vacationQuota,
         dayOffQuota: staff.dayOffQuota,
+        active: staff.active,
       })
       .from(staff)
       .leftJoin(branches, eq(branches.id, staff.branchId))
-      .where(and(eq(staff.branchId, branchId), eq(staff.active, true)))
+      // Звільнених беремо теж і відсіюємо нижче — але лише тих, за ким у цьому
+      // місяці нічого немає. Інакше людина, звільнена в жовтні, зникала б і з
+      // вересня, забираючи з собою відпрацьовані дні й невиплачену зарплату.
+      .where(eq(staff.branchId, branchId))
       .orderBy(asc(staff.id)),
     db
       .select()
@@ -221,7 +225,15 @@ export async function staffWithAttendance(
       .orderBy(asc(salaryPayments.paidAt), asc(salaryPayments.id)),
   ]);
 
-  const rows = staffRows.map((person) => {
+  const rows = staffRows
+    .filter(
+      (person) =>
+        person.active ||
+        attendanceRows.some((row) => row.staffId === person.id) ||
+        lessonRows.some((row) => row.staffId === person.id) ||
+        payoutRows.some((row) => row.staffId === person.id),
+    )
+    .map((person) => {
     const marks = Object.fromEntries(
       attendanceRows
         .filter((item) => item.staffId === person.id)
@@ -296,6 +308,7 @@ export async function staffWithAttendance(
       phone: person.phone ?? "",
       birthDate: person.birthDate,
       branch: person.branchName ?? "",
+      active: person.active,
       salaryType: person.salaryType,
       monthlyRate: person.monthlyRate,
       dailyRate: person.dailyRate,

@@ -54,6 +54,8 @@ const EMPTY: ReportsSnapshot = {
     expenses: 0,
     balance: 0,
     bestMonth: null,
+    salaryDebtAtEnd: 0,
+    debtAsOf: "",
   },
   categories: [],
   groups: [],

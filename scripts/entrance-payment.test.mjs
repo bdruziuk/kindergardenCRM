@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { load, schemas, tables, orm, fixture, database } from "./test-helpers.mjs";
+import { load, schemas, tables, orm, fixture, database, cashMocks } from "./test-helpers.mjs";
 const period = load("lib/period.ts", { "./api-schemas": schemas });
 for (const method of ["cash", "card", "iban"]) test(`Entrance contribution: ${method}, income without tuition debt offset`, async () => {
   const data = fixture();
@@ -26,6 +26,13 @@ for (const method of ["cash", "card", "iban"]) test(`Entrance contribution: ${me
   const { financeSnapshot } = load("lib/snapshots.ts", {
     "drizzle-orm": orm, "@/db": {}, "@/db/schema": tables, "@/lib/api-schemas": schemas,
     "@/lib/period": period, "@/lib/format": {},
+    // Каса рахує надходження за датою оплати — і вступний внесок теж є
+    // надходженням, а не заліком боргу за навчання.
+    ...cashMocks({
+      cashIncome: async () => data.payments.map((row) => ({
+        amount: row.amount, method: row.method, date: row.paidAt,
+      })),
+    }),
     "@/lib/queries": { ...queries, salaryProgress: async () => [], monthExpenses: async () => [] },
   });
   const finance = await financeSnapshot(1, "2026-09");

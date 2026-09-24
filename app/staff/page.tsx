@@ -9,14 +9,17 @@ import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { MonthLock } from "@/components/MonthLock";
 import { Sidebar } from "@/components/Sidebar";
 import type {
+  PaymentMethod,
   SalaryKind,
   SalaryType,
   StaffRowDto,
   StaffSnapshot,
 } from "@/lib/api-schemas";
+import { paymentMethodValues } from "@/lib/api-schemas";
 import {
   ATTENDANCE_KIND_LABELS,
   ATTENDANCE_KIND_MARKS,
+  PAYMENT_METHOD_LABELS,
   SALARY_KIND_LABELS,
   SALARY_TYPE_LABELS,
   leaveOverrun,
@@ -45,13 +48,19 @@ type StaffDraft = {
 type PayoutDraft = {
   kind: SalaryKind;
   amount: string;
+  method: PaymentMethod;
+  /** Місяць роботи, за який платять. */
+  payrollMonth: string;
+  /** Дата, коли гроші справді видали. */
   paidAt: string;
   note: string;
 };
 
-const emptyPayout = (): PayoutDraft => ({
+const emptyPayout = (payrollMonth: string): PayoutDraft => ({
   kind: "advance",
   amount: "",
+  method: "cash",
+  payrollMonth,
   paidAt: new Date().toISOString().slice(0, 10),
   note: "",
 });
@@ -96,7 +105,7 @@ export default function StaffPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<StaffDraft | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
-  const [payout, setPayout] = useState<PayoutDraft>(emptyPayout);
+  const [payout, setPayout] = useState<PayoutDraft>(() => emptyPayout(month));
   const [view, setView] = useState<"list" | "grid">("list");
   /** Попередження про перевищення лімітів після останньої відмітки дня. */
   const [warning, setWarning] = useState<string | null>(null);
@@ -620,7 +629,24 @@ export default function StaffPage() {
                 )}
               </div>
 
+              <p className="payout-hint">
+                Виплата гасить зарплату за вибраний місяць роботи, а у витрати
+                потрапляє за датою, коли гроші справді видали.
+              </p>
+
               <div className="payout-add">
+                <input
+                  type="month"
+                  aria-label="За який місяць"
+                  title="За який місяць"
+                  value={payout.payrollMonth}
+                  onChange={(event) =>
+                    setPayout({
+                      ...payout,
+                      payrollMonth: event.target.value || month,
+                    })
+                  }
+                />
                 <select
                   value={payout.kind}
                   onChange={(event) =>
@@ -642,8 +668,27 @@ export default function StaffPage() {
                     setPayout({ ...payout, amount: event.target.value })
                   }
                 />
+                <select
+                  aria-label="Чим видано"
+                  title="Чим видано"
+                  value={payout.method}
+                  onChange={(event) =>
+                    setPayout({
+                      ...payout,
+                      method: event.target.value as PaymentMethod,
+                    })
+                  }
+                >
+                  {paymentMethodValues.map((value) => (
+                    <option key={value} value={value}>
+                      {PAYMENT_METHOD_LABELS[value]}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="date"
+                  aria-label="Дата фактичної виплати"
+                  title="Дата фактичної виплати"
                   value={payout.paidAt}
                   onChange={(event) =>
                     setPayout({ ...payout, paidAt: event.target.value })
@@ -665,10 +710,12 @@ export default function StaffPage() {
                       staffId: selected.id,
                       payoutKind: payout.kind,
                       amount: Number(payout.amount),
+                      method: payout.method,
+                      payrollMonth: payout.payrollMonth,
                       paidAt: payout.paidAt,
                       note: payout.note,
                     });
-                    setPayout(emptyPayout());
+                    setPayout(emptyPayout(month));
                   }}
                 >
                   ＋ Видати

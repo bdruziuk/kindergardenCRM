@@ -18,11 +18,37 @@ export function load(relative, mocks = {}) {
   return loaded.exports;
 }
 export const schemas = load("lib/api-schemas.ts");
+// Гроші й правила боргу — справжні модулі: підміняти їх заглушками означало б
+// перевіряти заглушки. Підміняється лише те, що ходить у базу.
+export const money = load("lib/money.ts");
+export const cash = load("lib/cash.ts", { "./money": money, "./api-schemas": schemas });
+/** Запити до каси, які тест може перекрити по одному. */
+export const cashQueries = (overrides = {}) => ({
+  monthRange: (month) => {
+    const [year, number] = month.split("-").map(Number);
+    const next = number === 12 ? `${year + 1}-01` : `${year}-${String(number + 1).padStart(2, "0")}`;
+    return { from: `${month}-01`, until: `${next}-01` };
+  },
+  yearRange: (year) => ({ from: `${year}-01-01`, until: `${year + 1}-01-01` }),
+  cashIncome: async () => [],
+  cashExpense: async () => ({ salary: [], other: [] }),
+  openingBalances: async () => ({}),
+  openingAt: async () => ({ opening: {}, since: null }),
+  payrollDebt: async () => [],
+  ...overrides,
+});
+/** Стандартний набір підмін для модулів, що читають гроші. */
+export const cashMocks = (overrides = {}) => ({
+  "@/lib/money": money,
+  "@/lib/cash": cash,
+  "@/lib/cash-queries": cashQueries(overrides),
+});
 const columns = {
   payments: ["purpose", "id", "childId", "billingMonth", "amount", "method", "paidAt"],
   paymentReceipts: ["id", "paymentId", "fileName", "mime", "data", "size"],
   salaryPayments: ["id", "staffId", "month", "amount", "kind", "method", "paidAt", "note"],
   transactions: ["direction", "id", "branchId", "occurredAt", "amount", "category", "method", "note"],
+  cashOpeningBalances: ["id", "branchId", "method", "amount", "asOf", "note", "createdBy"],
   monthCloses: ["id", "branchId", "month", "data", "closedAt"],
   branches: ["id", "kindergartenId", "monthlyFee"],
   children: ["id", "branchId", "groupId", "fullName", "customFee", "feeMode", "dailyRate", "status", "birthDate", "enrolledAt", "leftAt"],
@@ -116,6 +142,9 @@ export function database(data) {
     update: (table) => query("update", table),
     delete: (table) => query("delete", table),
     insert: (table) => query("insert", table),
+    // Порадчі блокування в пам'яті теж ні на що не впливають, але виклик має
+    // пройти: так пишуться справжні запити.
+    execute: async () => [],
     transaction: async (callback) => {
       const before = structuredClone(data);
       try { return await callback(db); }

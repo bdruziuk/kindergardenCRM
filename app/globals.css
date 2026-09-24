@@ -627,3 +627,19 @@
    and on group cards grow on touch screens only. */
 @media(pointer:coarse){.row-action{width:34px;height:34px}.group-edit,.contact-card button,.directory-foot button{min-width:38px;min-height:38px}.month button{width:38px;height:38px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.group-card:hover{transform:none}}
+/* --- виплати та борг по зарплаті ---------------------------------------- */
+.payout-hint{margin:14px 0 0;padding:10px 12px;border:1px solid var(--accent-line);border-radius:10px;background:var(--accent-wash);color:var(--accent-ink);font-size:10px;line-height:1.5}
+.earlier-debt{margin-bottom:15px}
+.earlier-debt-list{display:grid;gap:8px;margin-top:13px}
+.earlier-debt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;font:inherit;text-align:left;cursor:pointer}
+.earlier-debt-row:hover{border-color:var(--accent-line);background:var(--accent-tint)}
+.earlier-debt-row>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.earlier-debt-row b{font-size:12px}
+.earlier-debt-row small{font-size:9px;color:var(--muted);overflow-wrap:anywhere}
+.left-mark{margin-left:7px;padding:2px 6px;border-radius:6px;background:#f3f5f4;color:#6f7c76;font-size:8px;font-style:normal;font-weight:700}
+@media(max-width:720px){.earlier-debt-row{flex-direction:column;align-items:stretch;gap:6px}}
+.payroll-figures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:11px}
+.payroll-figures>div{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.payroll-figures span{font-size:8px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.payroll-figures b{font-size:14px}
+@media(max-width:720px){.payroll-figures{grid-template-columns:1fr}}

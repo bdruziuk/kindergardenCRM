@@ -18,6 +18,8 @@ import {
   MONTH,
   waitlistStatusValues,
 } from "@/lib/api-schemas";
+import { totalDebt } from "@/lib/cash";
+import { monthRange, payrollDebt, yearRange } from "@/lib/cash-queries";
 import { loadClose } from "@/lib/month-close";
 import { staffWithAttendance } from "@/lib/queries";
 import { resolveScope, scopeFailure } from "@/lib/scope";
@@ -76,7 +78,9 @@ async function snapshot(
       .groupBy(sql`1`),
     db
       .select({
-        month: sql<string>`to_char(${payments.billingMonth}, 'YYYY-MM')`,
+        // За датою оплати, а не за місяцем нарахування: жовтневу плату,
+        // внесену у вересні, каса бачить у вересні.
+        month: sql<string>`to_char(${payments.paidAt}, 'YYYY-MM')`,
         total: sql<number>`sum(${payments.amount})::float8`,
       })
       .from(payments)
@@ -86,13 +90,15 @@ async function snapshot(
       .where(
         and(
           eq(children.branchId, BRANCH_ID),
-          sql`${payments.billingMonth} >= ${yearFrom}::date and ${payments.billingMonth} < ${yearTo}::date`,
+          sql`${payments.paidAt} >= ${yearFrom}::date and ${payments.paidAt} < ${yearTo}::date`,
         ),
       )
       .groupBy(sql`1`),
     db
       .select({
-        month: sql<string>`to_char(${salaryPayments.month}, 'YYYY-MM')`,
+        // За датою видачі: грудневу зарплату, видану в січні, показує січень
+        // наступного року, а не грудень.
+        month: sql<string>`to_char(${salaryPayments.paidAt}, 'YYYY-MM')`,
         total: sql<number>`sum(${salaryPayments.amount})::float8`,
       })
       .from(salaryPayments)
@@ -100,7 +106,7 @@ async function snapshot(
       .where(
         and(
           eq(staff.branchId, BRANCH_ID),
-          sql`${salaryPayments.month} >= ${yearFrom}::date and ${salaryPayments.month} < ${yearTo}::date`,
+          sql`${salaryPayments.paidAt} >= ${yearFrom}::date and ${salaryPayments.paidAt} < ${yearTo}::date`,
         ),
       )
       .groupBy(sql`1`),
@@ -166,10 +172,12 @@ async function snapshot(
         salaryPayments,
         and(
           eq(salaryPayments.staffId, staff.id),
-          sql`${salaryPayments.month} >= ${from}::date and ${salaryPayments.month} < ${until}`,
+          sql`${salaryPayments.paidAt} >= ${from}::date and ${salaryPayments.paidAt} < ${until}`,
         ),
       )
-      .where(and(eq(staff.branchId, BRANCH_ID), eq(staff.active, true)))
+      // Звільнені лишаються: виплати, зроблені їм у цьому періоді, нікуди не
+      // діваються від того, що людина більше не працює.
+      .where(eq(staff.branchId, BRANCH_ID))
       .groupBy(staff.id)
       .orderBy(asc(staff.id)),
     db
@@ -185,6 +193,18 @@ async function snapshot(
         : staffWithAttendance(BRANCH_ID, month)
       : Promise.resolve(null),
   ]);
+
+  // Борг на кінець періоду рахує лише ті виплати, що були зроблені до цієї
+  // дати. Пізніша виплата не має переписувати те, що показує минулий звіт.
+  const periodEnd = month ? monthRange(month).until : yearRange(year).until;
+  const lastDay = new Date(`${periodEnd}T00:00:00Z`);
+  lastDay.setUTCDate(lastDay.getUTCDate() - 1);
+  const asOf = lastDay.toISOString().slice(0, 10);
+  const debtAtEnd = await payrollDebt(
+    BRANCH_ID,
+    month ?? `${year}-12`,
+    asOf,
+  );
 
   const pick = (rows: { month: string; total: number }[], key: string) =>
     rows.find((row) => row.month === key)?.total ?? 0;
@@ -250,6 +270,9 @@ async function snapshot(
       expenses: totalExpenses,
       balance: Math.round((totalIncome - totalExpenses) * 100) / 100,
       bestMonth: best?.month ?? null,
+      /** Невиплачена зарплата станом на останній день періоду. */
+      salaryDebtAtEnd: totalDebt(debtAtEnd),
+      debtAsOf: asOf,
     },
     categories,
     groups: groupRows.map((row) => ({ name: row.name, children: row.count })),

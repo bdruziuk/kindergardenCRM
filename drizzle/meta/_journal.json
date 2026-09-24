@@ -225,6 +225,13 @@
       "when": 1788981266789,
       "tag": "0031_jazzy_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788981267789,
+      "tag": "0032_cash_opening_balances",
+      "breakpoints": true
     }
   ]
 }

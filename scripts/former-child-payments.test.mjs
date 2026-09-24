@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { load, schemas, tables, orm, fixture, database } from "./test-helpers.mjs";
+import { load, schemas, tables, orm, fixture, database, cashMocks } from "./test-helpers.mjs";
 
 function setup() {
   const data = fixture();
@@ -22,6 +22,16 @@ function setup() {
   const snapshots = load("lib/snapshots.ts", {
     "drizzle-orm": orm, "@/db": { getDb: () => database(data) }, "@/db/schema": tables,
     "@/lib/api-schemas": schemas, "@/lib/format": {}, "@/lib/period": period,
+    // Вибуття дитини не скасовує отриманих грошей: надходження лишаються в
+    // касі за своєю датою оплати.
+    ...cashMocks({
+      cashIncome: async (_branch, from, until) => {
+        const mine = new Set(data.children.filter((child) => child.branchId === 1).map((child) => child.id));
+        return data.payments
+          .filter((row) => mine.has(row.childId) && row.paidAt >= from && row.paidAt < until)
+          .map((row) => ({ amount: row.amount, method: row.method, date: row.paidAt }));
+      },
+    }),
     "@/lib/queries": { ...queries, salaryProgress: async () => [], monthExpenses: async () => [] },
   });
   return { data, queries, snapshots };
@@ -46,10 +56,17 @@ test("Payments and finance totals retain all payment methods after leaving", asy
   data.children[0].status = "left";
   const after = await snapshots.financeSnapshot(1, "2026-08");
   assert.deepEqual(after, before);
-  assert.equal(after.summary.income, 600);
-  assert.deepEqual(after.methods.map(({ method, income }) => [method, income]), [["cash", 200], ["iban", 100], ["card", 300]]);
+  // Каса бачить те, що надійшло в серпні: 300 карткою і 100 на рахунок.
+  // 200 готівкою за серпень внесли 3 вересня, тож їх бачить вересень.
+  assert.equal(after.summary.income, 400);
+  assert.deepEqual(after.methods.map(({ method, income }) => [method, income]), [["cash", 0], ["iban", 100], ["card", 300]]);
+  const september = await snapshots.financeSnapshot(1, "2026-09");
+  assert.equal(september.summary.income, 200);
+
+  // «Оплати» рахують інше — нараховане за серпень і внесене за нього ж,
+  // незалежно від дати. Ці два числа не зобов'язані збігатися.
   const payments = await snapshots.paymentsSnapshot(1, "2026-08");
-  assert.equal(payments.summary.received, after.summary.income);
+  assert.equal(payments.summary.received, 600);
 });
 
 test("Former children without payments in the selected month are not billed", async () => {

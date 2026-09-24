@@ -1,12 +1,16 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { children, groups, jobTitles, transactions } from "@/db/schema";
+import type { FinanceSnapshot, MethodTotals } from "@/lib/api-schemas";
+import { hasOpening, methodFlows, totalDebt, totalOverpaid } from "@/lib/cash";
 import {
-  type FinanceSnapshot,
-  type MethodTotals,
-  type PaymentMethod,
-  paymentMethodValues,
-} from "@/lib/api-schemas";
+  cashExpense,
+  cashIncome,
+  monthRange,
+  openingAt,
+  payrollDebt,
+} from "@/lib/cash-queries";
+import { diffMoney, money, sumMoney } from "@/lib/money";
 import { paidByLesson } from "@/lib/format";
 import { monthStart } from "@/lib/period";
 import {
@@ -77,64 +81,71 @@ export async function staffSnapshot(branchId: number, month: string) {
 /** The one expense the app derives itself; it cannot be edited by hand. */
 const SALARY_CATEGORY = "Зарплата";
 
+/**
+ * Сторінка «Доходи й витрати» за місяць.
+ *
+ * Дві різні речі в одному місці, і їх не можна змішувати:
+ *
+ * «Витрати за період» — гроші, що справді вийшли в цьому місяці. Зарплата
+ * рахується за датою видачі, тож вересневий аванс — вереснева витрата, а
+ * решта, видана 5 жовтня, — жовтнева.
+ *
+ * «Нараховано» — те, що заробили за цей місяць роботи, незалежно від того,
+ * коли за це заплатять. Витратою воно не є.
+ */
 export async function financeSnapshot(
   branchId: number,
   month: string,
 ): Promise<FinanceSnapshot> {
-  const [childRows, salaryRows, rows] = await Promise.all([
-    childrenWithPayments(branchId, month),
+  const { from, until } = monthRange(month);
+  const [salaryRows, rows, incoming, outgoing, opening, debt] = await Promise.all([
     salaryProgress(branchId, month),
     monthExpenses(branchId, month),
+    cashIncome(branchId, from, until),
+    cashExpense(branchId, from, until),
+    openingAt(branchId, from),
+    payrollDebt(branchId, month),
   ]);
 
   const incomeRows = rows.filter((row) => row.direction === "income");
-  const expenseRows = rows.filter((row) => row.direction !== "income");
-  const otherIncome = incomeRows.reduce((sum, row) => sum + row.amount, 0);
-  const income = paymentsSummary(childRows).received + otherIncome;
+  const otherIncome = sumMoney(incomeRows, (row) => row.amount);
+  // Дохід — гроші, що надійшли в цьому місяці, за датою оплати. Місяць, за
+  // який платили, тут ні до чого: жовтневу плату, внесену у вересні, бачить
+  // вересень.
+  const income = sumMoney(incoming, (row) => row.amount);
 
-  // The expense is the cash that actually left, mirroring income being what
-  // parents actually paid. What the timesheet accrued is reported alongside.
-  const salaryAccrued = salaryRows.reduce((sum, row) => sum + row.accrued, 0);
-  const salary = salaryRows.reduce((sum, row) => sum + row.paid, 0);
-  const salaryRemaining = Math.round((salaryAccrued - salary) * 100) / 100;
-  const other = expenseRows.reduce((sum, row) => sum + row.amount, 0);
-  const total = salary + other;
+  // Нараховано — за місяць роботи; видано — за датою видачі. Це різні суми, і
+  // сходитись вони не зобов'язані.
+  const salaryAccrued = sumMoney(salaryRows, (row) => row.accrued);
+  const salary = sumMoney(outgoing.salary, (row) => row.amount);
+  const salaryRemaining = sumMoney(salaryRows, (row) =>
+    row.remaining > 0 ? row.remaining : 0,
+  );
+  const other = sumMoney(outgoing.other, (row) => row.amount);
+  const total = money(salary + other);
 
   const byCategory = new Map<string, number>();
   if (salary) byCategory.set(SALARY_CATEGORY, salary);
-  for (const row of expenseRows)
-    byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
+  for (const row of outgoing.other)
+    byCategory.set(row.category, money((byCategory.get(row.category) ?? 0) + row.amount));
 
   // Розклад по видах оплати. Витрата віднімається саме від доходів свого
   // виду — готівка з готівки, — бо це різні гаманці, і спільний підсумок
   // ховав би те, що на карті грошей уже немає, поки в касі вони ще є.
-  const zero = () => ({ income: 0, expense: 0 });
-  const perMethod = new Map<PaymentMethod, { income: number; expense: number }>(
-    paymentMethodValues.map((method) => [method, zero()]),
+  // Зарплата сюди входить за датою видачі, як і решта витрат.
+  const flows = methodFlows(
+    incoming,
+    [...outgoing.salary, ...outgoing.other],
+    opening.opening,
   );
-
-  for (const child of childRows)
-    for (const item of child.history)
-      perMethod.get(item.method)!.income += item.amount;
-
-  for (const row of expenseRows) perMethod.get(row.method)!.expense += row.amount;
-  for (const row of incomeRows) perMethod.get(row.method)!.income += row.amount;
-
-  // Зарплата — теж витрата, і теж має вид: без неї підсумок не сходився б
-  // саме на найбільшій статті.
-  for (const person of salaryRows)
-    for (const item of person.payouts)
-      perMethod.get(item.method)!.expense += item.amount;
-
-  const methods: MethodTotals[] = paymentMethodValues.map((method) => {
-    const totals = perMethod.get(method) ?? zero();
-    return {
-      method,
-      income: Math.round(totals.income * 100) / 100,
-      expense: Math.round(totals.expense * 100) / 100,
-      balance: Math.round((totals.income - totals.expense) * 100) / 100,
-    };
-  });
+  const methods: MethodTotals[] = flows.map((flow) => ({
+    method: flow.method,
+    opening: flow.opening,
+    income: flow.income,
+    expense: flow.expense,
+    balance: flow.net,
+    closing: flow.closing,
+  }));
 
   const categories = [...byCategory.entries()]
     .map(([category, amount]) => ({
@@ -154,8 +165,14 @@ export async function financeSnapshot(
       expense: { salary, other, total },
       salaryAccrued,
       salaryRemaining,
-      balance: Math.round((income - total) * 100) / 100,
+      salaryDebtTotal: totalDebt(debt),
+      salaryOverpaidTotal: totalOverpaid(debt),
+      balance: diffMoney(income, total),
+      closing: sumMoney(flows, (flow) => flow.closing),
+      openingKnown: hasOpening(flows) || opening.since !== null,
+      openingSince: opening.since,
     },
+    debt,
     categories,
     methods,
   };
@@ -165,7 +182,9 @@ export async function dashboardSnapshot(branchId: number, month: string) {
   const db = getDb();
   const billingMonth = monthStart(month);
 
-  const [childRows, staffData, counts, expenseRows, birthdays] = await Promise.all([
+  const { from, until } = monthRange(month);
+  const [childRows, staffData, counts, expenseRows, birthdays, outgoing, incoming] =
+    await Promise.all([
     childrenWithPayments(branchId, month),
     staffWithAttendance(branchId, month),
     db
@@ -186,16 +205,22 @@ export async function dashboardSnapshot(branchId: number, month: string) {
         ),
       ),
     upcomingBirthdays(branchId, 3),
+    cashExpense(branchId, from, until),
+    cashIncome(branchId, from, until),
   ]);
 
-  const salaryPaid = staffData.rows.reduce(
-    (sum, row) => sum + row.paidOut.total,
-    0,
-  );
+  // Витрата — за датою видачі, а не за місяцем роботи: аванс за вересень,
+  // виданий у вересні, і решта, видана в жовтні, потрапляють у різні місяці.
+  const salaryPaid = sumMoney(outgoing.salary, (row) => row.amount);
   const summary = paymentsSummary(childRows);
-  const salaryAccrued = staffData.rows.reduce((sum, row) => sum + row.salary, 0);
-  const otherExpenses = expenseRows.filter((row) => row.direction !== "income").reduce((sum, row) => sum + row.amount, 0);
-  const otherIncome = expenseRows.filter((row) => row.direction === "income").reduce((sum, row) => sum + row.amount, 0);
+  const salaryAccrued = sumMoney(staffData.rows, (row) => row.salary);
+  const otherExpenses = sumMoney(outgoing.other, (row) => row.amount);
+  const otherIncome = sumMoney(
+    expenseRows.filter((row) => row.direction === "income"),
+    (row) => row.amount,
+  );
+  // Гроші, що надійшли цього місяця, за датою оплати.
+  const cashIn = sumMoney(incoming, (row) => row.amount);
 
   // Progress per group, ordered by how much is still outstanding.
   const byGroup = new Map<string, { planned: number; paid: number }>();
@@ -209,7 +234,7 @@ export async function dashboardSnapshot(branchId: number, month: string) {
   return {
     month: billingMonth.slice(0, 7),
     payments: summary,
-    income: { total: summary.received + otherIncome, other: otherIncome },
+    income: { total: cashIn, other: otherIncome },
     children: {
       active: counts[0]?.activeChildren ?? 0,
       groups: counts[0]?.groupCount ?? 0,
@@ -231,7 +256,7 @@ export async function dashboardSnapshot(branchId: number, month: string) {
     },
     expenses: {
       // Cash out, so salary counts when it was handed over, not when accrued.
-      total: salaryPaid + otherExpenses,
+      total: money(salaryPaid + otherExpenses),
       salary: salaryPaid,
       other: otherExpenses,
     },
