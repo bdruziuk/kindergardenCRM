@@ -623,6 +623,11 @@
    it changes how the app looks to a mouse user on a desktop. */
 :is(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:6px}
 .overlay section:focus-visible{outline:none}
+/* The header pickers (branch, month) are a borderless select inside a white
+   card, so an outline on the select itself drew a stray line inside the card.
+   The card takes the focus ring instead — the same ring settings inputs use. */
+.actions label select:focus-visible{outline:none}
+.actions label:focus-within{border-color:var(--accent-focus);box-shadow:0 0 0 3px var(--accent-ring)}
 /* Fingers are coarser than a cursor, so the small icon buttons in table rows
    and on group cards grow on touch screens only. */
 @media(pointer:coarse){.row-action{width:34px;height:34px}.group-edit,.contact-card button,.directory-foot button{min-width:38px;min-height:38px}.month button{width:38px;height:38px}}
