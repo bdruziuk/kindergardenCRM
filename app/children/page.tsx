@@ -307,17 +307,19 @@ export default function Page() {
               <tbody>
                 {shown.map((child, i) => (
                   <tr key={child.id} onClick={() => setSelected(child)}>
-                    <td>
+                    {/* Класи комірок — лише для телефона: там рядок стає
+                        карткою, і кожна комірка знає своє місце в ній. */}
+                    <td className="child-cell">
                       <i className={"avatar av" + i}>{child.initials}</i>
                       <div>
                         <b>{child.fullName}</b>
                         <small>{child.ageLabel}</small>
                       </div>
                     </td>
-                    <td>
+                    <td className="group-cell">
                       <span className="group-pill">{child.groupName}</span>
                     </td>
-                    <td>
+                    <td className="relatives-cell">
                       <div className="relative-cell">
                         <b>{child.relatives[0]?.name ?? "Не вказано"}</b>
                         <small>
@@ -328,13 +330,13 @@ export default function Page() {
                         </small>
                       </div>
                     </td>
-                    <td>
+                    <td className="fee-cell">
                       <b>{child.feeLabel}</b>
                       {child.customFee && (
                         <small className="custom-fee">Індивідуальна</small>
                       )}
                     </td>
-                    <td>
+                    <td className="status-cell">
                       <span
                         className={
                           "child-status " +
@@ -348,8 +350,13 @@ export default function Page() {
                         ● {CHILD_STATUS_LABELS[child.status]}
                       </span>
                     </td>
-                    <td>
-                      <button className="more">•••</button>
+                    <td className="more-cell">
+                      <button
+                        className="more"
+                        aria-label={`Відкрити картку: ${child.fullName}`}
+                      >
+                        •••
+                      </button>
                     </td>
                   </tr>
                 ))}
