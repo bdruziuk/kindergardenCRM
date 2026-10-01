@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 /**
  * Overlay + panel used by every dialog in the app. Closes on Escape and on a
@@ -22,6 +22,11 @@ export function Modal({
   children: React.ReactNode;
 }) {
   const panel = useRef<HTMLElement>(null);
+  // Pages pass `onClose` as an inline arrow, so it is a new function on every
+  // render. Reading it through an effect event keeps the effect below from
+  // re-running on each keystroke — re-running it moved focus back to the
+  // first field while the user was typing in another one.
+  const close = useEffectEvent(() => onClose());
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -39,7 +44,7 @@ export function Modal({
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        close();
         return;
       }
       if (event.key !== "Tab") return;
@@ -57,7 +62,7 @@ export function Modal({
       document.removeEventListener("keydown", onKey);
       opener?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div
