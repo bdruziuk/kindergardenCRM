@@ -5,8 +5,10 @@ import {
   children,
   groupStaff,
   groups,
+  payments,
   relatives,
   staff,
+  waitlist,
 } from "@/db/schema";
 import {
   type ChildInput,
@@ -211,7 +213,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { branchId: BRANCH_ID } = await resolveScope(
+    const { branchId: BRANCH_ID, isOwner } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
     );
     const parsed = kindergartenRequest.safeParse(await request.json());
@@ -289,6 +291,39 @@ export async function POST(request: Request) {
           .returning({ id: children.id });
         const kin = relativeValues(body.child.relatives, inserted.id);
         if (kin.length) await tx.insert(relatives).values(kin);
+      });
+    } else if (body.kind === "delete_child") {
+      if (!isOwner)
+        throw new ScopeError("Видаляти дітей може лише власник", 403);
+      const childId = body.childId;
+      await db.transaction(async (tx) => {
+        // Рядок дитини блокуємо до перевірки оплат: нова оплата посилається на
+        // дитину й чекатиме на це блокування, тож не проскочить між перевіркою
+        // і видаленням, щоб потім зникнути каскадом.
+        const [child] = await tx
+          .select({ id: children.id })
+          .from(children)
+          .where(and(eq(children.id, childId), eq(children.branchId, BRANCH_ID)))
+          .for("update");
+        if (!child) throw new ScopeError("Дитину не знайдено", 404);
+        // Оплати видаляються разом із дитиною, а з ними — гроші з каси й сум
+        // уже закритих місяців. Таку дитину не стирають, а позначають вибулою.
+        const paid = await tx
+          .select({ id: payments.id })
+          .from(payments)
+          .where(eq(payments.childId, childId));
+        if (paid.length)
+          throw new ScopeError(
+            "У дитини є оплати, тож видалення стерло б їх із каси. Позначте дитину як «Вибула»",
+            409,
+          );
+        // Заявка з черги, з якої дитину зарахували, лишається в черзі — лише
+        // без посилання, якого більше немає.
+        await tx
+          .update(waitlist)
+          .set({ enrolledChildId: null })
+          .where(eq(waitlist.enrolledChildId, childId));
+        await tx.delete(children).where(eq(children.id, childId));
       });
     } else {
       const childId = body.childId;

@@ -98,6 +98,8 @@ export const kindergartenRequest = z.discriminatedUnion("kind", [
     childId: id,
     child: childInput,
   }),
+  // Лише для власника й лише для дитини без оплат — див. маршрут.
+  z.object({ kind: z.literal("delete_child"), childId: id }),
 ], unknownAction);
 
 export type RelativeInput = z.infer<typeof relativeInput>;

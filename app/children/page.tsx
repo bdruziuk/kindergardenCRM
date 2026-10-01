@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { Sidebar } from "@/components/Sidebar";
@@ -81,7 +81,23 @@ export default function Page() {
       enrolledAt: new Date().toISOString().slice(0, 10),
       relatives: [{ name: "", note: "Мама", phone: "" }] as RelativeDto[],
     }),
-    [editing, setEditing] = useState<EditDraft | null>(null);
+    [editing, setEditing] = useState<EditDraft | null>(null),
+    /** Видалення — у два кроки: кнопка лише питає, а стирає підтвердження. */
+    [confirmDelete, setConfirmDelete] = useState(false),
+    [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Кнопка «Видалити», яку щойно натиснули, зникає — фокус переходить на
+  // безпечний варіант, а не губиться десь на сторінці.
+  const keepButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmDelete) keepButton.current?.focus();
+  }, [confirmDelete]);
+
+  const closeEditing = () => {
+    setEditing(null);
+    setConfirmDelete(false);
+    setDeleteError(null);
+  };
 
   /** Applies a snapshot response, or surfaces the error it carries instead. */
   const apply = (data: {
@@ -460,7 +476,7 @@ export default function Page() {
       {editing && (
         <Modal
           className={"modal edit-modal"}
-          onClose={() => setEditing(null)}
+          onClose={closeEditing}
         >
             <h2>Редагувати дитину</h2>
             <p>Змініть дані, групу або поточний статус</p>
@@ -673,8 +689,70 @@ export default function Page() {
               />
               <span>{STATUS_HINTS[editing.status]}</span>
             </div>
-            <div className="modal-actions">
-              <button onClick={() => setEditing(null)}>Скасувати</button>
+            {confirmDelete && (
+              <div className="delete-confirm" role="alert">
+                <b>
+                  Видалити «{editing.fullName}» разом із родичами? Відновити
+                  запис буде неможливо.
+                </b>
+                <span>
+                  Якщо дитина просто більше не ходить — краще поставте статус
+                  «Вибула»: тоді вона лишиться у звітах за минулі місяці.
+                </span>
+                {deleteError && <em>{deleteError}</em>}
+                <div>
+                  <button
+                    ref={keepButton}
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      setDeleteError(null);
+                    }}
+                  >
+                    Ні, залишити
+                  </button>
+                  <button
+                    className="danger-confirm"
+                    onClick={async () => {
+                      const r = await fetch(
+                        "/api/kindergarten?x=1" + branchQuery,
+                        {
+                          method: "POST",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({
+                            kind: "delete_child",
+                            childId: editing.id,
+                          }),
+                        },
+                      ).catch(() => null);
+                      const data = await r?.json().catch(() => null);
+                      // Помилку показуємо тут же, біля кнопки: на сторінці
+                      // під відкритим діалогом її ніхто б не побачив.
+                      if (!r?.ok || !data?.children) {
+                        setDeleteError(
+                          data?.error ?? "Немає зв’язку із сервером",
+                        );
+                        return;
+                      }
+                      apply(data);
+                      closeEditing();
+                    }}
+                  >
+                    Так, видалити
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* Поки питаємо про видалення, «Зберегти» поруч лише плутав би. */}
+            {!confirmDelete && <div className="modal-actions">
+              {scope?.isOwner && (
+                <button
+                  className="delete-child"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Видалити дитину
+                </button>
+              )}
+              <button onClick={closeEditing}>Скасувати</button>
               <button
                 className="primary"
                 disabled={!editing.fullName.trim() || !editing.groupName}
@@ -699,12 +777,12 @@ export default function Page() {
                       },
                     }),
                   });
-                  if (apply(await r.json())) setEditing(null);
+                  if (apply(await r.json())) closeEditing();
                 }}
               >
                 Зберегти зміни
               </button>
-            </div>
+            </div>}
           </Modal>
       )}
       {add && (

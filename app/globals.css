@@ -9,6 +9,7 @@
 /* Спосіб оплати теж несе зміст, тож його колір однаковий у всіх схемах і
    однаковий скрізь, де спосіб згадується: у плитках підсумків і в розкладі
    внесеної суми по дитині. */
+:root{--danger:#c9564c;--danger-ink:#a8433b;--danger-line:#e8c3bf;--danger-soft:#fdf4f3}
 :root{--cash-ink:#1f7a52;--cash-soft:#e4f3ec;--iban-ink:#41638f;--iban-soft:#e8f0fa;--card-ink:#6f5aa0;--card-soft:#eeeafa}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}button,select{font:inherit}input,select,textarea{max-width:100%;min-width:0}.shell{min-height:100vh;display:flex}aside{position:fixed;inset:0 auto 0 0;width:238px;background:#fff;border-right:1px solid var(--line);padding:28px 18px 20px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:11px;padding:0 10px 34px;font-size:20px;font-weight:800}.brand>b{width:35px;height:35px;border-radius:12px 12px 12px 4px;background:var(--accent);color:#fff;display:grid;place-items:center}nav{display:grid;gap:6px}nav a{display:flex;align-items:center;gap:13px;height:46px;padding:0 13px;border-radius:10px;text-decoration:none;color:#687670;font-size:14px;font-weight:600}nav a span{width:20px;text-align:center;font-size:19px;flex:none}nav a b{font:inherit;min-width:0}.nav-label-short{display:none}.nav-more,.nav-sheet-backdrop{display:none}nav a:hover,nav .active{background:var(--accent-soft);color:var(--accent-ink)}.profile{margin-top:auto;border-top:1px solid var(--line);padding:20px 5px 5px;display:flex;align-items:center;gap:10px}.profile>i,.avatar{width:35px;height:35px;border-radius:50%;background:var(--accent-soft-2);color:var(--accent);display:inline-grid;place-items:center;font-size:10px;font-weight:800;font-style:normal}.profile div{display:flex;flex-direction:column;gap:3px}.profile b{font-size:12px}.profile small{font-size:10px;color:#92a09b}/* Once the viewport is wider than the sidebar plus the 1500px cap, the
    leftover is split evenly instead of all piling up on the right. Below
@@ -619,6 +620,18 @@
 .enroll-action{margin-right:auto;color:var(--accent-ink);border-color:var(--accent-line)!important;background:var(--accent-soft)!important;font-weight:700}
 .enroll-action:disabled{opacity:.45;cursor:not-allowed}
 .enroll-done{margin-right:auto;align-self:center;font-size:9px;font-weight:700;color:var(--accent-ink)}
+/* --- видалення дитини ----------------------------------------------------- */
+.modal-actions .delete-child{margin-right:auto;border-color:var(--danger-line);color:var(--danger-ink);font-weight:700}
+.modal-actions .delete-child:hover{background:var(--danger-soft)}
+.delete-confirm{display:flex;flex-direction:column;gap:9px;margin-top:20px;padding:14px;border:1px solid var(--danger-line);border-radius:12px;background:var(--danger-soft)}
+.delete-confirm b{font-size:12px;line-height:1.45;color:var(--danger-ink)}
+.delete-confirm span{font-size:11px;line-height:1.5;color:var(--muted)}
+.delete-confirm em{font-style:normal;font-size:11px;font-weight:700;color:var(--danger-ink)}
+.delete-confirm>div{display:flex;justify-content:flex-end;gap:9px;margin-top:4px}
+.delete-confirm button{height:38px;padding:0 16px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:11px;font-weight:700;color:#5c6a65;cursor:pointer}
+.delete-confirm .danger-confirm{border-color:var(--danger);background:var(--danger);color:#fff}
+.delete-confirm .danger-confirm:hover{background:var(--danger-ink)}
+@media(max-width:720px){.delete-confirm>div{flex-direction:column-reverse}.delete-confirm button{width:100%}.modal-actions:has(.delete-child){flex-wrap:wrap}.modal-actions:has(.delete-child)>button:not(.delete-child){flex:1}.modal-actions .delete-child{order:1;flex:1 1 100%;margin-right:0}}
 .enrolled-mark{margin-left:6px;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);font-style:normal;font-weight:700}
 /* --- accessibility baseline ---------------------------------------------
    Kept at the end of the file on purpose: a dozen rules above set
