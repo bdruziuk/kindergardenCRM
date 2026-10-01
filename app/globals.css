@@ -628,6 +628,21 @@
    The card takes the focus ring instead — the same ring settings inputs use. */
 .actions label select:focus-visible{outline:none}
 .actions label:focus-within{border-color:var(--accent-focus);box-shadow:0 0 0 3px var(--accent-ring)}
+/* The open list of a header picker: the default popup sat on top of the card
+   and was only as wide as the text. Where the browser lets a select be styled,
+   the list opens under the whole card, as wide as it, with finger-sized rows.
+   Elsewhere (Safari, Firefox) the system picker stays, which is fine there. */
+@supports (appearance:base-select){
+.actions label{anchor-scope:--picker-card;anchor-name:--picker-card}
+.actions label select,.actions label select::picker(select){appearance:base-select}
+.actions label select{width:100%;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.actions label select::picker-icon{color:var(--muted);font-size:11px}
+.actions label select::picker(select){position-anchor:--picker-card;inset:auto;top:calc(anchor(bottom) + 6px);left:anchor(left);width:anchor-size(width);margin:0;padding:5px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:0 12px 34px #17332c26;position-try-fallbacks:flip-block}
+.actions label option{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.actions label option:hover,.actions label option:focus-visible{background:var(--accent-tint);outline:none}
+.actions label option:checked{background:var(--accent-soft);color:var(--accent-ink)}
+.actions label option::checkmark{order:1;margin-left:auto;color:var(--accent)}
+}
 /* Fingers are coarser than a cursor, so the small icon buttons in table rows
    and on group cards grow on touch screens only. */
 @media(pointer:coarse){.row-action{width:34px;height:34px}.group-edit,.contact-card button,.directory-foot button{min-width:38px;min-height:38px}.month button{width:38px;height:38px}}
