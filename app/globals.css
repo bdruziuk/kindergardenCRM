@@ -22,7 +22,14 @@
    white background) as
    deep as the corner radius stop it short of the rounded corners instead of
    poking past them. Padding gives the same depth back, so the layout and the
-   close button stay where they were. */.modal{border-block:17px solid transparent;padding-block:11px}.modal>.close{top:1px}@media(max-width:720px){.modal{padding-block:5px}}.modal-actions .primary:disabled{opacity:.45;cursor:not-allowed}@media(max-width:720px){.relative-row{grid-template-columns:1fr}.remove-relative{width:100%;height:30px}.relatives-editor{grid-column:auto}}
+   close button stay where they were. */.modal{border-block:17px solid transparent;padding-block:11px}@media(max-width:720px){.modal{padding-block:5px}}
+/* The close button sticks to the top of a scrolling dialog or drawer instead
+   of scrolling away with the form. A sticky float stays in the flow, so the
+   negative margins put it back on the spot the absolute button had — 18px
+   from the top and 20px from the right edge — and the bottom margin takes
+   its height back, so nothing below moves or narrows. A sticky offset counts from inside the scroller's padding, so `top` is
+   that same negative distance. */
+:is(.modal,.drawer)>.close{position:sticky;float:right;right:auto;top:-10px;margin:-10px -8px -32px 0}.drawer>.close{top:-17px;margin-top:-17px}@media(max-width:720px){.modal>.close{top:-4px;margin-top:-4px;margin-right:-2px}}.modal-actions .primary:disabled{opacity:.45;cursor:not-allowed}@media(max-width:720px){.relative-row{grid-template-columns:1fr}.remove-relative{width:100%;height:30px}.relatives-editor{grid-column:auto}}
 
 .child-status.inactive{color:#7b8783;background:#edf0ef}.amber-text{color:#b47d28}.muted-text{color:#778480}.gray-dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:#899590}.status-field{grid-column:1/-1}.status-hint{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;border-radius:9px;background:#f7f9f8;color:#6f7d78;font-size:9px}
 
