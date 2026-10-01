@@ -68,7 +68,8 @@ const toTitleDraft = (title: JobTitleDto): TitleDraft => ({
   dayOffQuota: numberDraft(title.dayOffQuota),
 });
 
-type BranchDraft = { name: string; address: string };
+/** `fee` — рядок поля, як його набрали; числом стає лише під час збереження. */
+type BranchDraft = { name: string; address: string; fee: string };
 
 /** Власник запрошує лише керуючих, тож ролі у формі немає — тільки філія. */
 type InviteDraft = {
@@ -160,7 +161,11 @@ export default function SettingsPage() {
       Object.fromEntries(
         next.branches.map((branch) => [
           branch.id,
-          { name: branch.name, address: branch.address },
+          {
+            name: branch.name,
+            address: branch.address,
+            fee: String(branch.monthlyFee),
+          },
         ]),
       ),
     );
@@ -442,11 +447,18 @@ export default function SettingsPage() {
     me.role === "admin" ? "Усі філії" : me.branchName || "Не призначено";
 
   const branchCard = (branch: BranchSettingsDto) => {
-    const draft = drafts[branch.id] ?? { name: branch.name, address: "" };
+    const draft = drafts[branch.id] ?? {
+      name: branch.name,
+      address: "",
+      fee: String(branch.monthlyFee),
+    };
     const detailsUnchanged =
       !draft.name.trim() ||
       (draft.name.trim() === branch.name &&
         draft.address.trim() === branch.address);
+    const fee = Number(draft.fee);
+    const feeUnchanged =
+      draft.fee.trim() === "" || !(fee >= 0) || fee === branch.monthlyFee;
 
     return (
       <div className="branch-card" key={branch.id}>
@@ -509,6 +521,50 @@ export default function SettingsPage() {
               {saving === `branch-${branch.id}`
                 ? "Збереження…"
                 : "Зберегти філію"}
+            </button>
+          </div>
+        )}
+
+        <div className="settings-grid">
+          <label>
+            Базова плата, ₴ на місяць
+            <input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={draft.fee}
+              disabled={!branch.canEditFee}
+              onChange={(event) =>
+                setDrafts({
+                  ...drafts,
+                  [branch.id]: { ...draft, fee: event.target.value },
+                })
+              }
+            />
+            <small>
+              Нараховується кожній дитині з місячною оплатою, якщо в неї не
+              вказана індивідуальна плата. Закриті місяці не перераховуються.
+            </small>
+          </label>
+        </div>
+
+        {branch.canEditFee && (
+          <div className="settings-actions">
+            {saved === `fee-${branch.id}` && (
+              <span className="saved-hint">✓ Збережено</span>
+            )}
+            <button
+              className="account-save ghost"
+              disabled={saving === `fee-${branch.id}` || feeUnchanged}
+              onClick={() =>
+                send(`fee-${branch.id}`, {
+                  kind: "branch_fee",
+                  branchId: branch.id,
+                  monthlyFee: fee,
+                })
+              }
+            >
+              {saving === `fee-${branch.id}` ? "Збереження…" : "Зберегти плату"}
             </button>
           </div>
         )}
@@ -769,8 +825,8 @@ export default function SettingsPage() {
               <h2>{me.role === "admin" ? "Філії" : "Моя філія"}</h2>
               <span>
                 {me.role === "admin"
-                  ? "Назва, адреса та кольорова схема кожної філії"
-                  : "Назву й адресу змінює власник; схему — ви, поки він її не задав"}
+                  ? "Назва, адреса, базова плата та кольорова схема кожної філії"
+                  : "Назву й адресу змінює власник; базову плату й схему — ви (схему — поки її не задав власник)"}
               </span>
             </div>
           </div>

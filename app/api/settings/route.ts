@@ -66,6 +66,10 @@ async function viewer() {
 
 type Viewer = Awaited<ReturnType<typeof viewer>>;
 
+/** Базову плату веде той, хто веде філію: власник — будь-якої, керуючий —
+ *  своєї. Вихователь її лише бачить. */
+const canEditFee = (me: Viewer) => me.isOwner || me.role === "manager";
+
 /** Філія має належати садочку того, хто дивиться, а керуючому — бути його
  *  власною. Без цього посаду можна було б підкинути в чужу філію. */
 async function assertBranch(
@@ -115,6 +119,7 @@ async function snapshot(
         address: branches.address,
         theme: branches.theme,
         themeByOwner: branches.themeByOwner,
+        monthlyFee: branches.monthlyFee,
       })
       .from(branches)
       .where(eq(branches.kindergartenId, me.kindergartenId))
@@ -203,6 +208,8 @@ async function snapshot(
     // Схему філії керуючий міняє, лише поки її не зайняв власник.
     canEditTheme: me.isOwner || !branch.themeByOwner,
     canEditDetails: me.isOwner,
+    monthlyFee: branch.monthlyFee,
+    canEditFee: canEditFee(me),
     jobTitles: titleRows
       .filter((row) => row.branchId === branch.id)
       .map(toTitle),
@@ -538,6 +545,15 @@ export async function POST(request: Request) {
             eq(branches.kindergartenId, me.kindergartenId),
           ),
         );
+    } else if (body.kind === "branch_fee") {
+      if (!canEditFee(me))
+        throw new ScopeError("Базову плату змінює власник або керуючий", 403);
+      // Керуючому — лише своя філія, і будь-кому — лише в межах свого садочка.
+      await assertBranch(db, me, body.branchId);
+      await db
+        .update(branches)
+        .set({ monthlyFee: body.monthlyFee })
+        .where(eq(branches.id, body.branchId));
     } else {
       if (!me.isOwner)
         throw new ScopeError("Філії редагує лише власник", 403);

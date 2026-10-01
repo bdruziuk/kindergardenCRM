@@ -785,6 +785,13 @@ export const settingsRequest = z.discriminatedUnion("kind", [
     name: z.string().trim().min(1, "Назва філії обов’язкова").max(120),
     address: z.string().trim().max(200).default(""),
   }),
+  /** Базова плата — окремо від назви й адреси: її міняє й керуючий своєї
+   *  філії, а назву й адресу — лише власник. */
+  z.object({
+    kind: z.literal("branch_fee"),
+    branchId: id,
+    monthlyFee: amount,
+  }),
 ], unknownAction);
 
 export type AccountDto = {
@@ -938,6 +945,10 @@ export type BranchSettingsDto = {
   canEditTheme: boolean;
   /** Чи може він міняти назву й адресу — це робота власника. */
   canEditDetails: boolean;
+  /** Базова місячна плата філії. */
+  monthlyFee: number;
+  /** Плату міняє власник і керуючий цієї філії; вихователь — ні. */
+  canEditFee: boolean;
   /** Посади, доступні у випадайці працівників цієї філії. */
   jobTitles: JobTitleDto[];
 };
