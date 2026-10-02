@@ -1,7 +1,7 @@
 "use client";
 import { MonthPicker } from "@/components/MonthPicker";
 import { currentMonth, monthLabel } from "@/lib/period";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AttendanceGrid } from "@/components/AttendanceGrid";
 import { LessonEditor } from "@/components/LessonEditor";
 import { Modal } from "@/components/Modal";
@@ -104,6 +104,19 @@ export default function StaffPage() {
   const [selected, setSelected] = useState<StaffRowDto | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<StaffDraft | null>(null);
+  /** Видалення — у два кроки: кнопка лише питає, а виконує підтвердження. */
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  // Натиснута кнопка зникає — фокус переходить на безпечний варіант.
+  const keepButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmRemove) keepButton.current?.focus();
+  }, [confirmRemove]);
+  const closeEditing = () => {
+    setEditing(null);
+    setConfirmRemove(false);
+    setRemoveError(null);
+  };
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [payout, setPayout] = useState<PayoutDraft>(() => emptyPayout(month));
   const [view, setView] = useState<"list" | "grid">("list");
@@ -375,7 +388,14 @@ export default function StaffPage() {
                           .join("")}
                       </i>
                       <div>
-                        <b>{person.name}</b>
+                        <b>
+                          {person.name}
+                          {/* Звільнений лишається лише в місяцях, де за ним є
+                              записи, — і тут видно, чому він у списку. */}
+                          {!person.active && (
+                            <em className="left-mark">звільнений</em>
+                          )}
+                        </b>
                       </div>
                     </td>
                     <td>
@@ -898,7 +918,7 @@ export default function StaffPage() {
       {editing && (
         <Modal
           className={"modal rate-modal"}
-          onClose={() => setEditing(null)}
+          onClose={closeEditing}
         >
             <h2>Редагувати працівника</h2>
             <p>Ім’я, посада, дата народження, ставка та ліміти</p>
@@ -1091,8 +1111,76 @@ export default function StaffPage() {
                       : money(Number(editing.dailyRate) || 0) + " / день"}
               </b>
             </div>
-            <div className="modal-actions">
-              <button onClick={() => setEditing(null)}>Скасувати</button>
+            {confirmRemove && (
+              <div className="delete-confirm" role="alert">
+                <b>Видалити «{editing.name}»?</b>
+                <span>
+                  Якщо за працівником немає ні табеля, ні занять, ні виплат,
+                  запис зникне повністю. Інакше він стане звільненим: зникне зі
+                  списку й груп, але лишиться в місяцях, де працював чи
+                  отримував гроші, — зокрема в закритих звітах. Виплати в касі
+                  й борг по зарплаті не зміняться.
+                </span>
+                {removeError && <em>{removeError}</em>}
+                <div>
+                  <button
+                    ref={keepButton}
+                    onClick={() => {
+                      setConfirmRemove(false);
+                      setRemoveError(null);
+                    }}
+                  >
+                    Ні, залишити
+                  </button>
+                  <button
+                    className="danger-confirm"
+                    onClick={async () => {
+                      const response = await fetch(
+                        "/api/staff?x=1" + branchQuery,
+                        {
+                          method: "POST",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({
+                            kind: "remove_staff",
+                            staffId: editing.staffId,
+                            month,
+                          }),
+                        },
+                      ).catch(() => null);
+                      const next = (await response
+                        ?.json()
+                        .catch(() => null)) as
+                        | (StaffSnapshot & { error?: string })
+                        | null;
+                      // Помилку показуємо тут же: під відкритим діалогом її
+                      // ніхто б не побачив.
+                      if (!response?.ok || !next?.rows) {
+                        setRemoveError(
+                          next?.error ?? "Немає зв’язку із сервером",
+                        );
+                        return;
+                      }
+                      setData(next);
+                      setSelected(null);
+                      closeEditing();
+                    }}
+                  >
+                    Так, видалити
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* Поки питаємо про видалення, «Зберегти» поруч лише плутав би. */}
+            {!confirmRemove && <div className="modal-actions">
+              {scope?.isOwner && (
+                <button
+                  className="delete-record"
+                  onClick={() => setConfirmRemove(true)}
+                >
+                  Видалити працівника
+                </button>
+              )}
+              <button onClick={closeEditing}>Скасувати</button>
               <button
                 className="primary"
                 disabled={!editing.name.trim()}
@@ -1116,13 +1204,13 @@ export default function StaffPage() {
                         (person) => person.id === editing.staffId,
                       ) ?? null,
                     );
-                    setEditing(null);
+                    closeEditing();
                   }
                 }}
               >
                 Зберегти
               </button>
-            </div>
+            </div>}
           </Modal>
       )}
 

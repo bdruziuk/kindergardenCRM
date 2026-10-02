@@ -1,6 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { lessons, staff, staffAttendance } from "@/db/schema";
+import {
+  groupStaff,
+  lessons,
+  salaryPayments,
+  staff,
+  staffAttendance,
+} from "@/db/schema";
 import { type SalaryType, firstIssue, staffRequest } from "@/lib/api-schemas";
 import { currentMonth } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
@@ -50,7 +56,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { branchId } = await resolveScope(
+    const { branchId, isOwner } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
     );
     const parsed = staffRequest.safeParse(await request.json());
@@ -128,6 +134,39 @@ export async function POST(request: Request) {
       await db.delete(lessons).where(eq(lessons.id, body.lessonId));
     } else if (isPayout) {
       await mutatePayout(branchId, body);
+    } else if (body.kind === "remove_staff") {
+      if (!isOwner)
+        throw new ScopeError("Видаляти працівників може лише власник", 403);
+      const staffId = body.staffId;
+      await db.transaction(async (tx) => {
+        // Рядок блокуємо до перевірки: нова виплата чи відмітка посилається на
+        // працівника й чекатиме, тож не проскочить між перевіркою і видаленням.
+        const [person] = await tx
+          .select({ id: staff.id })
+          .from(staff)
+          .where(and(eq(staff.id, staffId), eq(staff.branchId, branchId)))
+          .for("update");
+        if (!person) throw new ScopeError("Працівника не знайдено", 404);
+
+        const [marks, taught, paid] = await Promise.all([
+          tx.select({ id: staffAttendance.id }).from(staffAttendance).where(eq(staffAttendance.staffId, staffId)),
+          tx.select({ id: lessons.id }).from(lessons).where(eq(lessons.staffId, staffId)),
+          tx.select({ id: salaryPayments.id }).from(salaryPayments).where(eq(salaryPayments.staffId, staffId)),
+        ]);
+
+        if (!marks.length && !taught.length && !paid.length) {
+          // Заведений помилково: ні табеля, ні занять, ні грошей — стирати
+          // нічого, крім самого запису.
+          await tx.delete(staff).where(eq(staff.id, staffId));
+          return;
+        }
+        // Інакше стерти означало б забрати з каси виплати, а з минулих місяців —
+        // відпрацьовані дні. Звільнений лишається там, де в нього є записи
+        // (закриті місяці — ще й у знімку), і зникає з решти. Із груп його
+        // знімаємо одразу: закріплювати за групою того, хто не працює, нема як.
+        await tx.update(staff).set({ active: false }).where(eq(staff.id, staffId));
+        await tx.delete(groupStaff).where(eq(groupStaff.staffId, staffId));
+      });
     } else if (body.kind === "update_staff") {
       await db
         .update(staff)

@@ -753,7 +753,7 @@ export default function Page() {
             {!confirmDelete && <div className="modal-actions">
               {scope?.isOwner && (
                 <button
-                  className="delete-child"
+                  className="delete-record"
                   onClick={() => setConfirmDelete(true)}
                 >
                   Видалити дитину

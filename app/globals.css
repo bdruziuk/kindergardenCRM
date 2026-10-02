@@ -628,8 +628,8 @@
 .enroll-action:disabled{opacity:.45;cursor:not-allowed}
 .enroll-done{margin-right:auto;align-self:center;font-size:9px;font-weight:700;color:var(--accent-ink)}
 /* --- видалення дитини ----------------------------------------------------- */
-.modal-actions .delete-child{margin-right:auto;border-color:var(--danger-line);color:var(--danger-ink);font-weight:700}
-.modal-actions .delete-child:hover{background:var(--danger-soft)}
+.modal-actions .delete-record{margin-right:auto;border-color:var(--danger-line);color:var(--danger-ink);font-weight:700}
+.modal-actions .delete-record:hover{background:var(--danger-soft)}
 .delete-confirm{display:flex;flex-direction:column;gap:9px;margin-top:20px;padding:14px;border:1px solid var(--danger-line);border-radius:12px;background:var(--danger-soft)}
 .delete-confirm b{font-size:12px;line-height:1.45;color:var(--danger-ink)}
 .delete-confirm span{font-size:11px;line-height:1.5;color:var(--muted)}
@@ -638,7 +638,7 @@
 .delete-confirm button{height:38px;padding:0 16px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:11px;font-weight:700;color:#5c6a65;cursor:pointer}
 .delete-confirm .danger-confirm{border-color:var(--danger);background:var(--danger);color:#fff}
 .delete-confirm .danger-confirm:hover{background:var(--danger-ink)}
-@media(max-width:720px){.delete-confirm>div{flex-direction:column-reverse}.delete-confirm button{width:100%}.modal-actions:has(.delete-child){flex-wrap:wrap}.modal-actions:has(.delete-child)>button:not(.delete-child){flex:1}.modal-actions .delete-child{order:1;flex:1 1 100%;margin-right:0}}
+@media(max-width:720px){.delete-confirm>div{flex-direction:column-reverse}.delete-confirm button{width:100%}.modal-actions:has(.delete-record){flex-wrap:wrap}.modal-actions:has(.delete-record)>button:not(.delete-record){flex:1}.modal-actions .delete-record{order:1;flex:1 1 100%;margin-right:0}}
 .enrolled-mark{margin-left:6px;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);font-style:normal;font-weight:700}
 /* --- accessibility baseline ---------------------------------------------
    Kept at the end of the file on purpose: a dozen rules above set
