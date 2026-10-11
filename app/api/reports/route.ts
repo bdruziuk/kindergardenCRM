@@ -24,6 +24,8 @@ import { loadClose } from "@/lib/month-close";
 import { staffWithAttendance } from "@/lib/queries";
 import { resolveScope, scopeFailure } from "@/lib/scope";
 
+// Ті самі назви, що й у «Доходах і витратах»: аванс і зарплата окремо.
+const ADVANCE_CATEGORY = "Аванс";
 const SALARY_CATEGORY = "Зарплата";
 
 /**
@@ -100,6 +102,8 @@ async function snapshot(
         // наступного року, а не грудень.
         month: sql<string>`to_char(${salaryPayments.paidAt}, 'YYYY-MM')`,
         total: sql<number>`sum(${salaryPayments.amount})::float8`,
+        // Аванси окремо — у структурі витрат вони своєю категорією.
+        advance: sql<number>`coalesce(sum(${salaryPayments.amount}) filter (where ${salaryPayments.kind} = 'advance'), 0)::float8`,
       })
       .from(salaryPayments)
       .innerJoin(staff, eq(staff.id, salaryPayments.staffId))
@@ -236,13 +240,22 @@ async function snapshot(
   const totalIncome = sum("income");
   const totalExpenses = sum("expenses");
   const salaryTotal = sum("salaryPaid");
+  const scopedMonths = new Set(scoped.map((row) => row.month));
+  const advanceTotal =
+    Math.round(
+      salaryRows
+        .filter((row) => scopedMonths.has(row.month))
+        .reduce((total, row) => total + (row.advance ?? 0), 0) * 100,
+    ) / 100;
+  const salaryOnly = Math.round((salaryTotal - advanceTotal) * 100) / 100;
   const withIncome = months.filter((row) => row.income > 0);
   const best = withIncome.length
     ? withIncome.reduce((a, b) => (b.income > a.income ? b : a))
     : null;
 
   const categories: CategoryTotal[] = [
-    ...(salaryTotal ? [{ category: SALARY_CATEGORY, amount: salaryTotal }] : []),
+    ...(advanceTotal ? [{ category: ADVANCE_CATEGORY, amount: advanceTotal }] : []),
+    ...(salaryOnly ? [{ category: SALARY_CATEGORY, amount: salaryOnly }] : []),
     ...categoryRows.map((row) => ({ category: row.category, amount: row.total })),
   ]
     .map((row) => ({

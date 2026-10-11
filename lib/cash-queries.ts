@@ -9,7 +9,7 @@ import {
   staff,
   transactions,
 } from "@/db/schema";
-import type { PaymentMethod, SalaryPayoutDto } from "./api-schemas";
+import type { PaymentMethod, SalaryKind, SalaryPayoutDto } from "./api-schemas";
 import { type CashRow, type DebtInput, type StaffDebt, staffDebt } from "./cash";
 import type { MonthSnapshot } from "./month-close";
 import { monthStart } from "./period";
@@ -121,7 +121,10 @@ export async function cashExpense(
   branchId: number,
   from: string,
   until: string,
-): Promise<{ salary: CashRow[]; other: (CashRow & { category: string })[] }> {
+): Promise<{
+  salary: (CashRow & { kind?: SalaryKind })[];
+  other: (CashRow & { category: string })[];
+}> {
   const db = getDb();
   const [salaryRows, otherRows] = await Promise.all([
     db
@@ -129,6 +132,8 @@ export async function cashExpense(
         amount: salaryPayments.amount,
         method: salaryPayments.method,
         date: salaryPayments.paidAt,
+        // Аванс чи зарплата — щоб структура витрат могла їх розвести.
+        kind: salaryPayments.kind,
       })
       .from(salaryPayments)
       .innerJoin(staff, eq(staff.id, salaryPayments.staffId))

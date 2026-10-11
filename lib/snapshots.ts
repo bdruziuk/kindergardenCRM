@@ -79,7 +79,10 @@ export async function staffSnapshot(branchId: number, month: string) {
   };
 }
 
-/** The one expense the app derives itself; it cannot be edited by hand. */
+/** Витрати, які застосунок виводить сам із виплат; вручну їх не правлять.
+ *  Аванс і зарплата — окремо: так видно, скільки пішло наперед, а скільки
+ *  розрахунком за місяць. */
+const ADVANCE_CATEGORY = "Аванс";
 const SALARY_CATEGORY = "Зарплата";
 
 /**
@@ -128,7 +131,13 @@ export async function financeSnapshot(
   const total = money(salary + other);
 
   const byCategory = new Map<string, number>();
-  if (salary) byCategory.set(SALARY_CATEGORY, salary);
+  const advancePaid = sumMoney(
+    outgoing.salary.filter((row) => row.kind === "advance"),
+    (row) => row.amount,
+  );
+  const salaryOnly = diffMoney(salary, advancePaid);
+  if (advancePaid) byCategory.set(ADVANCE_CATEGORY, advancePaid);
+  if (salaryOnly) byCategory.set(SALARY_CATEGORY, salaryOnly);
   for (const row of outgoing.other)
     byCategory.set(row.category, money((byCategory.get(row.category) ?? 0) + row.amount));
 
