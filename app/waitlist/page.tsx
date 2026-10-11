@@ -436,8 +436,10 @@ export default function WaitlistPage() {
                   </tr>
                   {entries.map(({ row, position }) => (
                     <tr key={row.id}>
+                      {/* Класи комірок — для телефона, де рядок стає
+                          карткою й кожна комірка знає своє місце в ній. */}
                       <td className="waitlist-rank">{position}</td>
-                      <td>
+                      <td className="wl-child">
                         <i className="avatar">{initialsOf(row.childName)}</i>
                         <div>
                           <b>{row.childName}</b>
@@ -449,7 +451,7 @@ export default function WaitlistPage() {
                           </small>
                         </div>
                       </td>
-                      <td>
+                      <td className="wl-parent">
                         <div className="relative-cell">
                           <b>{row.parentName}</b>
                           <small>
@@ -458,7 +460,7 @@ export default function WaitlistPage() {
                           </small>
                         </div>
                       </td>
-                      <td>
+                      <td className="wl-wish">
                         <div className="relative-cell">
                           <b>
                             {row.preferredGroupName || "Будь-яка група"}
@@ -471,12 +473,12 @@ export default function WaitlistPage() {
                           </small>
                         </div>
                       </td>
-                      <td>
+                      <td className="wl-date">
                         {new Date(
                           row.createdAt + "T00:00:00",
                         ).toLocaleDateString("uk-UA")}
                       </td>
-                      <td>
+                      <td className="wl-status">
                         <select
                           className={"waitlist-status " + row.status}
                           value={row.status}

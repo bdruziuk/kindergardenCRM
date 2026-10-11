@@ -834,3 +834,40 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .bday-dots{display:flex;gap:3px}
 .birthday-calendar .payments-month{flex:1 1 100%}
 }
+/* --- черга: картки замість таблиці на телефоні ----------------------------
+   Як на сторінці дітей: таблиця на 980 px на телефоні гортається вбік, тож
+   кожна заявка стає карткою — дитина й номер у черзі, контакт, побажання,
+   дата подання, а внизу статус і дії. Заголовки вікових категорій лишаються
+   заголовками над своїми картками, а сортування «Подано» — над усіма. */
+@media(max-width:720px){
+.scroll:has(>.waitlist-table){margin:14px 0 0;overflow:visible}
+.waitlist-table{display:block;min-width:0}
+.waitlist-table thead{display:block}
+.waitlist-table thead tr{display:flex;justify-content:flex-end}
+.waitlist-table thead th{display:none;padding:0;border:0;background:none}
+.waitlist-table thead th:has(.sort-toggle){display:block;font-size:11px}
+.waitlist-table tbody{display:grid;gap:9px;margin-top:12px}
+.waitlist-table tr.waitlist-year,.waitlist-table tr.waitlist-year th{display:block}
+.waitlist-table tr.waitlist-year th{border-radius:10px;border:1px solid var(--line);font-size:10px}
+.waitlist-table tbody tr:not(.waitlist-year){display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 12px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.waitlist-table td{display:block;min-width:0;padding:0;border:0;font-size:12px}
+.waitlist-table .wl-child{grid-area:1/1;display:flex;align-items:center;gap:10px;white-space:normal}
+.waitlist-table .wl-child>.avatar{margin:0;flex:none;width:36px;height:36px;border-radius:11px;font-size:11px}
+.waitlist-table .wl-child>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.waitlist-table .wl-child b{font-size:14px;overflow-wrap:anywhere}
+.waitlist-table td small,.waitlist-table .relative-cell small{font-size:11px}
+.waitlist-table .waitlist-rank{grid-area:1/2;align-self:start;width:auto;padding:4px 9px;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);font-size:11px}
+.waitlist-table .waitlist-rank::before{content:"№ "}
+.waitlist-table .wl-parent,.waitlist-table .wl-wish,.waitlist-table .wl-date{grid-column:1/-1}
+.waitlist-table .wl-parent{padding-top:10px;border-top:1px solid var(--line)}
+.waitlist-table .relative-cell b{font-size:12px;color:var(--ink)}
+.waitlist-table .wl-parent::before,.waitlist-table .wl-wish::before{display:block;margin-bottom:3px;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+.waitlist-table .wl-parent::before{content:"Контактна особа"}
+.waitlist-table .wl-wish::before{content:"Побажання"}
+.waitlist-table .wl-date{font-size:11px;color:var(--muted)}
+.waitlist-table .wl-date::before{content:"Подано "}
+.waitlist-table .wl-status{grid-column:1;align-self:center}
+.waitlist-table .wl-status select{width:100%;height:36px}
+.waitlist-table .waitlist-actions{grid-column:2;align-self:center;display:flex;gap:6px}
+.waitlist-table .waitlist-actions .row-action{margin:0}
+}
