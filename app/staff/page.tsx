@@ -959,9 +959,13 @@ export default function StaffPage() {
             <div className="attendance-calendar">
               {Array.from(
                 {
+                  // Порожні клітинки до першого числа (тиждень з понеділка).
+                  // Дата — північ за UTC («Z»), бо й день тижня беремо за UTC:
+                  // місцева північ у Києві — це ще попередній день за UTC, і
+                  // жовтень 2026 починався б із середи замість четверга.
                   length:
                     (new Date(
-                      data.calendar?.[0]?.date + "T00:00:00",
+                      data.calendar?.[0]?.date + "T00:00:00Z",
                     ).getUTCDay() +
                       6) %
                     7,
