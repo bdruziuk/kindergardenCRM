@@ -1,8 +1,8 @@
 "use client";
-import { MonthPicker } from "@/components/MonthPicker";
-import { currentMonth, monthLabel } from "@/lib/period";
+import { MonthPicker, useMonth } from "@/components/MonthPicker";
+import { monthLabel } from "@/lib/period";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { MonthLock } from "@/components/MonthLock";
 import { Sidebar } from "@/components/Sidebar";
@@ -40,7 +40,7 @@ const today = () =>
 
 export default function Home() {
   const { scope, branchId, choose, branchQuery } = useBranch();
-  const [month, setMonth] = useState(currentMonth);
+  const [month, setMonth] = useMonth();
   const [data, setData] = useState<DashboardDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState("");
@@ -51,9 +51,17 @@ export default function Home() {
   useEffect(() => setDate(today()), []);
 
   /** Перечитує огляд — зокрема після закриття чи відкриття місяця. */
+  // Номер останнього запиту. Перемкнули місяць чи філію швидко — відповідь
+  // на попередній могла прийти пізніше й показати дані не того місяця; тепер
+  // застосовується лише відповідь на останній, решта просто не доходить.
+  const latest = useRef(0);
   const reload = useCallback(() => {
+    const ticket = ++latest.current;
     fetch("/api/dashboard?month=" + month + branchQuery)
       .then((response) => response.json())
+      .then((next) =>
+        ticket === latest.current ? next : new Promise<never>(() => {}),
+      )
       .then((next) =>
         next.error ? setError(next.error) : (setData(next), setError(null)),
       )

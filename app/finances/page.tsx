@@ -1,6 +1,6 @@
 "use client";
-import { MonthPicker } from "@/components/MonthPicker";
-import { currentMonth, monthLabel } from "@/lib/period";
+import { MonthPicker, useMonth } from "@/components/MonthPicker";
+import { monthLabel } from "@/lib/period";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
@@ -99,7 +99,7 @@ export default function FinancesPage() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
   const branch = branchName;
-  const [month, setMonth] = useState(currentMonth);
+  const [month, setMonth] = useMonth();
   const [data, setData] = useState<FinanceSnapshot>(EMPTY);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -127,9 +127,17 @@ export default function FinancesPage() {
   };
 
   /** Перечитує сторінку — зокрема після закриття чи відкриття місяця. */
+  // Номер останнього запиту. Перемкнули місяць чи філію швидко — відповідь
+  // на попередній могла прийти пізніше й показати дані не того місяця; тепер
+  // застосовується лише відповідь на останній, решта просто не доходить.
+  const latest = useRef(0);
   const reload = useCallback(() => {
+    const ticket = ++latest.current;
     fetch("/api/finances?month=" + month + branchQuery)
       .then((response) => response.json())
+      .then((next) =>
+        ticket === latest.current ? next : new Promise<never>(() => {}),
+      )
       .then((next: FinanceSnapshot) =>
         next.error ? setError(next.error) : (setData(next), setError(null)),
       )

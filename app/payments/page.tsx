@@ -1,7 +1,7 @@
 "use client";
-import { MonthPicker } from "@/components/MonthPicker";
-import { currentMonth, monthLabel } from "@/lib/period";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { MonthPicker, useMonth } from "@/components/MonthPicker";
+import { monthLabel } from "@/lib/period";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { MonthLock } from "@/components/MonthLock";
@@ -101,7 +101,7 @@ export default function PaymentsPage() {
   const { scope, branchId, choose, branchQuery, branchName } =
     useBranch();
   const branch = branchName;
-  const [month, setMonth] = useState(currentMonth);
+  const [month, setMonth] = useMonth();
   const [data, setData] = useState<PaymentsSnapshot>({
     month: "",
     rows: [],
@@ -165,9 +165,17 @@ export default function PaymentsPage() {
 
   /** Перечитує сторінку. Потрібне не лише на старті: закриття місяця міняє
    *  все, що на ній видно. */
+  // Номер останнього запиту. Перемкнули місяць чи філію швидко — відповідь
+  // на попередній могла прийти пізніше й показати дані не того місяця; тепер
+  // застосовується лише відповідь на останній, решта просто не доходить.
+  const latest = useRef(0);
   const reload = useCallback(() => {
+    const ticket = ++latest.current;
     fetch("/api/payments?month=" + month + branchQuery)
       .then((response) => response.json())
+      .then((next) =>
+        ticket === latest.current ? next : new Promise<never>(() => {}),
+      )
       .then((next) => {
         setData(next);
         setSelected(null);
