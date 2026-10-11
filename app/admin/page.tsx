@@ -63,6 +63,11 @@ export default function AdminPage() {
   /** Назва садочка, передрукована для підтвердження. Видалення зносить дітей,
    *  персонал і гроші, тож одного кліку по кнопці для нього замало. */
   const [typed, setTyped] = useState("");
+  /** Результат останнього скидання пароля — показується біля тієї людини. */
+  const [reset, setReset] = useState<AdminSnapshot["passwordReset"] | null>(
+    null,
+  );
+  const [resetCopied, setResetCopied] = useState(false);
 
   const draftOf = (id: number) =>
     branchDraft[id] ?? { name: "", address: "", fee: "0" };
@@ -398,6 +403,53 @@ export default function AdminPage() {
                     />
                     Лише перегляд
                   </label>
+                  <button
+                    className="garden-pill impersonate"
+                    disabled={busy === `pw-${person.id}`}
+                    title="Надіслати людині посилання, за яким вона сама задасть новий пароль"
+                    onClick={async () => {
+                      setReset(null);
+                      setResetCopied(false);
+                      const next = await send(`pw-${person.id}`, {
+                        kind: "password_reset",
+                        userId: person.id,
+                      });
+                      if (next?.passwordReset) setReset(next.passwordReset);
+                    }}
+                  >
+                    {busy === `pw-${person.id}` ? "Надсилаємо…" : "Скинути пароль"}
+                  </button>
+                  {reset?.userId === person.id && (
+                    <div className="password-reset-result" role="status">
+                      {reset.delivered === "sent" ? (
+                        <span>
+                          Лист із посиланням надіслано на <b>{reset.email}</b>.
+                          Посилання діє 2 год; старий пароль працює, поки
+                          людина не задасть новий.
+                        </span>
+                      ) : (
+                        <>
+                          <span>
+                            Пошта на сервері не налаштована — передайте
+                            посилання <b>{reset.email}</b> самі. Діє 2 год і
+                            спрацьовує один раз:
+                          </span>
+                          <code>{reset.link}</code>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await navigator.clipboard
+                                .writeText(reset.link ?? "")
+                                .catch(() => {});
+                              setResetCopied(true);
+                            }}
+                          >
+                            {resetCopied ? "Скопійовано" : "Копіювати"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {(person.role === "admin" || person.role === "manager") && (
                     <button
                       className="garden-pill impersonate"

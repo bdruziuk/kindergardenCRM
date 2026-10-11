@@ -915,3 +915,8 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .payment-note-edit button{height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:10px;font-weight:700;cursor:pointer}
 .payment-note-edit .payment-note-save{border-color:var(--accent);background:var(--accent);color:#fff}
 .history-list article>div:first-of-type{min-width:0;flex:1 1 auto}
+/* --- скидання пароля з кабінету ------------------------------------------- */
+.password-reset-result{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--accent-line);border-radius:10px;background:var(--accent-wash);font-size:10px;line-height:1.45;color:var(--accent-ink)}
+.password-reset-result code{flex:1 1 220px;min-width:0;padding:6px 8px;border:1px solid var(--accent-line);border-radius:7px;background:#fff;font-size:10px;word-break:break-all;user-select:all}
+.password-reset-result button{height:28px;padding:0 10px;border:1px solid var(--accent-line);border-radius:8px;background:#fff;font:inherit;font-weight:700;color:var(--accent-ink);cursor:pointer}
+.garden-row{flex-wrap:wrap}

@@ -976,6 +976,8 @@ export const adminRequest = z.discriminatedUnion("kind", [
     monthlyFee: amount.default(0),
   }),
   z.object({ kind: z.literal("branch_delete"), branchId: id }),
+  /** Надіслати користувачу посилання для нового пароля. */
+  z.object({ kind: z.literal("password_reset"), userId: id }),
   /** Режим перегляду для користувача: true — лише дивиться. */
   z.object({
     kind: z.literal("read_only"),
@@ -1037,6 +1039,14 @@ export type AdminSnapshot = {
   };
   /** Посилання щойно створеного запрошення — повертається один раз. */
   newInviteUrl?: string;
+  /** Щойно запущене скидання пароля. `link` є лише тоді, коли лист не пішов
+   *  (пошта не налаштована): тоді посилання передає сам супер-адміністратор. */
+  passwordReset?: {
+    userId: number;
+    email: string;
+    delivered: "sent" | "logged";
+    link?: string;
+  };
   error?: string;
 };
 

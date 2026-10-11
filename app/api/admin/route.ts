@@ -34,6 +34,12 @@ import {
   newInviteToken,
   publicOrigin,
 } from "@/lib/invites";
+import { adminResetLetter, sendMail } from "@/lib/mailer";
+import {
+  RESET_TTL_HOURS,
+  issueResetToken,
+  resetUrl,
+} from "@/lib/password-reset";
 import { ScopeError, scopeFailure } from "@/lib/scope";
 
 /**
@@ -453,6 +459,35 @@ export async function POST(request: Request) {
       if (!branch) throw new ScopeError("Філію не знайдено", 404);
 
       await db.transaction((tx) => purgeBranches(tx, [body.branchId]));
+    } else if (body.kind === "password_reset") {
+      // Пароля супер-адміністратор не бачить і не задає: він лише запускає
+      // те саме скидання, що й «забули пароль», — новий пароль людина ставить
+      // сама за посиланням. Старий діє, поки вона цього не зробить.
+      const [target] = await db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(and(eq(users.id, body.userId), ne(users.role, "superadmin")));
+      if (!target) throw new ScopeError("Користувача не знайдено", 404);
+
+      const token = await issueResetToken(target.id);
+      const link = resetUrl(publicOrigin(request), token);
+      const delivered = await sendMail({
+        to: target.email,
+        ...adminResetLetter(link, RESET_TTL_HOURS),
+      });
+      console.info(
+        `password reset: superadmin ${me.id} sent a reset link to user ${target.id} (${delivered})`,
+      );
+      return Response.json({
+        ...(await snapshot()),
+        passwordReset: {
+          userId: target.id,
+          email: target.email,
+          delivered,
+          // Лист пішов — посилання лишається тільки в скриньці людини.
+          ...(delivered === "logged" ? { link } : {}),
+        },
+      });
     } else if (body.kind === "read_only") {
       // Супер-адміністратора в режим перегляду не переводимо: інакше він міг би
       // замкнути сам себе, і зняти замок не було б кому.
