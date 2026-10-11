@@ -105,6 +105,17 @@ export const kindergartenRequest = z.discriminatedUnion("kind", [
 export type RelativeInput = z.infer<typeof relativeInput>;
 export type ChildInput = z.infer<typeof childInput>;
 
+/** Data-URL знімка з браузера — аватарка користувача чи фото працівника.
+ *  Розмір обмежений тут, а не лише у формі: поле лежить у рядку таблиці, і
+ *  мегабайтний знімок роздув би кожну вибірку, навіть коли він нікому не
+ *  потрібен. */
+const imageDataUrl = z
+  .string()
+  .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, {
+    error: "Підтримуються PNG, JPEG і WebP",
+  })
+  .max(400_000, "Зображення завелике");
+
 // -------------------------------------------------------------------- payments
 
 /** Файл із браузера: data-URL, ім'я та тип. Розмір обмежений і тут, не лише
@@ -249,6 +260,18 @@ export const staffRequest = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("lesson_remove"),
     lessonId: id,
+    month: month.optional(),
+  }),
+  /** Фото працівника: поставити чи прибрати. */
+  z.object({
+    kind: z.literal("photo_set"),
+    staffId: id,
+    dataUrl: imageDataUrl,
+    month: month.optional(),
+  }),
+  z.object({
+    kind: z.literal("photo_clear"),
+    staffId: id,
     month: month.optional(),
   }),
   /** Вирахування за місяць роботи `month`. 0 — прибрати. */
@@ -538,6 +561,8 @@ export type StaffRowDto = {
   /** Lessons taught in the month, keyed by "YYYY-MM-DD". */
   lessons: Record<string, LessonDto[]>;
   lessonCount: number;
+  /** Чи є фото — саме знімок їде окремим запитом на /api/staff-photo/{id}. */
+  hasPhoto: boolean;
   /** Нараховано за табелем і ставкою, до вирахувань. */
   grossSalary: number;
   /** Вирахування за цей місяць роботи; 0 — немає. */
@@ -778,15 +803,7 @@ export const settingsRequest = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("password_change_request") }),
   z.object({
     kind: z.literal("avatar_set"),
-    /** Data-URL із браузера. Розмір обмежений тут, а не лише у формі: поле
-     *  лежить у рядку таблиці, і мегабайтний знімок роздув би кожну вибірку
-     *  користувачів, навіть коли аватарка нікому не потрібна. */
-    dataUrl: z
-      .string()
-      .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, {
-        error: "Підтримуються PNG, JPEG і WebP",
-      })
-      .max(400_000, "Зображення завелике"),
+    dataUrl: imageDataUrl,
   }),
   z.object({ kind: z.literal("avatar_clear") }),
   z.object({

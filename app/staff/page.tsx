@@ -1,9 +1,11 @@
 "use client";
 import { MonthPicker, useMonth } from "@/components/MonthPicker";
+import { toAvatarDataUrl } from "@/lib/avatar-image";
 import { monthLabel } from "@/lib/period";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AttendanceGrid } from "@/components/AttendanceGrid";
 import { LessonEditor } from "@/components/LessonEditor";
+import { Avatar } from "@/components/Avatar";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { MonthLock } from "@/components/MonthLock";
@@ -258,6 +260,31 @@ export default function StaffPage() {
     setDeductionDrafts(rest);
   };
 
+  /** Фото працівника. Адреса знімка та сама й після заміни, тож браузер
+   *  показав би старий з пам'яті — після зміни додаємо до неї мітку часу. */
+  const [photoBust, setPhotoBust] = useState<Record<number, number>>({});
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoSrc = (id: number) =>
+    `/api/staff-photo/${id}` + (photoBust[id] ? `?v=${photoBust[id]}` : "");
+  /** `file` — новий знімок; null — прибрати наявний. */
+  const savePhoto = async (staffId: number, file: File | null) => {
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const body = file
+        ? { kind: "photo_set", staffId, dataUrl: await toAvatarDataUrl(file) }
+        : { kind: "photo_clear", staffId };
+      const next = await staffAction(body);
+      if (!next) setPhotoError("Не вдалося зберегти фото");
+      else setPhotoBust({ ...photoBust, [staffId]: Date.now() });
+    } catch {
+      setPhotoError("Не вдалося обробити зображення");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
   /** Ліміт нічого не блокує — він лише показує баланс, — тож перевищення
    *  повідомляємо після відмітки, а не замість неї. */
   const updateAttendance = async (
@@ -440,13 +467,12 @@ export default function StaffPage() {
                     }}
                   >
                     <td>
-                      <i className="avatar">
-                        {person.name
-                          .split(" ")
-                          .map((part: string) => part[0])
-                          .slice(0, 2)
-                          .join("")}
-                      </i>
+                      <Avatar
+                        userId={person.id}
+                        name={person.name}
+                        hasAvatar={person.hasPhoto}
+                        src={photoSrc(person.id)}
+                      />
                       <div>
                         <b>
                           {person.name}
@@ -528,13 +554,12 @@ export default function StaffPage() {
           }}
         >
             <div className="staff-drawer-head">
-              <i>
-                {selected.name
-                  .split(" ")
-                  .map((part: string) => part[0])
-                  .slice(0, 2)
-                  .join("")}
-              </i>
+              <Avatar
+                userId={selected.id}
+                name={selected.name}
+                hasAvatar={selected.hasPhoto}
+                src={photoSrc(selected.id)}
+              />
               <div>
                 <p className="eyebrow">ТАБЕЛЬ ПРАЦІВНИКА</p>
                 <h2>{selected.name}</h2>
@@ -554,6 +579,40 @@ export default function StaffPage() {
                     ""
                   )}
                 </span>
+                {scope?.canManageBranch && (
+                  <div className="avatar-actions">
+                    <label className="avatar-pick">
+                      {photoBusy
+                        ? "Завантажуємо…"
+                        : selected.hasPhoto
+                          ? "Змінити фото"
+                          : "Додати фото"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        disabled={photoBusy}
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          // Скидаємо одразу, щоб той самий файл можна було
+                          // обрати вдруге після невдачі.
+                          event.target.value = "";
+                          if (file) await savePhoto(selected.id, file);
+                        }}
+                      />
+                    </label>
+                    {selected.hasPhoto && (
+                      <button
+                        type="button"
+                        className="avatar-clear"
+                        disabled={photoBusy}
+                        onClick={() => savePhoto(selected.id, null)}
+                      >
+                        Прибрати
+                      </button>
+                    )}
+                  </div>
+                )}
+                {photoError && <em className="photo-error">{photoError}</em>}
               </div>
             </div>
             <div className="staff-salary-card">

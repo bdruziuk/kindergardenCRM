@@ -185,6 +185,8 @@ export async function staffWithAttendance(
         vacationQuota: staff.vacationQuota,
         dayOffQuota: staff.dayOffQuota,
         active: staff.active,
+        // Лише ознака: сам знімок важить кілобайти й тут нікому не потрібен.
+        hasPhoto: sql<boolean>`${staff.photo} is not null`,
       })
       .from(staff)
       .leftJoin(branches, eq(branches.id, staff.branchId))
@@ -340,6 +342,7 @@ export async function staffWithAttendance(
       vacationUsedYear,
       lessons: personLessons,
       lessonCount,
+      hasPhoto: Boolean(person.hasPhoto),
       grossSalary,
       deduction,
       deductionNote: deductionRow?.note ?? "",

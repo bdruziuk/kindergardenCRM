@@ -74,14 +74,19 @@ export async function POST(request: Request) {
     // Виплати мають власні перевірки за датою руху грошей, а не за місяцем
     // сторінки: за закритий місяць роботи платять уже наступного місяця, і
     // спільна перевірка тут забороняла б саме це.
-    if (!isPayout) await assertMonthOpen(branchId, body.month ?? currentMonth());
+    // Фото не належить місяцю: його можна поміняти, навіть дивлячись на
+    // закритий місяць, — у знімок воно однаково не входить.
+    const isPhoto = body.kind === "photo_set" || body.kind === "photo_clear";
+    if (!isPayout && !isPhoto)
+      await assertMonthOpen(branchId, body.month ?? currentMonth());
 
     // Кожен переданий ID перевіряємо в межах філії до будь-якого запису.
     if (
       body.kind === "attendance" ||
       body.kind === "lesson_add" ||
       body.kind === "update_staff" ||
-      body.kind === "deduction_set"
+      body.kind === "deduction_set" ||
+      isPhoto
     ) {
       const [person] = await db
         .select({ id: staff.id })
@@ -137,6 +142,23 @@ export async function POST(request: Request) {
       await db.delete(lessons).where(eq(lessons.id, body.lessonId));
     } else if (isPayout) {
       await mutatePayout(branchId, body);
+    } else if (isPhoto) {
+      if (!canManageBranch)
+        throw new ScopeError(
+          "Фото працівника змінює власник або керуючий філії",
+          403,
+        );
+      let photo: string | null = null;
+      let photoMime: string | null = null;
+      if (body.kind === "photo_set") {
+        const match = body.dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+        if (!match) throw new ScopeError("Некоректне зображення", 400);
+        [, photoMime, photo] = match;
+      }
+      await db
+        .update(staff)
+        .set({ photo, photoMime })
+        .where(and(eq(staff.id, body.staffId), eq(staff.branchId, branchId)));
     } else if (body.kind === "deduction_set") {
       // Гроші з зарплати — справа того, хто веде філію, а не вихователя.
       // Закритий місяць роботи відсіяно вище: вирахування змінює нараховане,

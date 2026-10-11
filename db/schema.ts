@@ -340,6 +340,11 @@ export const staff = pgTable(
     vacationQuota: integer("vacation_quota").notNull().default(0),
     dayOffQuota: integer("day_off_quota").notNull().default(0),
     active: boolean("active").notNull().default(true),
+    /** Фото працівника в base64 (без префікса `data:`) і його тип — так само,
+     *  як аватарка користувача: квадрат 256 px, обрізаний ще в браузері.
+     *  Віддається маршрутом /api/staff-photo/{id}, а не в списках. */
+    photo: text("photo"),
+    photoMime: text("photo_mime"),
   },
   (t) => [index("idx_staff_branch").on(t.branchId)],
 );

@@ -246,6 +246,13 @@
       "when": 1791743726512,
       "tag": "0034_staff_deductions",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791744610801,
+      "tag": "0035_staff_photo",
+      "breakpoints": true
     }
   ]
 }

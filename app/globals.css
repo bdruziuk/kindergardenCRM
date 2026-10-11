@@ -780,3 +780,7 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .deduction-row input:focus{border-color:var(--accent-focus);outline:0}
 .deduction-row .save-payment{width:auto;margin:0;padding:0 14px;height:37px}
 @media(max-width:520px){.deduction-row{grid-template-columns:1fr 1fr}.deduction-row .save-payment{grid-column:1/-1;width:100%}}
+/* --- фото працівника ------------------------------------------------------ */
+.staff-drawer-head .avatar-actions{margin-top:9px}
+.staff-drawer-head .photo-error{display:block;margin-top:6px;font-size:10px;font-style:normal;color:var(--danger-ink)}
+.staff-drawer-head>.avatar>img{border-radius:inherit}

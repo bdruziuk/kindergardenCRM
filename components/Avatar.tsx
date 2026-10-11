@@ -14,17 +14,21 @@ export function Avatar({
   name,
   hasAvatar,
   className = "",
+  src,
 }: {
   userId: number;
   name: string;
   hasAvatar: boolean;
   className?: string;
+  /** Інша адреса знімка — для фото працівника замість аватарки акаунта. */
+  src?: string;
 }) {
   // Помилку запам'ятовуємо разом із тим, для чого вона сталася: після заміни
   // знімка адреса та сама, і без цього ініціали лишились би назавжди. Ключ
   // замість ефекту — стан виводиться, а не синхронізується.
   const [failedFor, setFailedFor] = useState<string | null>(null);
-  const key = `${userId}:${hasAvatar}`;
+  const url = src ?? `/api/avatar/${userId}`;
+  const key = `${url}:${hasAvatar}`;
 
   return (
     <i className={"avatar " + className}>
@@ -33,7 +37,7 @@ export function Avatar({
         // маршрутом — next/image оптимізував би вже оптимізоване.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`/api/avatar/${userId}`}
+          src={url}
           alt=""
           onError={() => setFailedFor(key)}
         />
