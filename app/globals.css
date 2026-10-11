@@ -8,9 +8,12 @@
 [data-theme="yellow"]{--bg:#faf8f1;--accent:#b5872f;--accent-ink:#8f6820;--accent-hover:#a1762a;--accent-bright:#e0b25c;--accent-soft:#fbf2df;--accent-soft-2:#f7e8ca;--accent-wash:#fdf9ef;--accent-line:#eddaae;--accent-focus:#d7b268;--accent-tint:#fefdf9;--accent-track:#f2ece0;--accent-ring:#b5872f1a}
 /* Спосіб оплати теж несе зміст, тож його колір однаковий у всіх схемах і
    однаковий скрізь, де спосіб згадується: у плитках підсумків і в розкладі
-   внесеної суми по дитині. */
+   внесеної суми по дитині. Відтінки навмисно далекі і один від одного, і від
+   чотирьох схем філій (зелена 168°, синя 212°, червона 4°, жовта 39°):
+   готівка — оливкова 82°, картка — фіолетова 256°, IBAN — бузково-малинова
+   313°. Колишні зелена й синя зливалися з однойменними схемами. */
 :root{--danger:#c9564c;--danger-ink:#a8433b;--danger-line:#e8c3bf;--danger-soft:#fdf4f3;--warn-ink:#a3691f;--warn-soft:#fdf0dd}
-:root{--cash-ink:#1f7a52;--cash-soft:#e4f3ec;--iban-ink:#41638f;--iban-soft:#e8f0fa;--card-ink:#6f5aa0;--card-soft:#eeeafa}
+:root{--cash-ink:#4d6e12;--cash-soft:#eef5dc;--iban-ink:#94307f;--iban-soft:#f8e6f2;--card-ink:#5e44a8;--card-soft:#ece8fa}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}button,select{font:inherit}input,select,textarea{max-width:100%;min-width:0}.shell{min-height:100vh;display:flex}aside{position:fixed;inset:0 auto 0 0;width:238px;background:#fff;border-right:1px solid var(--line);padding:28px 18px 20px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:11px;padding:0 10px 34px;font-size:20px;font-weight:800}.brand>b{width:35px;height:35px;border-radius:12px 12px 12px 4px;background:var(--accent);color:#fff;display:grid;place-items:center}nav{display:grid;gap:6px}nav a{display:flex;align-items:center;gap:13px;height:46px;padding:0 13px;border-radius:10px;text-decoration:none;color:#687670;font-size:14px;font-weight:600}nav a span{width:20px;text-align:center;font-size:19px;flex:none}nav a b{font:inherit;min-width:0}.nav-label-short{display:none}.nav-more,.nav-sheet-backdrop{display:none}nav a:hover,nav .active{background:var(--accent-soft);color:var(--accent-ink)}.profile{margin-top:auto;border-top:1px solid var(--line);padding:20px 5px 5px;display:flex;align-items:center;gap:10px}.profile>i,.avatar{width:35px;height:35px;border-radius:50%;background:var(--accent-soft-2);color:var(--accent);display:inline-grid;place-items:center;font-size:10px;font-weight:800;font-style:normal}.profile div{display:flex;flex-direction:column;gap:3px}.profile b{font-size:12px}.profile small{font-size:10px;color:#92a09b}/* Once the viewport is wider than the sidebar plus the 1500px cap, the
    leftover is split evenly instead of all piling up on the right. Below
    that the margin stays flush against the sidebar, so 1440px and smaller
