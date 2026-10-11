@@ -897,3 +897,8 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .card-table td:not([data-label]):not(.card-title):not(:first-child){order:2;grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;gap:6px}
 .card-table td:not([data-label]):not(.card-title):not(:first-child):empty{display:none}
 }
+/* Виплати цього місяця за інші місяці роботи — під заголовком «Зарплати». */
+.salary-panel .salary-elsewhere{margin:8px 0 0;padding:7px 10px;border-radius:9px;background:var(--warn-soft);color:var(--warn-ink);font-size:11px;line-height:1.45}
+.salary-panel .salary-elsewhere b{color:var(--ink)}
+.salary-panel .salary-elsewhere a{color:var(--warn-ink);font-weight:700}
+.salary-payouts{scroll-margin-top:calc(var(--actor-bar-h) + 12px)}

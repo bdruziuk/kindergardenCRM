@@ -239,6 +239,23 @@ export default function FinancesPage() {
   /** Старі закриті знімки цього списку не мають. */
   const salaryPayouts = data.salaryPayouts ?? [];
 
+  /**
+   * Панель «Зарплати» — про місяць роботи: її рядки показують, скільки
+   * видано саме за нього. «Видано» над ними рахується так само, інакше
+   * туди потрапляли б вересневі зарплати, видані в жовтні, і сума виходила б
+   * більшою за нараховане, хоча в жодному рядку її не видно.
+   *
+   * Гроші, що вийшли цього місяця за інші місяці роботи, показуємо окремим
+   * рядком — у касі вони жовтневі, і губити їх теж не можна.
+   */
+  const paidForMonth = data.salaryRows.reduce((sum, row) => sum + row.paid, 0);
+  const otherMonths = salaryPayouts.filter((item) => item.payrollMonth !== month);
+  const otherMonthsTotal = otherMonths.reduce((sum, item) => sum + item.amount, 0);
+  const otherMonthsLabel = [...new Set(otherMonths.map((item) => item.payrollMonth))]
+    .sort()
+    .map(monthLabel)
+    .join(", ");
+
 
   const { income, expense, salaryAccrued, salaryRemaining, balance } =
     data.summary;
@@ -472,12 +489,19 @@ export default function FinancesPage() {
               <h2>
                 Зарплати <span>{data.salaryRows.length}</span>
               </h2>
-              <p>Скільки нараховано за місяць і скільки вже видано</p>
+              <p>Скільки нараховано за {monthLabel(month)} і скільки вже видано за нього</p>
+              {otherMonthsTotal > 0 && (
+                <p className="salary-elsewhere">
+                  Ще видано цього місяця за інші місяці роботи:{" "}
+                  <b>{money(otherMonthsTotal)}</b> ({otherMonthsLabel}) —{" "}
+                  <a href="#salary-payouts">у «Виплатах зарплат»</a>
+                </p>
+              )}
             </div>
             <div className="salary-totals">
               <div>
                 <span>Видано</span>
-                <b className="green-text">{money(expense.salary)}</b>
+                <b className="green-text">{money(paidForMonth)}</b>
               </div>
               <div>
                 <span>Залишилось</span>
@@ -572,7 +596,10 @@ export default function FinancesPage() {
             видачі, хоч би за який місяць роботи. У картці працівника видно
             лише виплати за показаний місяць роботи, тож виплату, записану не
             за той місяць, звідти не знайти; тут вона є завжди. */}
-        <article className="panel staff-directory salary-payouts">
+        <article
+          className="panel staff-directory salary-payouts"
+          id="salary-payouts"
+        >
           <div className="payment-toolbar">
             <div>
               <h2>
