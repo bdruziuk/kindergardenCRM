@@ -1,25 +1,37 @@
-<svg width="400" height="400" viewBox="30 -59 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <title>Малеча</title>
-  <defs>
-    <linearGradient id="gYellow" x1="180" y1="70" x2="360" y2="270" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFD45A"/>
-      <stop offset="1" stop-color="#F7A928"/>
-    </linearGradient>
-    <linearGradient id="gCoral" x1="300" y1="60" x2="520" y2="260" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF8277"/>
-      <stop offset="1" stop-color="#F65E67"/>
-    </linearGradient>
-    <linearGradient id="gBlue" x1="430" y1="80" x2="570" y2="270" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#66B8F8"/>
-      <stop offset="1" stop-color="#3B8EDB"/>
-    </linearGradient>
-  </defs>
-  <path d="M70 235V96C70 69 92 47 119 47C133 47 146 53 156 62L230 131L304 62C314 53 327 47 341 47C368 47 390 69 390 96V235" stroke="url(#gYellow)" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M156 62L230 131L304 62" stroke="url(#gCoral)" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M390 96V235" stroke="url(#gBlue)" stroke-width="54" stroke-linecap="round"/>
-  <path d="M176 183C185 171 198 171 207 183" stroke="#17345E" stroke-width="12" stroke-linecap="round"/>
-  <path d="M253 183C262 171 275 171 284 183" stroke="#17345E" stroke-width="12" stroke-linecap="round"/>
-  <path d="M213 217C229 234 247 234 263 217" stroke="#17345E" stroke-width="13" stroke-linecap="round"/>
-  <circle cx="166" cy="214" r="13" fill="#FF9B9A"/>
-  <circle cx="294" cy="214" r="13" fill="#FF9B9A"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="277 157 700 700">
+<title>Малеча</title>
+<path fill="#fff4e6" d="M375 470 627 282 880 470Q915 630 870 751Q627 703 384 751Q336 625 375 470"/>
+<path fill="#ff8876" d="M769 291V267Q769 245 791 245H835Q857 245 857 267V352Z"/>
+<path fill="#ffbc45" d="M319 422 595 224Q627 199 659 224L934 423C968 450 945 495 911 477L648 291Q627 276 607 291L351 475C316 497 285 453 319 422"/>
+<path fill="#ff8876" d="M627 465C593 410 530 419 530 465C530 501 582 528 620 571Q627 580 634 570C674 526 723 502 723 465C723 417 662 411 627 465"/>
+<g fill="#ffbc45">
+<path d="M617 342C616 325 638 325 637 342L633 387Q627 402 621 387Z"/>
+<path d="M551 383C543 369 559 360 567 375L582 399Q588 413 575 410Z"/>
+<path d="M673 397 688 374C697 359 712 371 701 384L682 407Q667 417 673 397"/>
+</g>
+<g fill="#5ba8ce">
+<path d="M422 557Q437 514 477 500Q495 494 487 516Q540 510 554 554Q556 564 507 548Q489 598 436 585Q431 612 418 623Q412 628 406 607Q394 578 422 557"/>
+<path d="M396 637Q406 633 423 646C482 684 537 671 584 603Q598 583 612 595Q626 605 608 629Q588 657 561 678L583 729 475 746 468 702Q415 687 390 665Q378 651 396 637"/>
+<path d="M490 628Q507 633 518 619Q529 608 528 626C523 651 494 647 489 635Z"/>
+</g>
+<g fill="none" stroke="#5ba8ce" stroke-width="10" stroke-linecap="round">
+<path d="M459 625C453 605 475 599 484 614"/>
+<path d="M517 601C512 580 535 577 543 592"/>
+</g>
+<g fill="#ff8876">
+<path d="M687 559C707 514 760 511 794 538Q839 572 817 627Q813 639 797 603Q756 596 743 560Q714 575 690 567Q684 566 687 559"/>
+<path d="M809 537C821 508 848 514 860 533Q869 553 877 555Q887 561 873 568C843 585 822 560 809 543Z"/>
+<path d="M713 620Q718 616 724 624Q732 632 743 629Q752 628 746 640C730 653 708 640 713 620"/>
+<path d="M637 600Q651 592 664 611C710 678 762 685 824 642Q841 630 850 642Q862 655 842 671Q815 691 774 704L770 745 664 729 684 679Q653 654 637 627Q627 610 637 600"/>
+</g>
+<g fill="none" stroke="#ff8876" stroke-width="10" stroke-linecap="round">
+<path d="M696 596C705 579 723 587 721 605"/>
+<path d="M752 617C762 602 779 612 776 629"/>
+</g>
+<g fill="#9cc36e">
+<path d="M351 792C315 754 291 704 328 678Q368 660 399 721Q436 697 458 750Z"/>
+<path d="M792 750Q810 698 853 721C878 668 914 666 935 686Q965 718 901 794Z"/>
+<path d="M373 799C510 721 736 721 879 799Q889 810 876 808C700 763 552 765 380 808Q365 812 373 799"/>
+</g>
+
 </svg>
