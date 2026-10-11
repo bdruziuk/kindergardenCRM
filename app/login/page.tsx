@@ -1,4 +1,5 @@
 "use client";
+import { BrandMark } from "@/components/BrandMark";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -35,7 +36,7 @@ function LoginForm() {
   return (
     <form className="login-card" onSubmit={submit}>
       <div className="login-brand">
-        <b>М</b>
+        <BrandMark />
         <span>Малеча</span>
       </div>
       <h1>Вхід до системи</h1>

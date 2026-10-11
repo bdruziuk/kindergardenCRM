@@ -1,4 +1,5 @@
 "use client";
+import { BrandMark } from "@/components/BrandMark";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -77,7 +78,7 @@ export function Sidebar({ active }: { active: string }) {
   return (
     <aside>
       <div className="brand">
-        <b>М</b>Малеча
+        <BrandMark />Малеча
       </div>
       <nav>
         {nav.map(tab)}

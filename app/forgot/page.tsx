@@ -1,4 +1,5 @@
 "use client";
+import { BrandMark } from "@/components/BrandMark";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -32,7 +33,7 @@ export default function ForgotPage() {
       <main className="login-shell">
         <div className="login-card">
           <div className="login-brand">
-            <b>М</b>
+            <BrandMark />
             <span>Малеча</span>
           </div>
           <h1>Перевірте пошту</h1>
@@ -53,7 +54,7 @@ export default function ForgotPage() {
     <main className="login-shell">
       <form className="login-card" onSubmit={submit}>
         <div className="login-brand">
-          <b>М</b>
+          <BrandMark />
           <span>Малеча</span>
         </div>
         <h1>Забули пароль?</h1>

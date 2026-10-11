@@ -1,4 +1,5 @@
 "use client";
+import { BrandMark } from "@/components/BrandMark";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -69,7 +70,7 @@ function RegisterForm() {
     return (
       <div className="login-card">
         <div className="login-brand">
-          <b>М</b>
+          <BrandMark />
           <span>Малеча</span>
         </div>
         <p className="login-sub">Перевіряємо запрошення…</p>
@@ -80,7 +81,7 @@ function RegisterForm() {
     return (
       <div className="login-card">
         <div className="login-brand">
-          <b>М</b>
+          <BrandMark />
           <span>Малеча</span>
         </div>
         <h1>Запрошення не діє</h1>
@@ -99,7 +100,7 @@ function RegisterForm() {
   return (
     <form className="login-card" onSubmit={submit}>
       <div className="login-brand">
-        <b>М</b>
+        <BrandMark />
         <span>Малеча</span>
       </div>
       <h1>Створення запису</h1>

@@ -1,0 +1,25 @@
+<svg width="400" height="400" viewBox="30 -59 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Малеча</title>
+  <defs>
+    <linearGradient id="gYellow" x1="180" y1="70" x2="360" y2="270" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD45A"/>
+      <stop offset="1" stop-color="#F7A928"/>
+    </linearGradient>
+    <linearGradient id="gCoral" x1="300" y1="60" x2="520" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8277"/>
+      <stop offset="1" stop-color="#F65E67"/>
+    </linearGradient>
+    <linearGradient id="gBlue" x1="430" y1="80" x2="570" y2="270" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#66B8F8"/>
+      <stop offset="1" stop-color="#3B8EDB"/>
+    </linearGradient>
+  </defs>
+  <path d="M70 235V96C70 69 92 47 119 47C133 47 146 53 156 62L230 131L304 62C314 53 327 47 341 47C368 47 390 69 390 96V235" stroke="url(#gYellow)" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M156 62L230 131L304 62" stroke="url(#gCoral)" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M390 96V235" stroke="url(#gBlue)" stroke-width="54" stroke-linecap="round"/>
+  <path d="M176 183C185 171 198 171 207 183" stroke="#17345E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M253 183C262 171 275 171 284 183" stroke="#17345E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M213 217C229 234 247 234 263 217" stroke="#17345E" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="166" cy="214" r="13" fill="#FF9B9A"/>
+  <circle cx="294" cy="214" r="13" fill="#FF9B9A"/>
+</svg>

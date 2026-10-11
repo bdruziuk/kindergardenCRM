@@ -1,4 +1,5 @@
 "use client";
+import { BrandMark } from "@/components/BrandMark";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
@@ -501,7 +502,7 @@ export default function AdminPage() {
     <main className="admin-shell">
       <header className="admin-top">
         <div className="login-brand">
-          <b>М</b>
+          <BrandMark />
           <span>Малеча</span>
         </div>
         <div>
