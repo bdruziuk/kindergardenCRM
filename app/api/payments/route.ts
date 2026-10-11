@@ -108,10 +108,26 @@ export async function POST(request: Request) {
           amount: body.amount,
           method: body.method,
           paidAt: body.paidAt ?? new Date().toISOString().slice(0, 10),
+          note: body.note || null,
         })
         .returning({ id: payments.id });
 
       if (body.receipt) await attachReceipt(created.id, body.receipt);
+    } else if (body.kind === "note_set") {
+      // Як і квитанція: оплата має бути дитини цієї філії, а її місяць —
+      // відкритий, бо закритий показують зі знімка, і нова примітка там
+      // розійшлася б із тим, що видно.
+      const [payment] = await db
+        .select({ childId: payments.childId, billingMonth: payments.billingMonth })
+        .from(payments)
+        .where(eq(payments.id, body.paymentId));
+      if (!payment) throw new ScopeError("Оплату не знайдено", 404);
+      await assertChildInBranch(payment.childId, branchId);
+      await assertMonthOpen(branchId, payment.billingMonth.slice(0, 7));
+      await db
+        .update(payments)
+        .set({ note: body.note || null })
+        .where(eq(payments.id, body.paymentId));
     } else if (body.kind === "receipt_set" || body.kind === "receipt_remove") {
       const [payment] = await db
         .select({ childId: payments.childId, billingMonth: payments.billingMonth })

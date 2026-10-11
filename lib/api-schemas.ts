@@ -193,6 +193,15 @@ export const paymentRequest = z.discriminatedUnion("kind", [
     purpose: z.enum(["tuition", "entrance"]).default("tuition"),
     paidAt: day.optional(),
     receipt: receiptFile.nullable().default(null),
+    /** Примітка до оплати: хто приніс, за що, звідки гроші. */
+    note: z.string().trim().max(200).default(""),
+  }),
+  /** Примітку можна дописати й до вже внесеної оплати; порожня — прибрати. */
+  z.object({
+    kind: z.literal("note_set"),
+    paymentId: id,
+    month,
+    note: z.string().trim().max(200).default(""),
   }),
   z.object({
     kind: z.literal("receipt_set"),
@@ -527,6 +536,8 @@ export type PaymentEntry = {
   method: PaymentMethod;
   paidAt: string;
   receipt: ReceiptDto | null;
+  /** Примітка; порожній рядок — немає. */
+  note?: string;
 };
 
 export type ChildPaymentsDto = {

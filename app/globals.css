@@ -906,3 +906,12 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .salary-totals{flex-wrap:wrap;row-gap:12px}
 .salary-totals small{font-size:10px;line-height:1.4;color:var(--muted);font-weight:500}
 @media(max-width:720px){.salary-totals{margin-top:12px;gap:14px 18px}}
+/* --- примітка до оплати --------------------------------------------------- */
+.history-list .payment-note{align-self:flex-start;max-width:100%;padding:0;border:0;background:none;font:inherit;font-size:10px;color:var(--muted);text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.history-list .payment-note:hover{color:var(--accent-ink)}
+.payment-note-edit{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.payment-note-edit input{flex:1 1 160px;min-width:0;height:32px;padding:0 9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:11px}
+.payment-note-edit input:focus{border-color:var(--accent-focus);outline:0}
+.payment-note-edit button{height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:10px;font-weight:700;cursor:pointer}
+.payment-note-edit .payment-note-save{border-color:var(--accent);background:var(--accent);color:#fff}
+.history-list article>div:first-of-type{min-width:0;flex:1 1 auto}

@@ -64,6 +64,7 @@ export async function childrenWithPayments(
         amount: payments.amount,
         method: payments.method,
         paidAt: payments.paidAt,
+        note: payments.note,
         receiptName: paymentReceipts.fileName,
         receiptMime: paymentReceipts.mime,
         receiptSize: paymentReceipts.size,
@@ -103,6 +104,7 @@ export async function childrenWithPayments(
         amount: payment.amount,
         method: payment.method,
         paidAt: payment.paidAt,
+        note: payment.note ?? "",
         receipt: payment.receiptName
           ? {
               name: payment.receiptName,

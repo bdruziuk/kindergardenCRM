@@ -157,11 +157,17 @@ export default function PaymentsPage() {
     amount: string;
     method: Method;
     paidAt: string;
+    note: string;
   }>({
     amount: "",
     method: "cash",
     paidAt: new Date().toISOString().slice(0, 10),
+    note: "",
   });
+  /** Примітка, яку зараз правлять у вже внесеній оплаті. */
+  const [noteEdit, setNoteEdit] = useState<{ id: number; text: string } | null>(
+    null,
+  );
 
   /** Перечитує сторінку. Потрібне не лише на старті: закриття місяця міняє
    *  все, що на ній видно. */
@@ -237,7 +243,9 @@ export default function PaymentsPage() {
       amount: row.balance ? String(row.balance) : "",
       method: "cash",
       paidAt: new Date().toISOString().slice(0, 10),
+      note: "",
     });
+    setNoteEdit(null);
   };
 
   /** Одна відправка на всі дії сторінки: знімок приходить новий після кожної,
@@ -266,6 +274,7 @@ export default function PaymentsPage() {
         amount: updated?.balance ? String(updated.balance) : "",
         method: "cash",
         paidAt: new Date().toISOString().slice(0, 10),
+        note: "",
       });
     }
     return next;
@@ -302,8 +311,20 @@ export default function PaymentsPage() {
       method: draft.method,
       paidAt: draft.paidAt,
       receipt,
+      note: draft.note,
     });
     if (next) setReceipt(null);
+  };
+
+  const saveNote = async () => {
+    if (!noteEdit) return;
+    const next = await send({
+      kind: "note_set",
+      paymentId: noteEdit.id,
+      month,
+      note: noteEdit.text,
+    });
+    if (next) setNoteEdit(null);
   };
 
   return (
@@ -648,6 +669,17 @@ export default function PaymentsPage() {
                     }
                   />
                 </label>
+                <label>
+                  Примітка
+                  <input
+                    value={draft.note}
+                    maxLength={200}
+                    placeholder="Необов’язково: хто приніс, за що, коли насправді"
+                    onChange={(event) =>
+                      setDraft({ ...draft, note: event.target.value })
+                    }
+                  />
+                </label>
               </div>
 
               <div className="receipt-pick">
@@ -713,6 +745,48 @@ export default function PaymentsPage() {
                           "uk-UA",
                         )}
                       </small>
+                      {noteEdit?.id === item.id ? (
+                        <span className="payment-note-edit">
+                          <input
+                            value={noteEdit.text}
+                            maxLength={200}
+                            placeholder="Примітка до оплати"
+                            aria-label="Примітка до оплати"
+                            onChange={(event) =>
+                              setNoteEdit({ id: item.id, text: event.target.value })
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") saveNote();
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="payment-note-save"
+                            disabled={saving}
+                            onClick={saveNote}
+                          >
+                            {saving ? "…" : "Зберегти"}
+                          </button>
+                          <button type="button" onClick={() => setNoteEdit(null)}>
+                            Скасувати
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="payment-note"
+                          onClick={() =>
+                            setNoteEdit({ id: item.id, text: item.note ?? "" })
+                          }
+                          aria-label={
+                            item.note
+                              ? `Змінити примітку: ${item.note}`
+                              : "Додати примітку"
+                          }
+                        >
+                          {item.note ? `📝 ${item.note}` : "＋ примітка"}
+                        </button>
+                      )}
                     </div>
                     {item.receipt ? (
                       <div className="receipt-links">
