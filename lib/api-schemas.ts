@@ -251,6 +251,14 @@ export const staffRequest = z.discriminatedUnion("kind", [
     lessonId: id,
     month: month.optional(),
   }),
+  /** Вирахування за місяць роботи `month`. 0 — прибрати. */
+  z.object({
+    kind: z.literal("deduction_set"),
+    staffId: id,
+    amount: amount,
+    note: z.string().trim().max(200).default(""),
+    month: month.optional(),
+  }),
   // Власник або керуючий. Без жодного запису працівника стирає зовсім, а з
   // записами — звільняє, щоб минулі місяці й каса лишились цілими.
   z.object({
@@ -530,7 +538,12 @@ export type StaffRowDto = {
   /** Lessons taught in the month, keyed by "YYYY-MM-DD". */
   lessons: Record<string, LessonDto[]>;
   lessonCount: number;
-  /** What the timesheet accrues for the month. */
+  /** Нараховано за табелем і ставкою, до вирахувань. */
+  grossSalary: number;
+  /** Вирахування за цей місяць роботи; 0 — немає. */
+  deduction: number;
+  deductionNote: string;
+  /** Нараховано за місяць після вирахування — саме це й належить виплатити. */
   salary: number;
   /** What has actually been handed over for that month. */
   payouts: PayoutDto[];

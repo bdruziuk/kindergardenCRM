@@ -11,6 +11,7 @@ import {
   staff,
   salaryPayments,
   staffAttendance,
+  staffDeductions,
   transactions,
 } from "@/db/schema";
 import type {
@@ -167,7 +168,7 @@ export async function staffWithAttendance(
   const info = monthInfo(month);
   const firstDay = `${info.month}-01`;
 
-  const [staffRows, attendanceRows, lessonRows, yearLeave, payoutRows] =
+  const [staffRows, attendanceRows, lessonRows, yearLeave, payoutRows, deductionRows] =
     await Promise.all([
     db
       .select({
@@ -223,6 +224,10 @@ export async function staffWithAttendance(
       .from(salaryPayments)
       .where(eq(salaryPayments.month, firstDay))
       .orderBy(asc(salaryPayments.paidAt), asc(salaryPayments.id)),
+    db
+      .select()
+      .from(staffDeductions)
+      .where(eq(staffDeductions.month, firstDay)),
   ]);
 
   const rows = staffRows
@@ -231,7 +236,8 @@ export async function staffWithAttendance(
         person.active ||
         attendanceRows.some((row) => row.staffId === person.id) ||
         lessonRows.some((row) => row.staffId === person.id) ||
-        payoutRows.some((row) => row.staffId === person.id),
+        payoutRows.some((row) => row.staffId === person.id) ||
+        deductionRows.some((row) => row.staffId === person.id),
     )
     .map((person) => {
     const marks = Object.fromEntries(
@@ -268,7 +274,7 @@ export async function staffWithAttendance(
       0,
     );
 
-    const salary =
+    const grossSalary =
       person.salaryType === "monthly"
         ? Math.round((person.monthlyRate / info.workdays) * paidDays * 100) / 100
         : person.salaryType === "lesson"
@@ -280,6 +286,17 @@ export async function staffWithAttendance(
                 (person.monthlyRate + person.lessonRate * lessonCount) * 100,
               ) / 100
             : person.dailyRate * paidDays;
+
+    // Вирахування за місяць віднімається від нарахованого. Далі все — залишок,
+    // борг, фінанси, звіти, знімок закритого місяця — бачить уже суму після
+    // нього, тож рахувати його ще десь не треба. Нижче нуля не опускаємо:
+    // вирахування не робить працівника винним садочку.
+    const deductionRow = deductionRows.find((row) => row.staffId === person.id);
+    const deduction = deductionRow?.amount ?? 0;
+    const salary = Math.max(
+      0,
+      Math.round((grossSalary - deduction) * 100) / 100,
+    );
 
     const payouts = payoutRows
       .filter((row) => row.staffId === person.id)
@@ -323,6 +340,9 @@ export async function staffWithAttendance(
       vacationUsedYear,
       lessons: personLessons,
       lessonCount,
+      grossSalary,
+      deduction,
+      deductionNote: deductionRow?.note ?? "",
       salary,
       payouts,
       paidOut,

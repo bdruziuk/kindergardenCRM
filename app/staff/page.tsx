@@ -206,6 +206,58 @@ export default function StaffPage() {
     return next;
   };
 
+  /** Чернетки вирахування — окремо для кожного працівника й місяця, щоб
+   *  недописане не переїжджало до іншої людини. Без чернетки поле показує
+   *  те, що вже збережено. */
+  const [deductionDrafts, setDeductionDrafts] = useState<
+    Record<string, { amount: string; note: string }>
+  >({});
+  const [deductionSaving, setDeductionSaving] = useState(false);
+  const [deductionError, setDeductionError] = useState<string | null>(null);
+  const deductionKey = selected ? `${selected.id}:${month}` : "";
+  const deductionDraft = deductionDrafts[deductionKey] ?? {
+    amount: selected?.deduction ? String(selected.deduction) : "",
+    note: selected?.deductionNote ?? "",
+  };
+  const canDeduct = Boolean(scope?.canManageBranch) && !data.closed;
+  const editDeduction = (patch: Partial<{ amount: string; note: string }>) => {
+    setDeductionError(null);
+    setDeductionDrafts({
+      ...deductionDrafts,
+      [deductionKey]: { ...deductionDraft, ...patch },
+    });
+  };
+  const saveDeduction = async () => {
+    if (!selected) return;
+    setDeductionSaving(true);
+    setDeductionError(null);
+    const response = await fetch("/api/staff?x=1" + branchQuery, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "deduction_set",
+        staffId: selected.id,
+        amount: Number(deductionDraft.amount || 0),
+        note: deductionDraft.note,
+        month,
+      }),
+    }).catch(() => null);
+    const next = (await response?.json().catch(() => null)) as
+      | (StaffSnapshot & { error?: string })
+      | null;
+    setDeductionSaving(false);
+    if (!response?.ok || !next?.rows) {
+      setDeductionError(next?.error ?? "Немає зв’язку із сервером");
+      return;
+    }
+    setData(next);
+    setSelected(next.rows.find((row) => row.id === selected.id) ?? null);
+    // Збережене тепер у знімку — чернетка більше не потрібна.
+    const rest = { ...deductionDrafts };
+    delete rest[deductionKey];
+    setDeductionDrafts(rest);
+  };
+
   /** Ліміт нічого не блокує — він лише показує баланс, — тож перевищення
    *  повідомляємо після відмітки, а не замість неї. */
   const updateAttendance = async (
@@ -518,8 +570,16 @@ export default function StaffPage() {
                 </b>
               </div>
               <div>
-                <span>Нараховано</span>
+                <span>
+                  {selected.deduction ? "До виплати" : "Нараховано"}
+                </span>
                 <b className="green-text">{money(selected.salary)}</b>
+                {selected.deduction > 0 && (
+                  <small className="deduction-line">
+                    {money(selected.grossSalary)} −{" "}
+                    {money(selected.deduction)} вирахування
+                  </small>
+                )}
               </div>
               <small>
                 {selected.salaryType === "monthly"
@@ -550,6 +610,65 @@ export default function StaffPage() {
                 Редагувати працівника
               </button>
             </div>
+            {(scope?.canManageBranch || selected.deduction > 0) && (
+              <div className="deduction-block">
+                <b>Вирахування за {monthLabel(month)}</b>
+                <p>
+                  Сума віднімається від нарахованого за цей місяць — і далі
+                  скрізь, де видно, скільки ще виплатити.
+                </p>
+                <div className="deduction-row">
+                  <label>
+                    Сума
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={deductionDraft.amount}
+                      disabled={!canDeduct}
+                      onChange={(event) =>
+                        editDeduction({ amount: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    За що
+                    <input
+                      value={deductionDraft.note}
+                      maxLength={200}
+                      placeholder="Необов’язково"
+                      disabled={!canDeduct}
+                      onChange={(event) =>
+                        editDeduction({ note: event.target.value })
+                      }
+                    />
+                  </label>
+                  {canDeduct && (
+                    <button
+                      className="save-payment"
+                      disabled={
+                        deductionSaving ||
+                        !(Number(deductionDraft.amount || 0) >= 0) ||
+                        (Number(deductionDraft.amount || 0) ===
+                          selected.deduction &&
+                          deductionDraft.note.trim() === selected.deductionNote)
+                      }
+                      onClick={saveDeduction}
+                    >
+                      {deductionSaving ? "Збереження…" : "Зберегти"}
+                    </button>
+                  )}
+                </div>
+                {deductionError && (
+                  <p className="modal-error">{deductionError}</p>
+                )}
+                {data.closed && (
+                  <small>Місяць закрито — вирахування змінити не можна.</small>
+                )}
+              </div>
+            )}
             {!paidByLesson(selected.salaryType) &&
               (selected.vacationQuota > 0 || selected.dayOffQuota > 0) && (
                 <div className="leave-block">

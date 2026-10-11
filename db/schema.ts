@@ -372,6 +372,29 @@ export const lessons = pgTable(
   (t) => [index("idx_lessons_staff_date").on(t.staffId, t.workDate)],
 );
 
+/**
+ * Вирахування із зарплати за місяць роботи — сума, яку віднімають від
+ * нарахованого (штраф, утримання, повернення авансу поза системою тощо).
+ *
+ * Одне число на працівника й місяць, як `child_month_days`: його вводять
+ * підсумком, а не набирають з окремих операцій. Немає рядка — вирахувань
+ * немає. Нараховане після вирахування не стає від'ємним.
+ */
+export const staffDeductions = pgTable(
+  "staff_deductions",
+  {
+    id: serial("id").primaryKey(),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    /** Перший день місяця роботи — так само, як `salary_payments.month`. */
+    month: day("month").notNull(),
+    amount: money("amount").notNull(),
+    note: text("note"),
+  },
+  (t) => [uniqueIndex("idx_staff_deductions").on(t.staffId, t.month)],
+);
+
 /** Money actually handed to a staff member, as opposed to what the timesheet
  *  accrues. `month` is the payroll month being settled; `paidAt` is when the
  *  cash actually left, so an August salary paid in September counts towards

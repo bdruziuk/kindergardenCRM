@@ -6,9 +6,10 @@ import {
   salaryPayments,
   staff,
   staffAttendance,
+  staffDeductions,
 } from "@/db/schema";
 import { type SalaryType, firstIssue, staffRequest } from "@/lib/api-schemas";
-import { currentMonth } from "@/lib/period";
+import { currentMonth, monthStart } from "@/lib/period";
 import { assertMonthOpen, loadClose } from "@/lib/month-close";
 import { mutatePayout } from "@/lib/payouts";
 import { staffSnapshot as snapshot } from "@/lib/snapshots";
@@ -79,7 +80,8 @@ export async function POST(request: Request) {
     if (
       body.kind === "attendance" ||
       body.kind === "lesson_add" ||
-      body.kind === "update_staff"
+      body.kind === "update_staff" ||
+      body.kind === "deduction_set"
     ) {
       const [person] = await db
         .select({ id: staff.id })
@@ -135,6 +137,39 @@ export async function POST(request: Request) {
       await db.delete(lessons).where(eq(lessons.id, body.lessonId));
     } else if (isPayout) {
       await mutatePayout(branchId, body);
+    } else if (body.kind === "deduction_set") {
+      // Гроші з зарплати — справа того, хто веде філію, а не вихователя.
+      // Закритий місяць роботи відсіяно вище: вирахування змінює нараховане,
+      // а воно в закритому місяці заморожене.
+      if (!canManageBranch)
+        throw new ScopeError(
+          "Вирахування вносить власник або керуючий філії",
+          403,
+        );
+      const month = monthStart(body.month ?? currentMonth());
+      if (body.amount === 0) {
+        await db
+          .delete(staffDeductions)
+          .where(
+            and(
+              eq(staffDeductions.staffId, body.staffId),
+              eq(staffDeductions.month, month),
+            ),
+          );
+      } else {
+        await db
+          .insert(staffDeductions)
+          .values({
+            staffId: body.staffId,
+            month,
+            amount: body.amount,
+            note: body.note || null,
+          })
+          .onConflictDoUpdate({
+            target: [staffDeductions.staffId, staffDeductions.month],
+            set: { amount: body.amount, note: body.note || null },
+          });
+      }
     } else if (body.kind === "remove_staff") {
       // Керуючий видаляє лише своїх: resolveScope не пускає його в чужу філію,
       // а працівника нижче шукаємо саме в цій.

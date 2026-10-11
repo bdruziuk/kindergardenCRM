@@ -239,6 +239,13 @@
       "when": 1791740780109,
       "tag": "0033_user_read_only",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791743726512,
+      "tag": "0034_staff_deductions",
+      "breakpoints": true
     }
   ]
 }

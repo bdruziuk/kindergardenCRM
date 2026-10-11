@@ -768,3 +768,15 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
    SVG і від схеми філії не залежать. */
 .brand-mark{display:block;flex:none;width:40px;height:40px;object-fit:contain}
 .login-brand .brand-mark{width:38px;height:38px}
+/* --- вирахування із зарплати --------------------------------------------- */
+.staff-salary-card .deduction-line{grid-column:auto;border:0;padding:0;font-size:10px;color:var(--danger-ink)}
+.deduction-block{margin:14px 0 0;border:1px solid var(--line);border-radius:13px;padding:13px 14px;display:flex;flex-direction:column;gap:8px;background:var(--accent-tint)}
+.deduction-block>b{font-size:12px}
+.deduction-block>p{margin:0;font-size:10px;line-height:1.45;color:var(--muted)}
+.deduction-block>small{font-size:10px;color:var(--muted)}
+.deduction-row{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:8px;align-items:end}
+.deduction-row label{display:flex;flex-direction:column;gap:5px;font-size:9px;font-weight:700;color:#586a64;min-width:0}
+.deduction-row input{height:37px;border:1px solid var(--line);border-radius:9px;padding:0 9px;background:#fff;font-size:11px;width:100%}
+.deduction-row input:focus{border-color:var(--accent-focus);outline:0}
+.deduction-row .save-payment{width:auto;margin:0;padding:0 14px;height:37px}
+@media(max-width:520px){.deduction-row{grid-template-columns:1fr 1fr}.deduction-row .save-payment{grid-column:1/-1;width:100%}}
