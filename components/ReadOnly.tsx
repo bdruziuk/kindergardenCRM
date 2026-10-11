@@ -84,6 +84,9 @@ const MARK = "data-read-only-off";
 
 function lock(root: ParentNode) {
   root.querySelectorAll<HTMLElement>(CONTROLS).forEach((node) => {
+    // Лише сторінки застосунку (з бічним меню; діалоги рендеряться всередині
+    // них). Вхід, реєстрація й відновлення пароля — поза режимом перегляду.
+    if (!node.closest(".shell")) return;
     if (node.matches(VIEW_CONTROLS) || node.hasAttribute(MARK)) return;
     const control = node as HTMLButtonElement;
     if (control.disabled) return;
