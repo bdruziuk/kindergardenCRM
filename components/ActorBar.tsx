@@ -1,8 +1,8 @@
 "use client";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
-import type { ScopeDto } from "@/lib/api-schemas";
+import { useState } from "react";
 import { USER_ROLE_LABELS } from "@/lib/format";
+import { useReadOnly } from "./ReadOnly";
 
 /**
  * Смуга вгорі для двох станів, про які не можна забути:
@@ -18,28 +18,8 @@ import { USER_ROLE_LABELS } from "@/lib/format";
 export function ActorBar() {
   const { data: session, update } = useSession();
   const [busy, setBusy] = useState(false);
-  const [readOnly, setReadOnly] = useState(false);
   const user = session?.user;
-  const userId = user?.id;
-  const inGarden = Boolean(user) && user?.role !== "superadmin";
-
-  // Прапорець читаємо з сервера, а не з токена: його могли ввімкнути вже
-  // після входу, а сервер перевіряє саме базу.
-  useEffect(() => {
-    if (!inGarden) return;
-    let live = true;
-    fetch("/api/scope")
-      .then((response) => response.json())
-      .then((scope: ScopeDto) => {
-        if (live) setReadOnly(Boolean(scope.readOnly));
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [inGarden, userId]);
-
-  const shownReadOnly = inGarden && readOnly;
+  const shownReadOnly = useReadOnly();
   if (!user || (!user.actor && !shownReadOnly)) return null;
 
   return (

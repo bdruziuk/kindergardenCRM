@@ -654,6 +654,7 @@ export default function SettingsPage() {
                 <label className="avatar-pick">
                   {avatarBusy ? "Завантажуємо…" : "Змінити фото"}
                   <input
+                    data-personal
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     disabled={avatarBusy}
@@ -682,6 +683,7 @@ export default function SettingsPage() {
                 </label>
                 {me.hasAvatar && (
                   <button
+                    data-personal
                     type="button"
                     className="avatar-clear"
                     disabled={avatarBusy}
@@ -706,6 +708,7 @@ export default function SettingsPage() {
             <label className="wide-field">
               ПІБ
               <input
+                data-personal
                 value={draftName(me)}
                 onChange={(event) => {
                   setNames({ ...names, [me.id]: event.target.value });
@@ -723,6 +726,7 @@ export default function SettingsPage() {
             <label>
               Пароль
               <button
+                data-personal
                 type="button"
                 className="account-save ghost password-button"
                 disabled={saving === "password"}
@@ -797,6 +801,7 @@ export default function SettingsPage() {
               <span className="saved-hint">✓ Збережено</span>
             )}
             <button
+              data-personal
               className="account-save"
               disabled={saving === `name-${me.id}` || nameUnchanged(me)}
               onClick={() => saveName(me)}
@@ -806,7 +811,7 @@ export default function SettingsPage() {
           </div>
 
           {me.role === "admin" && (
-            <div className="theme-block">
+            <div className="theme-block" data-personal>
               <span className="theme-title">Моя кольорова схема</span>
               {swatches(data.personalTheme, false, (theme) =>
                 saveTheme("theme-personal", { kind: "personal_theme", theme }),

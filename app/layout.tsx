@@ -5,6 +5,7 @@ import { resolveTheme } from "@/lib/theme";
 import { Providers } from "./providers";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { ActorBar } from "@/components/ActorBar";
+import { ReadOnlyGuard } from "@/components/ReadOnly";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -64,6 +65,7 @@ export default async function RootLayout({
       >
         <Providers>
           <ActorBar />
+          <ReadOnlyGuard />
           {children}
         </Providers>
         <ServiceWorker />

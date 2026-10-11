@@ -751,3 +751,11 @@ body:has(.actor-bar) .work{padding-top:calc(34px + var(--actor-bar-h))}
 .payments-month .month-today{width:auto;padding:0 12px;border-color:var(--warn-ink);background:var(--warn-soft);color:var(--warn-ink);font-size:11px;font-weight:700;cursor:pointer}
 .payments-month .month-today:hover{background:#fff}
 @media(max-width:720px){.payments-month .month-today{flex:1 1 100%}}
+/* --- режим перегляду ------------------------------------------------------
+   Вимкнене компонентом ReadOnlyGuard має виглядати вимкненим однаково
+   скрізь, навіть там, де своїх стилів :disabled у кнопки немає. */
+[data-read-only-off]{opacity:.5;cursor:not-allowed!important}
+label:has(>[data-read-only-off]){cursor:not-allowed}
+/* Вікна й бічні панелі — під смугою, а не під нею сховані: інакше смуга
+   накриває їхній верх разом із кнопкою «закрити». */
+body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
