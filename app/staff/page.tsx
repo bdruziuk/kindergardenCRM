@@ -362,14 +362,6 @@ export default function StaffPage() {
               <small>{data.workdays ?? 0} робочих днів у місяці</small>
             </div>
           </article>
-          <article className="absent-stat">
-            <i>×</i>
-            <div>
-              <span>Не відпрацьовано</span>
-              <b>{data.summary?.absentDays ?? 0} днів</b>
-              <small>за відмітками</small>
-            </div>
-          </article>
           <article className="salary-stat">
             <i>₴</i>
             <div>

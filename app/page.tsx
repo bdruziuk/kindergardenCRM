@@ -199,10 +199,6 @@ export default function Home() {
             <div className="statuses">
               <p>
                 <i className="green" />
-                Відпрацьовано днів <b>{data?.salary.workedDays ?? 0}</b>
-              </p>
-              <p>
-                <i className="green" />
                 Проведено занять <b>{data?.salary.lessonCount ?? 0}</b>
               </p>
               <p>
