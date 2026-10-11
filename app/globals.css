@@ -160,12 +160,18 @@
 .attendance-grid-table thead .grid-total{z-index:4;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
 .lesson-modal .lesson-day{margin-top:12px}
 
-/* --- paid leave --------------------------------------------------------- */
-.day-vacation{background:#e6eefb}
+/* --- paid leave ---------------------------------------------------------
+   Відпустка — оливково-салатова (≈85°). Була синя й зливалася з
+   відпрацьованими днями під синьою схемою філії (ті беруть колір схеми);
+   цей відтінок далекий і від усіх схем, і від інших станів: «не
+   відпрацьовано» червоне, оплачуваний вихідний бурштиновий, заняття
+   фіолетові. */
+:root{--vacation-ink:#456b10;--vacation-soft:#eaf5d8;--vacation-line:#cde4a6;--vacation-dot:#9cc36e}
+.day-vacation{background:var(--vacation-dot)}
 .day-off{background:#fdf0dd}
-.attendance-calendar .vacation-day{background:#e6eefb;color:#2f5aa8;border-color:#cfdff7}
+.attendance-calendar .vacation-day{background:var(--vacation-soft);color:var(--vacation-ink);border-color:var(--vacation-line)}
 .attendance-calendar .day-off-day{background:#fdf0dd;color:#a3691f;border-color:#f3e0c4}
-.attendance-grid-table .cell.vacation{background:#e6eefb;color:#2f5aa8}
+.attendance-grid-table .cell.vacation{background:var(--vacation-soft);color:var(--vacation-ink)}
 .attendance-grid-table .cell.day-off{background:#fdf0dd;color:#a3691f}
 .attendance-grid-table .grid-total small{display:block;font-size:9px;color:var(--muted);font-weight:600}
 .attendance-grid-table .grid-limits{display:flex;gap:9px;margin-top:3px;font-size:9px;font-weight:600}
