@@ -9,6 +9,7 @@ import {
   monthRange,
   openingAt,
   payrollDebt,
+  salaryPayoutsPaid,
 } from "@/lib/cash-queries";
 import { diffMoney, money, sumMoney } from "@/lib/money";
 import { paidByLesson } from "@/lib/format";
@@ -98,14 +99,16 @@ export async function financeSnapshot(
   month: string,
 ): Promise<FinanceSnapshot> {
   const { from, until } = monthRange(month);
-  const [salaryRows, rows, incoming, outgoing, opening, debt] = await Promise.all([
-    salaryProgress(branchId, month),
-    monthExpenses(branchId, month),
-    cashIncome(branchId, from, until),
-    cashExpense(branchId, from, until),
-    openingAt(branchId, from),
-    payrollDebt(branchId, month),
-  ]);
+  const [salaryRows, rows, incoming, outgoing, opening, debt, salaryPayouts] =
+    await Promise.all([
+      salaryProgress(branchId, month),
+      monthExpenses(branchId, month),
+      cashIncome(branchId, from, until),
+      cashExpense(branchId, from, until),
+      openingAt(branchId, from),
+      payrollDebt(branchId, month),
+      salaryPayoutsPaid(branchId, from, until),
+    ]);
 
   const incomeRows = rows.filter((row) => row.direction === "income");
   const otherIncome = sumMoney(incomeRows, (row) => row.amount);
@@ -159,6 +162,7 @@ export async function financeSnapshot(
     month: monthStart(month).slice(0, 7),
     rows,
     salaryRows,
+    salaryPayouts,
     summary: {
       income,
       otherIncome,

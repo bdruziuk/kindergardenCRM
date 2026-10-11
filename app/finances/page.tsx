@@ -1,7 +1,7 @@
 "use client";
 import { MonthPicker } from "@/components/MonthPicker";
 import { currentMonth, monthLabel } from "@/lib/period";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { MonthLock } from "@/components/MonthLock";
@@ -109,6 +109,22 @@ export default function FinancesPage() {
   const [openStaff, setOpenStaff] = useState<number | null>(null);
   const [payout, setPayout] = useState<PayoutDraft>(() => emptyPayout(month));
   const [confirming, setConfirming] = useState<number | null>(null);
+  /** Виплата, відкрита зі списку «Виплати зарплат», і чи питаємо про її
+   *  видалення. Окремо від картки працівника: тут виплата може бути за
+   *  будь-який місяць роботи, а не лише за показаний. */
+  const [listPayout, setListPayout] = useState<
+    (PayoutDraft & { id: number; staffName: string }) | null
+  >(null);
+  const [removingPayout, setRemovingPayout] = useState(false);
+  // Натиснута «Видалити» зникає — фокус переходить на безпечний варіант.
+  const keepPayout = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (removingPayout) keepPayout.current?.focus();
+  }, [removingPayout]);
+  const closeListPayout = () => {
+    setListPayout(null);
+    setRemovingPayout(false);
+  };
 
   /** Перечитує сторінку — зокрема після закриття чи відкриття місяця. */
   const reload = useCallback(() => {
@@ -173,6 +189,7 @@ export default function FinancesPage() {
             payoutKind: payout.kind,
             amount: Number(payout.amount),
             method: payout.method,
+            payrollMonth: payout.payrollMonth,
             paidAt: payout.paidAt,
             note: payout.note,
           }
@@ -189,6 +206,30 @@ export default function FinancesPage() {
     );
     if (ok) setPayout(emptyPayout(month));
   };
+
+  const saveListPayout = async () => {
+    if (!listPayout || Number(listPayout.amount) <= 0) return;
+    const ok = await send({
+      kind: "payout_update",
+      payoutId: listPayout.id,
+      payoutKind: listPayout.kind,
+      amount: Number(listPayout.amount),
+      method: listPayout.method,
+      payrollMonth: listPayout.payrollMonth,
+      paidAt: listPayout.paidAt,
+      note: listPayout.note,
+    });
+    if (ok) closeListPayout();
+  };
+
+  const removeListPayout = async () => {
+    if (!listPayout) return;
+    const ok = await send({ kind: "payout_remove", payoutId: listPayout.id });
+    if (ok) closeListPayout();
+  };
+
+  /** Старі закриті знімки цього списку не мають. */
+  const salaryPayouts = data.salaryPayouts ?? [];
 
 
   const { income, expense, salaryAccrued, salaryRemaining, balance } =
@@ -519,6 +560,108 @@ export default function FinancesPage() {
           </div>
         </article>
 
+        {/* Ті самі виплати, з яких складається «видано зарплат», — за датою
+            видачі, хоч би за який місяць роботи. У картці працівника видно
+            лише виплати за показаний місяць роботи, тож виплату, записану не
+            за той місяць, звідти не знайти; тут вона є завжди. */}
+        <article className="panel staff-directory salary-payouts">
+          <div className="payment-toolbar">
+            <div>
+              <h2>
+                Виплати зарплат <span>{salaryPayouts.length}</span>
+              </h2>
+              <p>
+                Дата видачі — {monthLabel(month)}; місяць роботи — будь-який
+              </p>
+            </div>
+            <div className="salary-totals">
+              <div>
+                <span>Разом</span>
+                <b>{money(expense.salary)}</b>
+              </div>
+            </div>
+          </div>
+          <div className="scroll">
+            <table className="staff-table">
+              <thead>
+                <tr>
+                  {[
+                    "Дата",
+                    "Працівник",
+                    "За місяць роботи",
+                    "Вид",
+                    "Чим",
+                    "Сума",
+                    "",
+                  ].map((item) => (
+                    <th key={item}>{item}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {salaryPayouts.map((item) => (
+                  <tr key={item.id}>
+                    <td>{dayLabel(item.paidAt)}</td>
+                    <td>
+                      <b>{item.staffName}</b>
+                      {item.note && (
+                        <small className="salary-rate">{item.note}</small>
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          "group-pill" +
+                          (item.payrollMonth === month ? "" : " other-month")
+                        }
+                      >
+                        {monthLabel(item.payrollMonth)}
+                      </span>
+                    </td>
+                    <td>{SALARY_KIND_LABELS[item.kind]}</td>
+                    <td>{PAYMENT_METHOD_LABELS[item.method]}</td>
+                    <td>
+                      <b className="negative-balance">−{money(item.amount)}</b>
+                    </td>
+                    <td className="waitlist-actions">
+                      {!data.closed && (
+                        <button
+                          className="row-action"
+                          title="Змінити або видалити"
+                          aria-label={`Змінити виплату ${item.staffName} ${money(item.amount)}`}
+                          onClick={() => {
+                            setError(null);
+                            setRemovingPayout(false);
+                            setListPayout({
+                              id: item.id,
+                              staffName: item.staffName,
+                              kind: item.kind,
+                              amount: String(item.amount),
+                              method: item.method,
+                              payrollMonth: item.payrollMonth,
+                              paidAt: item.paidAt,
+                              note: item.note,
+                            });
+                          }}
+                        >
+                          ✎
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!salaryPayouts.length && (
+              <div className="empty">
+                {data.closed && !data.salaryPayouts
+                  ? "Місяць закрили до появи цього списку — виплати видно в картках працівників."
+                  : "Цього місяця зарплату ще не видавали."}
+              </div>
+            )}
+          </div>
+        </article>
+
         <article className="panel staff-directory">
           <div className="payment-toolbar">
             <div>
@@ -659,6 +802,128 @@ export default function FinancesPage() {
           </div>
         </Modal>
       )}
+      {listPayout && (
+        <Modal className="modal payout-modal" onClose={closeListPayout}>
+          <h2>Виплата: {listPayout.staffName}</h2>
+          <p>
+            Виправте місяць роботи, суму, дату чи спосіб — або видаліть
+            виплату, якщо її внесли помилково.
+          </p>
+          {error && <p className="modal-error">{error}</p>}
+          <div className="form-grid payout-form">
+            <label>
+              За який місяць роботи
+              <input
+                type="month"
+                value={listPayout.payrollMonth}
+                onChange={(event) =>
+                  setListPayout({
+                    ...listPayout,
+                    payrollMonth: event.target.value || listPayout.payrollMonth,
+                  })
+                }
+              />
+            </label>
+            <label>
+              Вид
+              <select
+                value={listPayout.kind}
+                onChange={(event) =>
+                  setListPayout({
+                    ...listPayout,
+                    kind: event.target.value as SalaryKind,
+                  })
+                }
+              >
+                <option value="advance">{SALARY_KIND_LABELS.advance}</option>
+                <option value="salary">{SALARY_KIND_LABELS.salary}</option>
+              </select>
+            </label>
+            <label>
+              Сума
+              <input
+                type="number"
+                min="0"
+                value={listPayout.amount}
+                onChange={(event) =>
+                  setListPayout({ ...listPayout, amount: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Чим видано
+              {methodSelect(listPayout.method, (method) =>
+                setListPayout({ ...listPayout, method }),
+              )}
+            </label>
+            <label>
+              Дата фактичної виплати
+              <input
+                type="date"
+                value={listPayout.paidAt}
+                onChange={(event) =>
+                  setListPayout({ ...listPayout, paidAt: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Примітка
+              <input
+                value={listPayout.note}
+                onChange={(event) =>
+                  setListPayout({ ...listPayout, note: event.target.value })
+                }
+                placeholder="Необов’язково"
+              />
+            </label>
+          </div>
+
+          {removingPayout ? (
+            <div className="delete-confirm" role="alert">
+              <b>
+                Видалити виплату {money(Number(listPayout.amount) || 0)} —{" "}
+                {listPayout.staffName}?
+              </b>
+              <span>
+                Вона зникне з витрат і з каси, а борг по зарплаті за{" "}
+                {monthLabel(listPayout.payrollMonth)} зросте на цю суму.
+              </span>
+              <div>
+                <button
+                  ref={keepPayout}
+                  onClick={() => setRemovingPayout(false)}
+                >
+                  Ні, залишити
+                </button>
+                <button
+                  className="danger-confirm"
+                  disabled={saving}
+                  onClick={removeListPayout}
+                >
+                  {saving ? "Видалення…" : "Так, видалити"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="modal-actions">
+              <button
+                className="delete-record"
+                onClick={() => setRemovingPayout(true)}
+              >
+                Видалити виплату
+              </button>
+              <button onClick={closeListPayout}>Скасувати</button>
+              <button
+                className="primary"
+                disabled={saving || Number(listPayout.amount) <= 0}
+                onClick={saveListPayout}
+              >
+                {saving ? "Збереження…" : "Зберегти"}
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
       {selected && (
         <Modal
           className="modal payout-modal"
@@ -784,17 +1049,13 @@ export default function FinancesPage() {
           <div className="form-grid payout-form">
             <label>
               За який місяць
-              {payout.id ? (
-                <input value={monthLabel(payout.payrollMonth)} readOnly />
-              ) : (
-                <input
-                  type="month"
-                  value={payout.payrollMonth}
-                  onChange={(event) =>
-                    setPayout({ ...payout, payrollMonth: event.target.value || month })
-                  }
-                />
-              )}
+              <input
+                type="month"
+                value={payout.payrollMonth}
+                onChange={(event) =>
+                  setPayout({ ...payout, payrollMonth: event.target.value || month })
+                }
+              />
             </label>
             <label>
               Вид

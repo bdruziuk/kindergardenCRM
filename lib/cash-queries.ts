@@ -9,7 +9,7 @@ import {
   staff,
   transactions,
 } from "@/db/schema";
-import type { PaymentMethod } from "./api-schemas";
+import type { PaymentMethod, SalaryPayoutDto } from "./api-schemas";
 import { type CashRow, type DebtInput, type StaffDebt, staffDebt } from "./cash";
 import type { MonthSnapshot } from "./month-close";
 import { monthStart } from "./period";
@@ -76,6 +76,44 @@ export async function cashIncome(
       ),
   ]);
   return [...parentRows, ...otherRows] as CashRow[];
+}
+
+/**
+ * Виплати зарплати, видані в період, поіменно — ті самі рядки, з яких
+ * складається «видано зарплат» у `cashExpense`, але з усім, що треба, аби
+ * виплату знайти й виправити: хто, за який місяць роботи, примітка.
+ */
+export async function salaryPayoutsPaid(
+  branchId: number,
+  from: string,
+  until: string,
+): Promise<SalaryPayoutDto[]> {
+  const rows = await getDb()
+    .select({
+      id: salaryPayments.id,
+      staffId: salaryPayments.staffId,
+      staffName: staff.fullName,
+      month: salaryPayments.month,
+      kind: salaryPayments.kind,
+      amount: salaryPayments.amount,
+      method: salaryPayments.method,
+      paidAt: salaryPayments.paidAt,
+      note: salaryPayments.note,
+    })
+    .from(salaryPayments)
+    .innerJoin(staff, eq(staff.id, salaryPayments.staffId))
+    .where(
+      and(
+        eq(staff.branchId, branchId),
+        sql`${salaryPayments.paidAt} >= ${from}::date and ${salaryPayments.paidAt} < ${until}::date`,
+      ),
+    )
+    .orderBy(asc(salaryPayments.paidAt), asc(salaryPayments.id));
+  return rows.map(({ month, note, ...row }) => ({
+    ...row,
+    payrollMonth: month.slice(0, 7),
+    note: note ?? "",
+  }));
 }
 
 /** Гроші, що вийшли в період: виплати за датою видачі, витрати за датою. */

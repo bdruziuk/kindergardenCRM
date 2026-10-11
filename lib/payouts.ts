@@ -26,6 +26,7 @@ type PayoutAction =
       paidAt: string;
       note: string;
       month?: string;
+      payrollMonth?: string;
     }
   | { kind: "payout_remove"; payoutId: number; month?: string };
 
@@ -124,8 +125,10 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
       await assertMonthOpen(branchId, target);
     }
 
-    // Місяць роботи не чіпаємо: він визначає, за що ця виплата, і зміна його
-    // тут мовчки перенесла б суму в інший борг.
+    // Місяць роботи міняємо лише тоді, коли його передали явно: це виправлення
+    // помилки («аванс записали за серпень, а він за жовтень»), і сума свідомо
+    // переходить з боргу одного місяця в борг іншого. Як і при додаванні,
+    // місяць роботи виплату не блокує — лише фінансовий місяць вище.
     await tx
       .update(salaryPayments)
       .set({
@@ -134,6 +137,7 @@ export async function mutatePayout(branchId: number, body: PayoutAction) {
         method: body.method,
         paidAt: body.paidAt,
         note: body.note || null,
+        ...(body.payrollMonth ? { month: monthStart(body.payrollMonth) } : {}),
       })
       .where(eq(salaryPayments.id, payout.id));
   });

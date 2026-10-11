@@ -35,6 +35,7 @@ export const cashQueries = (overrides = {}) => ({
   openingBalances: async () => ({}),
   openingAt: async () => ({ opening: {}, since: null }),
   payrollDebt: async () => [],
+  salaryPayoutsPaid: async () => [],
   ...overrides,
 });
 /** Стандартний набір підмін для модулів, що читають гроші. */

@@ -196,6 +196,8 @@ const payoutActions = [
     paidAt: day,
     note: z.string().trim().max(200).default(""),
     month: month.optional(),
+    /** Виправлений місяць роботи. Без нього лишається той, що був. */
+    payrollMonth: month.optional(),
   }),
   z.object({
     kind: z.literal("payout_remove"),
@@ -638,6 +640,16 @@ export type SalaryRowDto = {
   progress: number;
 };
 
+/** Виплата зарплати, видана в цьому місяці, — за датою видачі, хоч би за
+ *  який місяць роботи. Саме так її рахує витрата «видано зарплат», тож саме
+ *  тут її й можна знайти, виправити чи видалити. */
+export type SalaryPayoutDto = PayoutDto & {
+  staffId: number;
+  staffName: string;
+  /** Місяць роботи, за який виплата, у вигляді YYYY-MM. */
+  payrollMonth: string;
+};
+
 export type CategoryTotal = {
   category: string;
   amount: number;
@@ -651,6 +663,8 @@ export type FinanceSnapshot = {
   month: string;
   rows: ExpenseDto[];
   salaryRows: SalaryRowDto[];
+  /** Відсутнє в знімках, закритих до появи цього списку. */
+  salaryPayouts?: SalaryPayoutDto[];
   summary: {
     otherIncome?: number;
     /** Parent payments plus other income. */
