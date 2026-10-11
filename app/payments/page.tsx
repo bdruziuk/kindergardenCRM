@@ -422,7 +422,7 @@ export default function PaymentsPage() {
             </div>
           </div>
           <div className="scroll">
-            <table className="payments-table simple-payments-table">
+            <table className="payments-table simple-payments-table card-table">
               <thead>
                 <tr>
                   {[
@@ -450,10 +450,10 @@ export default function PaymentsPage() {
                         </small>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Група">
                       <span className="group-pill">{row.group}</span>
                     </td>
-                    <td>
+                    <td className="card-wide" data-label="Плата за місяць">
                       <div className="child-fee-line"><b>{money(row.fee)}</b><span className="child-fee-tag">{row.feeMode === "daily" ? "Поденна оплата" : "Місячна оплата"}</span></div>
                       {/* Скільки з нарахованого вже внесли й чим саме. Суму
                           біля способу показуємо лише тоді, коли способів
@@ -494,7 +494,7 @@ export default function PaymentsPage() {
                         </small>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Стан оплати">
                       <span
                         className={
                           "badge " +

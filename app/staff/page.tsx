@@ -433,7 +433,7 @@ export default function StaffPage() {
             </>
           ) : (
           <div className="scroll">
-            <table className="staff-table">
+            <table className="staff-table card-table">
               <thead>
                 <tr>
                   {[
@@ -476,10 +476,10 @@ export default function StaffPage() {
                         </b>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Посада">
                       <span className="group-pill">{person.role}</span>
                     </td>
-                    <td>
+                    <td data-label="Телефон">
                       {person.phone ? (
                         // Клік по номеру не має відкривати картку — інакше
                         // подзвонити з телефона не вийде.
@@ -494,7 +494,7 @@ export default function StaffPage() {
                         <span className="staff-phone-empty">—</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Тип оплати">
                       <b>{SALARY_TYPE_LABELS[person.salaryType]}</b>
                       <small className="salary-rate">
                         {person.salaryType === "monthly"
@@ -504,7 +504,7 @@ export default function StaffPage() {
                             : money(person.dailyRate) + " / день"}
                       </small>
                     </td>
-                    <td>
+                    <td data-label="Дні">
                       <div className="days-count">
                         {paidByLesson(person.salaryType) ? (
                           <b className="worked-count">
@@ -522,7 +522,7 @@ export default function StaffPage() {
                         )}
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Нараховано">
                       <b className="salary-value">{money(person.salary)}</b>
                     </td>
                     <td>

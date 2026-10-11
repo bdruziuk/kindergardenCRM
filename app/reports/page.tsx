@@ -366,7 +366,7 @@ export default function ReportsPage() {
               </div>
             </div>
             <div className="scroll">
-              <table className="staff-table reports-table">
+              <table className="staff-table reports-table card-table">
                 <thead>
                   <tr>
                     {(period === "month"
@@ -383,19 +383,21 @@ export default function ReportsPage() {
                       <td>
                         <b>{person.name}</b>
                       </td>
-                      <td>
+                      <td data-label="Посада">
                         <span className="group-pill">{person.role}</span>
                       </td>
                       {person.accrued !== null && (
-                        <td>{moneyLabel(person.accrued)}</td>
+                        <td data-label="Нараховано">
+                          {moneyLabel(person.accrued)}
+                        </td>
                       )}
-                      <td>
+                      <td data-label="Видано">
                         <b className={person.paid ? "green-text" : undefined}>
                           {moneyLabel(person.paid)}
                         </b>
                       </td>
                       {person.remaining !== null && (
-                        <td>
+                        <td data-label="Залишок">
                           <b
                             className={
                               person.remaining > 0

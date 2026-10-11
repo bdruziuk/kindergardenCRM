@@ -496,7 +496,7 @@ export default function FinancesPage() {
             </div>
           </div>
           <div className="scroll">
-            <table className="staff-table">
+            <table className="staff-table card-table">
               <thead>
                 <tr>
                   {[
@@ -530,14 +530,14 @@ export default function FinancesPage() {
                           : "виплат немає"}
                       </small>
                     </td>
-                    <td>
+                    <td data-label="Посада">
                       <span className="group-pill">{row.role}</span>
                     </td>
-                    <td>{money(row.accrued)}</td>
-                    <td>
+                    <td data-label="Нараховано">{money(row.accrued)}</td>
+                    <td data-label="Видано">
                       <b className="green-text">{money(row.paid)}</b>
                     </td>
-                    <td>
+                    <td data-label="Залишок">
                       <b
                         className={
                           row.remaining > 0
@@ -552,7 +552,7 @@ export default function FinancesPage() {
                           : money(row.remaining)}
                       </b>
                     </td>
-                    <td>
+                    <td className="card-wide" data-label="Прогрес">
                       <div className="salary-progress">
                         <i style={{ width: row.progress + "%" }} />
                         <span>{row.progress}%</span>
@@ -590,7 +590,7 @@ export default function FinancesPage() {
             </div>
           </div>
           <div className="scroll">
-            <table className="staff-table">
+            <table className="staff-table card-table">
               <thead>
                 <tr>
                   {[
@@ -609,14 +609,14 @@ export default function FinancesPage() {
               <tbody>
                 {salaryPayouts.map((item) => (
                   <tr key={item.id}>
-                    <td>{dayLabel(item.paidAt)}</td>
-                    <td>
+                    <td data-label="Дата">{dayLabel(item.paidAt)}</td>
+                    <td className="card-title">
                       <b>{item.staffName}</b>
                       {item.note && (
                         <small className="salary-rate">{item.note}</small>
                       )}
                     </td>
-                    <td>
+                    <td data-label="За місяць роботи">
                       <span
                         className={
                           "group-pill" +
@@ -626,9 +626,9 @@ export default function FinancesPage() {
                         {monthLabel(item.payrollMonth)}
                       </span>
                     </td>
-                    <td>{SALARY_KIND_LABELS[item.kind]}</td>
-                    <td>{PAYMENT_METHOD_LABELS[item.method]}</td>
-                    <td>
+                    <td data-label="Вид">{SALARY_KIND_LABELS[item.kind]}</td>
+                    <td data-label="Чим">{PAYMENT_METHOD_LABELS[item.method]}</td>
+                    <td data-label="Сума">
                       <b className="negative-balance">−{money(item.amount)}</b>
                     </td>
                     <td className="waitlist-actions">
@@ -680,7 +680,7 @@ export default function FinancesPage() {
             </div>
           </div>
           <div className="scroll">
-            <table className="staff-table">
+            <table className="staff-table card-table">
               <thead>
                 <tr>
                   {["Дата", "Категорія", "Чим", "Примітка", "Сума", ""].map((item) => (
@@ -691,13 +691,13 @@ export default function FinancesPage() {
               <tbody>
                 {data.rows.map((row) => (
                   <tr key={row.id}>
-                    <td>{dayLabel(row.occurredAt)}</td>
-                    <td>
+                    <td data-label="Дата">{dayLabel(row.occurredAt)}</td>
+                    <td className="card-title">
                       <span className="group-pill">{row.category}</span>
                     </td>
-                    <td>{PAYMENT_METHOD_LABELS[row.method]}</td>
-                    <td className="finance-note">{row.note || "—"}</td>
-                    <td>
+                    <td data-label="Чим">{PAYMENT_METHOD_LABELS[row.method]}</td>
+                    <td className="finance-note card-wide" data-label="Примітка">{row.note || "—"}</td>
+                    <td data-label="Сума">
                       <b className={row.direction === "income" ? "green-text" : "negative-balance"}>{row.direction === "income" ? "+" : "−"}{money(row.amount)}</b>
                     </td>
                     <td>
