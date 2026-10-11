@@ -17,9 +17,9 @@ export type Scope = {
   branchName: string;
   /** The owner sees every branch; a manager only their own. */
   isOwner: boolean;
-  /** Власник або керуючий: ті, хто веде колектив філії, — зокрема видаляє
-   *  працівників. Вихователь — ні. */
-  canManageStaff: boolean;
+  /** Власник або керуючий: ті, хто веде філію, — видаляють працівників,
+   *  закривають і відкривають місяць. Вихователь — ні. */
+  canManageBranch: boolean;
   /** Branches the viewer may switch between. */
   branches: BranchRef[];
   /** False while there is nothing to choose from — a single branch run by the
@@ -113,7 +113,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
       userId,
       branchName: own.name,
       isOwner: false,
-      canManageStaff: viewer.role === "manager",
+      canManageBranch: viewer.role === "manager",
       branches: [own],
       canSwitch: false,
     };
@@ -126,7 +126,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
     branchId: chosen.id,
     branchName: chosen.name,
     isOwner: true,
-    canManageStaff: true,
+    canManageBranch: true,
     branches: all,
     // Nothing to pick while the owner runs a single branch on their own; the
     // picker appears as soon as there is a second branch or a manager.

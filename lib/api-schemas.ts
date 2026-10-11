@@ -1090,8 +1090,8 @@ export type ScopeDto = {
   branchId: number;
   branchName: string;
   isOwner: boolean;
-  /** Власник або керуючий — див. `Scope.canManageStaff`. */
-  canManageStaff: boolean;
+  /** Власник або керуючий — див. `Scope.canManageBranch`. */
+  canManageBranch: boolean;
   canSwitch: boolean;
   branches: { id: number; name: string }[];
   error?: string;

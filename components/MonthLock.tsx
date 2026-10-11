@@ -28,7 +28,9 @@ export function MonthLock({
   onChange: () => void;
 }) {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "admin";
+  // Закриває й відкриває той, хто веде філію; вихователь лише бачить стан.
+  const role = session?.user?.role;
+  const canManage = role === "admin" || role === "manager";
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function MonthLock({
           Місяць закритий{closedAt ? ` ${dayLabel(closedAt.slice(0, 10))}` : ""}{" "}
           — дані збережені такими, якими були тоді, і не змінюються.
         </span>
-        {isOwner && (
+        {canManage && (
           <button disabled={busy} onClick={() => send("open")}>
             {busy ? "Відкриваємо…" : "Відкрити місяць"}
           </button>
@@ -73,8 +75,8 @@ export function MonthLock({
       {asking ? (
         <>
           <span>
-            Закрити місяць? Далі його не можна буде редагувати
-            {isOwner ? " — відкрити назад зможете ви." : "; відкрити зможе лише власник."}
+            Закрити місяць? Далі його не можна буде редагувати, поки його не
+            відкриють знову.
           </span>
           <button
             className="danger-confirm"
@@ -91,7 +93,9 @@ export function MonthLock({
             Місяць відкритий — усе, що видно, рахується за сьогоднішніми платою
             та ставками.
           </span>
-          <button onClick={() => setAsking(true)}>Закрити місяць</button>
+          {canManage && (
+            <button onClick={() => setAsking(true)}>Закрити місяць</button>
+          )}
         </>
       )}
       {error && <em>{error}</em>}

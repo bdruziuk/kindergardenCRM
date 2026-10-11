@@ -6,7 +6,7 @@ import { load, schemas, tables, orm, fixture, database, ScopeError } from "./tes
 // запису працівник зникає зовсім; із записами — стає звільненим, щоб минулі
 // місяці, каса й борг по зарплаті лишились як були.
 
-function setup({ canManageStaff = true } = {}) {
+function setup({ canManageBranch = true } = {}) {
   const data = fixture();
   // Працівник 1 у фікстурі вже має відмітку й заняття; 4 — заведений помилково.
   data.staff.push({ id: 4, branchId: 1, fullName: "Mistake", active: true });
@@ -21,7 +21,7 @@ function setup({ canManageStaff = true } = {}) {
     "@/lib/payouts": {},
     "@/lib/snapshots": { staffSnapshot: async () => ({ rows: [] }) },
     "@/lib/scope": {
-      ScopeError, resolveScope: async () => ({ branchId: 1, canManageStaff }),
+      ScopeError, resolveScope: async () => ({ branchId: 1, canManageBranch }),
       scopeFailure: (error) => error instanceof ScopeError ? Response.json({ error: error.message }, { status: error.status }) : null,
     },
   });
@@ -61,7 +61,7 @@ test("Payouts alone are enough to keep the record", async () => {
 });
 
 test("A teacher may not remove staff", async () => {
-  const { remove, person } = setup({ canManageStaff: false });
+  const { remove, person } = setup({ canManageBranch: false });
   assert.equal((await remove(4)).status, 403);
   assert.equal(person(4).active, true);
 });

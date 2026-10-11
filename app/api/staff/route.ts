@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { branchId, canManageStaff } = await resolveScope(
+    const { branchId, canManageBranch } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
     );
     const parsed = staffRequest.safeParse(await request.json());
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     } else if (body.kind === "remove_staff") {
       // Керуючий видаляє лише своїх: resolveScope не пускає його в чужу філію,
       // а працівника нижче шукаємо саме в цій.
-      if (!canManageStaff)
+      if (!canManageBranch)
         throw new ScopeError(
           "Видаляти працівників може власник або керуючий філії",
           403,

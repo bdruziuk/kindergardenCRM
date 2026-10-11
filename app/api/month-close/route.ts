@@ -1,9 +1,4 @@
-import { eq } from "drizzle-orm";
-import { getServerSession } from "next-auth";
-import { getDb } from "@/db";
-import { users } from "@/db/schema";
 import { MONTH, firstIssue, monthCloseRequest } from "@/lib/api-schemas";
-import { authOptions } from "@/lib/auth";
 import { closeMonth, loadClose, openMonth } from "@/lib/month-close";
 import { currentMonth } from "@/lib/period";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
@@ -41,25 +36,24 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { branchId } = await resolveScope(
+    const { branchId, userId, canManageBranch } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
     );
     const parsed = monthCloseRequest.safeParse(await request.json());
     if (!parsed.success)
       return Response.json({ error: firstIssue(parsed.error) }, { status: 400 });
 
-    const session = await getServerSession(authOptions);
-    const userId = Number(session?.user?.id);
-    const [viewer] = await getDb()
-      .select({ role: users.role })
-      .from(users)
-      .where(eq(users.id, userId));
-    if (!viewer) throw new ScopeError("Користувача не знайдено", 401);
+    // Закриває й відкриває той, хто веде філію: власник — будь-яку, керуючий —
+    // свою (resolveScope до чужої його не пустить). Вихователь лише бачить стан.
+    if (!canManageBranch)
+      throw new ScopeError(
+        "Закривати й відкривати місяць може власник або керуючий філії",
+        403,
+      );
 
     const { month, action } = parsed.data;
 
     if (action === "close") {
-      // Закривають обидва: керуючий бачить, коли по його філії все внесено.
       const [payments, staff, finances, dashboard] = await Promise.all([
         paymentsSnapshot(branchId, month),
         staffSnapshot(branchId, month),
@@ -73,10 +67,6 @@ export async function POST(request: Request) {
         dashboard,
       });
     } else {
-      // Відкриває лише власник: інакше «закрито» не означало б нічого — той,
-      // хто закрив, тим самим рухом і відкрив би назад.
-      if (viewer.role !== "admin")
-        throw new ScopeError("Відкрити місяць може лише власник", 403);
       await openMonth(branchId, month);
     }
 
