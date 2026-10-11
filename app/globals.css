@@ -725,3 +725,18 @@
    Виплата за інший місяць роботи, ніж показаний, — не помилка, але саме такі
    найлегше пропустити: у картці працівника за цей місяць їх не видно. */
 .salary-payouts .group-pill.other-month{background:var(--warn-soft);color:var(--warn-ink)}
+/* --- робота від імені власника чи керуючого ------------------------------
+   Смуга фіксована згори й навмисно помітна: забути, чий це акаунт, тут
+   найдорожча помилка. Бічна панель і вміст зсуваються під неї; на телефоні
+   меню внизу, тож зсувається лише вміст. */
+:root{--actor-bar-h:44px}
+.actor-bar{position:fixed;inset:0 0 auto;z-index:40;min-height:var(--actor-bar-h);display:flex;align-items:center;justify-content:center;gap:14px;padding:6px 16px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:var(--warn-soft);border-bottom:1px solid var(--warn-ink);color:var(--warn-ink);font-size:12px;line-height:1.4}
+.actor-bar>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.actor-bar b{color:var(--ink)}
+.actor-bar button{flex:none;height:30px;padding:0 12px;border:1px solid var(--warn-ink);border-radius:9px;background:#fff;color:var(--warn-ink);font:inherit;font-weight:700;cursor:pointer}
+.actor-bar button:disabled{opacity:.6;cursor:default}
+body:has(.actor-bar) .work{padding-top:calc(34px + var(--actor-bar-h))}
+@media(min-width:721px){body:has(.actor-bar) aside{top:var(--actor-bar-h)}}
+@media(max-width:720px){.actor-bar{justify-content:space-between;font-size:11px}.actor-bar-note{display:none}body:has(.actor-bar) .work{padding-top:calc(22px + var(--actor-bar-h))}}
+.garden-row .impersonate{border:0;font:inherit;font-size:9px;font-weight:700;cursor:pointer}
+.garden-row .impersonate:hover:not(:disabled){background:var(--accent-soft-2)}
+.garden-row .impersonate:disabled{opacity:.6;cursor:default}

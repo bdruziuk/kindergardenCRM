@@ -4,6 +4,7 @@ import "./globals.css";
 import { resolveTheme } from "@/lib/theme";
 import { Providers } from "./providers";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { ActorBar } from "@/components/ActorBar";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -61,7 +62,10 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <ActorBar />
+          {children}
+        </Providers>
         <ServiceWorker />
       </body>
     </html>

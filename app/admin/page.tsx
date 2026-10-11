@@ -24,7 +24,24 @@ const INVITE_STATUS_LABELS = {
 } as const;
 
 export default function AdminPage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
+
+  /**
+   * Перемикає сесію на цей акаунт. Сервер перевіряє в базі і нас, і ціль, тож
+   * якщо щось не так, сесія лишиться нашою — тоді й кажемо про це, а не
+   * відкриваємо застосунок, у якому супер-адміністратору нема чого робити.
+   */
+  const actAs = async (userId: number) => {
+    setBusy(`as-${userId}`);
+    const next = await update({ impersonate: userId });
+    if (next?.user?.actor && next.user.id === String(userId)) {
+      // Повне перезавантаження: стан кабінету чужому акаунту ні до чого.
+      window.location.assign("/");
+      return;
+    }
+    setBusy(null);
+    setError("Не вдалося увійти від імені цього акаунта");
+  };
   const [data, setData] = useState<AdminSnapshot>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -362,6 +379,16 @@ export default function AdminPage() {
                       {person.branchName ? ` · ${person.branchName}` : ""}
                     </small>
                   </div>
+                  {(person.role === "admin" || person.role === "manager") && (
+                    <button
+                      className="garden-pill impersonate"
+                      disabled={busy === `as-${person.id}`}
+                      onClick={() => actAs(person.id)}
+                      aria-label={`Увійти як ${person.name || person.email}`}
+                    >
+                      {busy === `as-${person.id}` ? "Входимо…" : "Увійти як"}
+                    </button>
+                  )}
                 </div>
               ))}
               {!garden.owners.length && !garden.managers.length && (

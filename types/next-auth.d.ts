@@ -16,6 +16,9 @@ declare module "next-auth" {
       hasAvatar?: boolean;
       name?: string | null;
       email?: string | null;
+      /** Хто насправді за кермом, поки супер-адміністратор працює від імені
+       *  власника чи керуючого. Без імперсонації — відсутнє. */
+      actor?: { id: string; name: string };
     };
   }
 }
@@ -25,5 +28,8 @@ declare module "next-auth/jwt" {
     id?: string;
     role?: Role;
     hasAvatar?: boolean;
+    /** id і ім'я супер-адміністратора, поки він працює від чужого імені. */
+    actorId?: string;
+    actorName?: string;
   }
 }
