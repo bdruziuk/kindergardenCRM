@@ -241,6 +241,37 @@ export const relatives = pgTable(
 );
 
 /**
+ * Заплановане свято дня народження: коли, о котрій і скільки триває.
+ *
+ * Одне свято — одна дитина. Якщо в один день іменинників кілька, свят теж
+ * кілька: у кожного свій час і своя тривалість, і їх можна рухати окремо.
+ * Дата не мусить збігатися з днем народження — свято часто переносять на
+ * найближчий робочий день.
+ */
+export const birthdayParties = pgTable(
+  "birthday_parties",
+  {
+    id: serial("id").primaryKey(),
+    branchId: integer("branch_id")
+      .notNull()
+      .references(() => branches.id, { onDelete: "cascade" }),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+    date: day("date").notNull(),
+    /** Початок, «ГГ:ХХ». Текстом: часового поясу в свята немає. */
+    startTime: text("start_time").notNull(),
+    /** Тривалість у хвилинах. */
+    durationMinutes: integer("duration_minutes").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("idx_birthday_parties_branch_date").on(t.branchId, t.date)],
+);
+
+/**
  * Скільки днів дитина відходила за місяць — основа нарахування при поденній
  * оплаті.
  *

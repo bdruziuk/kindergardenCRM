@@ -44,6 +44,59 @@ export const attendanceKindValues = [
   "day_off",
 ] as const;
 
+// ------------------------------------------------------------------- birthdays
+
+/** Свято дня народження: дитина, день, початок і тривалість. */
+const partyFields = {
+  childId: id,
+  date: day,
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Вкажіть час у форматі ГГ:ХХ"),
+  durationMinutes: z.coerce
+    .number()
+    .int()
+    .min(15, "Свято триває щонайменше 15 хвилин")
+    .max(720, "Свято не може тривати довше 12 годин"),
+  note: z.string().trim().max(200).default(""),
+};
+
+export const birthdayRequest = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("party_add"), ...partyFields }),
+  z.object({ kind: z.literal("party_update"), partyId: id, ...partyFields }),
+  z.object({ kind: z.literal("party_remove"), partyId: id }),
+], { error: "Невідома дія" });
+
+/** Іменинник місяця: день народження цього року й скільки виповнюється. */
+export type BirthdayChildDto = {
+  childId: number;
+  name: string;
+  groupName: string;
+  /** Дата дня народження в показаному місяці, YYYY-MM-DD. */
+  date: string;
+  /** Скільки років виповнюється; null, якщо рік народження не вказано. */
+  turns: number | null;
+};
+
+export type BirthdayPartyDto = {
+  id: number;
+  childId: number;
+  childName: string;
+  date: string;
+  startTime: string;
+  durationMinutes: number;
+  note: string;
+};
+
+export type BirthdayCalendarDto = {
+  month: string;
+  birthdays: BirthdayChildDto[];
+  parties: BirthdayPartyDto[];
+  /** Діти, яким можна запланувати свято, — чинний склад філії. */
+  children: { id: number; name: string }[];
+  error?: string;
+};
+
 // ---------------------------------------------------------------- kindergarten
 
 export const relativeInput = z.object({

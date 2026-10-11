@@ -790,3 +790,47 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .staff-drawer-head .avatar-actions{margin-top:9px}
 .staff-drawer-head .photo-error{display:block;margin-top:6px;font-size:10px;font-style:normal;color:var(--danger-ink)}
 .staff-drawer-head>.avatar>img{border-radius:inherit}
+/* --- календар днів народження --------------------------------------------
+   Клітинка — день; у ній іменинники (🎂) і заплановані свята (час + ім'я).
+   На телефоні сім колонок по ~45 px, тож текст ховається, лишаються число й
+   позначки, а подробиці — у вікні дня. */
+.birthday-calendar{margin-bottom:16px}
+.birthday-calendar .payment-toolbar{flex-wrap:wrap;gap:12px}
+.birthday-calendar .payments-month{margin:0}
+.bday-weekdays,.bday-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.bday-weekdays{margin:16px 0 6px}
+.bday-weekdays b{text-align:center;font-size:10px;color:var(--muted);font-weight:700}
+.bday-spacer{min-height:84px}
+.bday-day{min-width:0;min-height:84px;display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:6px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;text-align:left;cursor:pointer;overflow:hidden}
+.bday-day:hover{border-color:var(--accent-line);background:var(--accent-tint)}
+.bday-day.weekend{background:#fafbfa}
+.bday-day.has-birthday{border-color:var(--warn-ink);background:var(--warn-soft)}
+.bday-day.today .bday-num{background:var(--accent);color:#fff}
+.bday-num{align-self:flex-start;min-width:22px;height:22px;padding:0 5px;display:grid;place-items:center;border-radius:11px;font-size:11px;font-weight:700;color:var(--ink)}
+.bday-kid,.bday-party{display:block;font-size:10px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bday-kid{font-weight:700;color:var(--warn-ink)}
+.bday-party{padding:2px 5px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.bday-dots{display:none}
+.bday-dots i{width:7px;height:7px;border-radius:50%}
+.bday-dots .dot-birthday{background:var(--warn-ink)}
+.bday-dots .dot-party{background:var(--accent)}
+.bday-modal{width:520px}
+.bday-section{padding-top:16px;margin-top:16px;border-top:1px solid var(--line)}
+.bday-section h3{margin:0 0 10px;font-size:12px}
+.bday-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px}
+.bday-row>span{font-size:18px;flex:none}
+.bday-row>div:first-of-type{display:flex;flex-direction:column;gap:3px;min-width:0;margin-right:auto}
+.bday-row b{font-size:12px}
+.bday-row small{font-size:10px;color:var(--muted)}
+.bday-actions{display:flex;align-items:center;gap:4px;flex:none}
+.bday-actions .remove-relative{width:28px;height:28px}
+.bday-empty{margin:0;font-size:11px;color:var(--muted)}
+@media(max-width:720px){
+.bday-weekdays,.bday-grid{gap:4px}
+.bday-spacer,.bday-day{min-height:48px}
+.bday-day{align-items:center;justify-content:space-between;padding:5px 2px}
+.bday-num{align-self:center}
+.bday-kid,.bday-party{display:none}
+.bday-dots{display:flex;gap:3px}
+.birthday-calendar .payments-month{flex:1 1 100%}
+}

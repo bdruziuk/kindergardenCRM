@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BirthdayCalendar } from "@/components/BirthdayCalendar";
 import { Modal } from "@/components/Modal";
 import { BranchPicker, useBranch } from "@/components/BranchPicker";
 import { Sidebar } from "@/components/Sidebar";
@@ -246,6 +247,10 @@ export default function Page() {
             </div>
           ))}
         </div>
+        <BirthdayCalendar
+          branchQuery={branchQuery}
+          canManage={Boolean(scope?.canManageBranch)}
+        />
         <article className="panel directory">
           <div className="directory-head">
             <div>
