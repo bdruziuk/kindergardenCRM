@@ -249,7 +249,7 @@ export const staffRequest = z.discriminatedUnion("kind", [
     lessonId: id,
     month: month.optional(),
   }),
-  // Лише власник. Без жодного запису працівника стирає зовсім, а з
+  // Власник або керуючий. Без жодного запису працівника стирає зовсім, а з
   // записами — звільняє, щоб минулі місяці й каса лишились цілими.
   z.object({
     kind: z.literal("remove_staff"),
@@ -1076,6 +1076,8 @@ export type ScopeDto = {
   branchId: number;
   branchName: string;
   isOwner: boolean;
+  /** Власник або керуючий — див. `Scope.canManageStaff`. */
+  canManageStaff: boolean;
   canSwitch: boolean;
   branches: { id: number; name: string }[];
   error?: string;

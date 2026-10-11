@@ -1172,7 +1172,7 @@ export default function StaffPage() {
             )}
             {/* Поки питаємо про видалення, «Зберегти» поруч лише плутав би. */}
             {!confirmRemove && <div className="modal-actions">
-              {scope?.isOwner && (
+              {scope?.canManageStaff && (
                 <button
                   className="delete-record"
                   onClick={() => setConfirmRemove(true)}

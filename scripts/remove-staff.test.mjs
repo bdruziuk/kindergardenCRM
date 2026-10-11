@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { load, schemas, tables, orm, fixture, database, ScopeError } from "./test-helpers.mjs";
 
-// Видалення працівника: лише власник і лише в межах своєї філії. Без жодного
+// Видалення працівника: власник або керуючий, лише в межах своєї філії. Без жодного
 // запису працівник зникає зовсім; із записами — стає звільненим, щоб минулі
 // місяці, каса й борг по зарплаті лишились як були.
 
-function setup({ isOwner = true } = {}) {
+function setup({ canManageStaff = true } = {}) {
   const data = fixture();
   // Працівник 1 у фікстурі вже має відмітку й заняття; 4 — заведений помилково.
   data.staff.push({ id: 4, branchId: 1, fullName: "Mistake", active: true });
@@ -21,7 +21,7 @@ function setup({ isOwner = true } = {}) {
     "@/lib/payouts": {},
     "@/lib/snapshots": { staffSnapshot: async () => ({ rows: [] }) },
     "@/lib/scope": {
-      ScopeError, resolveScope: async () => ({ branchId: 1, isOwner }),
+      ScopeError, resolveScope: async () => ({ branchId: 1, canManageStaff }),
       scopeFailure: (error) => error instanceof ScopeError ? Response.json({ error: error.message }, { status: error.status }) : null,
     },
   });
@@ -60,8 +60,8 @@ test("Payouts alone are enough to keep the record", async () => {
   assert.equal(person(4).active, false);
 });
 
-test("A manager may not remove staff", async () => {
-  const { remove, person } = setup({ isOwner: false });
+test("A teacher may not remove staff", async () => {
+  const { remove, person } = setup({ canManageStaff: false });
   assert.equal((await remove(4)).status, 403);
   assert.equal(person(4).active, true);
 });

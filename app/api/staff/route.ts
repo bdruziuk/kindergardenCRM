@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { branchId, isOwner } = await resolveScope(
+    const { branchId, canManageStaff } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
     );
     const parsed = staffRequest.safeParse(await request.json());
@@ -135,8 +135,13 @@ export async function POST(request: Request) {
     } else if (isPayout) {
       await mutatePayout(branchId, body);
     } else if (body.kind === "remove_staff") {
-      if (!isOwner)
-        throw new ScopeError("Видаляти працівників може лише власник", 403);
+      // Керуючий видаляє лише своїх: resolveScope не пускає його в чужу філію,
+      // а працівника нижче шукаємо саме в цій.
+      if (!canManageStaff)
+        throw new ScopeError(
+          "Видаляти працівників може власник або керуючий філії",
+          403,
+        );
       const staffId = body.staffId;
       await db.transaction(async (tx) => {
         // Рядок блокуємо до перевірки: нова виплата чи відмітка посилається на
