@@ -882,6 +882,12 @@ export const adminRequest = z.discriminatedUnion("kind", [
     monthlyFee: amount.default(0),
   }),
   z.object({ kind: z.literal("branch_delete"), branchId: id }),
+  /** Режим перегляду для користувача: true — лише дивиться. */
+  z.object({
+    kind: z.literal("read_only"),
+    userId: id,
+    readOnly: z.boolean(),
+  }),
 ], unknownAction);
 
 export type AdminPersonDto = {
@@ -892,6 +898,8 @@ export type AdminPersonDto = {
   role: UserRole;
   /** Філія керуючого; у власника порожня. */
   branchName: string;
+  /** Режим перегляду: людина лише дивиться. */
+  readOnly: boolean;
 };
 
 export type AdminBranchDto = {
@@ -1092,6 +1100,8 @@ export type ScopeDto = {
   isOwner: boolean;
   /** Власник або керуючий — див. `Scope.canManageBranch`. */
   canManageBranch: boolean;
+  /** Режим перегляду: сторінки показують це, а сервер відхиляє зміни. */
+  readOnly: boolean;
   canSwitch: boolean;
   branches: { id: number; name: string }[];
   error?: string;

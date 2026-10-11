@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   try {
     const { branchId, userId, canManageBranch } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
+      { write: true },
     );
     const parsed = monthCloseRequest.safeParse(await request.json());
     if (!parsed.success)

@@ -20,6 +20,8 @@ export type Scope = {
   /** Власник або керуючий: ті, хто веде філію, — видаляють працівників,
    *  закривають і відкривають місяць. Вихователь — ні. */
   canManageBranch: boolean;
+  /** Режим перегляду: лише дивитися. Сервер відхиляє будь-яку зміну. */
+  readOnly: boolean;
   /** Branches the viewer may switch between. */
   branches: BranchRef[];
   /** False while there is nothing to choose from — a single branch run by the
@@ -36,6 +38,19 @@ export class ScopeError extends Error {
   }
 }
 
+export const READ_ONLY_MESSAGE =
+  "Режим перегляду: ви можете лише дивитися — додавати, змінювати й видаляти не можна";
+
+/**
+ * Режим перегляду, поставлений супер-адміністратором. Перевіряється на
+ * сервері в кожному маршруті, що змінює дані, а не лише ховається в
+ * інтерфейсі: запит можна надіслати й повз кнопку. Прапорець читається з
+ * бази на кожен запит, тож вмикання діє одразу, без повторного входу.
+ */
+export function assertWritable(readOnly: boolean) {
+  if (readOnly) throw new ScopeError(READ_ONLY_MESSAGE, 403);
+}
+
 /**
  * Works out which branch the signed-in user is allowed to look at.
  *
@@ -48,7 +63,11 @@ export class ScopeError extends Error {
  * звужений до `users.kindergarten_id`, тож «усі філії» для власника означає
  * усі його власні, а чужих він не побачить навіть підставивши їхній id.
  */
-export async function resolveScope(requested?: string | null): Promise<Scope> {
+export async function resolveScope(
+  requested?: string | null,
+  /** `write: true` — запит щось змінює, і в режимі перегляду його відхиляють. */
+  options: { write?: boolean } = {},
+): Promise<Scope> {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new ScopeError("Потрібна авторизація", 401);
 
@@ -60,6 +79,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
       role: users.role,
       branchId: users.branchId,
       kindergartenId: users.kindergartenId,
+      readOnly: users.readOnly,
     })
     .from(users)
     .where(eq(users.id, userId));
@@ -71,6 +91,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
     throw new ScopeError("Супер-адміністратор працює в кабінеті", 403);
   if (!viewer.kindergartenId)
     throw new ScopeError("Вам не призначено садочок", 403);
+  if (options.write) assertWritable(viewer.readOnly);
 
   const kindergartenId = viewer.kindergartenId;
 
@@ -114,6 +135,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
       branchName: own.name,
       isOwner: false,
       canManageBranch: viewer.role === "manager",
+      readOnly: viewer.readOnly,
       branches: [own],
       canSwitch: false,
     };
@@ -127,6 +149,7 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
     branchName: chosen.name,
     isOwner: true,
     canManageBranch: true,
+    readOnly: viewer.readOnly,
     branches: all,
     // Nothing to pick while the owner runs a single branch on their own; the
     // picker appears as soon as there is a second branch or a manager.
@@ -141,7 +164,10 @@ export async function resolveScope(requested?: string | null): Promise<Scope> {
  * наявну означало б замкнене коло — щойно зареєстрований садочок неможливо
  * було б почати наповнювати.
  */
-export async function resolveOwner(): Promise<{
+export async function resolveOwner(
+  /** Як у `resolveScope`: зміна в режимі перегляду відхиляється. */
+  options: { write?: boolean } = {},
+): Promise<{
   userId: number;
   kindergartenId: number;
 }> {
@@ -150,7 +176,11 @@ export async function resolveOwner(): Promise<{
 
   const userId = Number(session.user.id);
   const [viewer] = await getDb()
-    .select({ role: users.role, kindergartenId: users.kindergartenId })
+    .select({
+      role: users.role,
+      kindergartenId: users.kindergartenId,
+      readOnly: users.readOnly,
+    })
     .from(users)
     .where(eq(users.id, userId));
 
@@ -159,6 +189,7 @@ export async function resolveOwner(): Promise<{
     throw new ScopeError("Доступно лише власнику", 403);
   if (!viewer.kindergartenId)
     throw new ScopeError("Вам не призначено садочок", 403);
+  if (options.write) assertWritable(viewer.readOnly);
 
   return { userId, kindergartenId: viewer.kindergartenId };
 }

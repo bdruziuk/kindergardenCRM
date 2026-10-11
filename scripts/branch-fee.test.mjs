@@ -10,7 +10,7 @@ const table = (name, keys) => ({
   ...Object.fromEntries(keys.map((key) => [key, { table: name, key }])),
 });
 const tables = {
-  users: table("users", ["id", "role", "branchId", "kindergartenId", "name", "email", "theme", "avatar"]),
+  users: table("users", ["id", "role", "branchId", "kindergartenId", "name", "email", "theme", "avatar", "readOnly"]),
   branches: table("branches", ["id", "kindergartenId", "name", "address", "theme", "themeByOwner", "monthlyFee"]),
   kindergartens: table("kindergartens", ["id", "name"]),
   jobTitles: table("jobTitles", ["id", "kindergartenId", "branchId", "name", "salaryType", "rate", "lessonRate", "vacationQuota", "dayOffQuota", "addedByOwner"]),
@@ -44,6 +44,7 @@ function setup(userId) {
     "@/lib/scope": {
       ScopeError,
       scopeFailure: (error) => error instanceof ScopeError ? Response.json({ error: error.message }, { status: error.status }) : null,
+      assertWritable: (readOnly) => { if (readOnly) throw new ScopeError("Режим перегляду", 403); },
     },
     "@/lib/invites": {},
     "@/lib/mailer": {},
@@ -55,8 +56,28 @@ function setup(userId) {
     body: JSON.stringify({ kind: "branch_fee", branchId, monthlyFee }),
   }));
   const fee = (id) => data.branches.find((branch) => branch.id === id).monthlyFee;
-  return { setFee, fee };
+  const rename = (name) => POST(new Request("http://localhost/api/settings", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind: "name", userId, name }),
+  }));
+  const readOnly = () => { data.users.find((user) => user.id === userId).readOnly = true; };
+  const nameOf = () => data.users.find((user) => user.id === userId).name;
+  return { setFee, fee, rename, readOnly, nameOf };
 }
+
+test("In read-only mode the fee cannot be changed", async () => {
+  const { setFee, fee, readOnly } = setup(2);
+  readOnly();
+  assert.equal((await setFee(1, 13500)).status, 403);
+  assert.equal(fee(1), 12000);
+});
+
+test("In read-only mode one's own name can still be changed", async () => {
+  const { rename, readOnly, nameOf } = setup(2);
+  readOnly();
+  assert.equal((await rename("New name")).status, 200);
+  assert.equal(nameOf(), "New name");
+});
 
 test("A manager changes the base fee of their own branch", async () => {
   const { setFee, fee } = setup(2);

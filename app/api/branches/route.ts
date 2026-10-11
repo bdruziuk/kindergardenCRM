@@ -89,7 +89,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { kindergartenId } = await resolveOwner();
+    const { kindergartenId } = await resolveOwner({ write: true });
     const parsed = branchRequest.safeParse(await request.json());
     if (!parsed.success)
       return Response.json({ error: firstIssue(parsed.error) }, { status: 400 });

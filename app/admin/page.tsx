@@ -379,6 +379,24 @@ export default function AdminPage() {
                       {person.branchName ? ` · ${person.branchName}` : ""}
                     </small>
                   </div>
+                  <label
+                    className="read-only-toggle"
+                    title="Людина бачить усе, але нічого не додає, не змінює й не видаляє"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={person.readOnly}
+                      disabled={busy === `ro-${person.id}`}
+                      onChange={(event) =>
+                        send(`ro-${person.id}`, {
+                          kind: "read_only",
+                          userId: person.id,
+                          readOnly: event.target.checked,
+                        })
+                      }
+                    />
+                    Лише перегляд
+                  </label>
                   {(person.role === "admin" || person.role === "manager") && (
                     <button
                       className="garden-pill impersonate"

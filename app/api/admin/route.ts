@@ -206,6 +206,7 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
         role: users.role,
         branchId: users.branchId,
         avatar: users.avatar,
+        readOnly: users.readOnly,
       })
       .from(users)
       .where(ne(users.role, "superadmin"))
@@ -237,6 +238,7 @@ async function snapshot(newInviteUrl?: string): Promise<AdminSnapshot> {
       email: person.email,
       role: person.role,
       branchName: own.find((b) => b.id === person.branchId)?.name ?? "",
+      readOnly: person.readOnly,
     });
 
     const countFor = (
@@ -451,6 +453,15 @@ export async function POST(request: Request) {
       if (!branch) throw new ScopeError("Філію не знайдено", 404);
 
       await db.transaction((tx) => purgeBranches(tx, [body.branchId]));
+    } else if (body.kind === "read_only") {
+      // Супер-адміністратора в режим перегляду не переводимо: інакше він міг би
+      // замкнути сам себе, і зняти замок не було б кому.
+      const [updated] = await db
+        .update(users)
+        .set({ readOnly: body.readOnly })
+        .where(and(eq(users.id, body.userId), ne(users.role, "superadmin")))
+        .returning({ id: users.id });
+      if (!updated) throw new ScopeError("Користувача не знайдено", 404);
     } else {
       const [garden] = await db
         .select({ id: kindergartens.id })

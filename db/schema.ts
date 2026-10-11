@@ -640,6 +640,9 @@ export const users = pgTable(
      *  зображення маленьке — сторона обрізається до 256 px ще в браузері. */
     avatar: text("avatar"),
     avatarMime: text("avatar_mime"),
+    /** Режим перегляду, який ставить супер-адміністратор: людина бачить усе,
+     *  що й раніше, але нічого не додає, не змінює й не видаляє. */
+    readOnly: boolean("read_only").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

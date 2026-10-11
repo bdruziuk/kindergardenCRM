@@ -18,7 +18,7 @@ import {
   settingsRequest,
 } from "@/lib/api-schemas";
 import { authOptions } from "@/lib/auth";
-import { ScopeError, scopeFailure } from "@/lib/scope";
+import { ScopeError, assertWritable, scopeFailure } from "@/lib/scope";
 import {
   hashInviteToken,
   inviteUrl,
@@ -47,6 +47,7 @@ async function viewer() {
       role: users.role,
       branchId: users.branchId,
       kindergartenId: users.kindergartenId,
+      readOnly: users.readOnly,
     })
     .from(users)
     .where(eq(users.id, Number(session.user.id)));
@@ -278,6 +279,16 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = parsed.data;
+
+    // Режим перегляду забороняє змінювати садочок, але не власний акаунт:
+    // своє ім'я, аватарку, схему інтерфейсу й пароль людина веде сама.
+    const personal =
+      (body.kind === "name" && body.userId === me.id) ||
+      body.kind === "personal_theme" ||
+      body.kind === "avatar_set" ||
+      body.kind === "avatar_clear" ||
+      body.kind === "password_change_request";
+    if (!personal) assertWritable(me.readOnly);
 
     if (body.kind === "invite_create") {
       if (!me.isOwner)

@@ -87,6 +87,7 @@ export async function POST(request: Request) {
   try {
     const { branchId } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
+      { write: true },
     );
     const parsed = paymentRequest.safeParse(await request.json());
     if (!parsed.success)

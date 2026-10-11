@@ -13,6 +13,7 @@ export async function GET(request: Request) {
       branchName: scope.branchName,
       isOwner: scope.isOwner,
       canManageBranch: scope.canManageBranch,
+      readOnly: scope.readOnly,
       canSwitch: scope.canSwitch,
       branches: scope.branches,
     };

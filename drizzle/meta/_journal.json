@@ -232,6 +232,13 @@
       "when": 1788981267789,
       "tag": "0032_cash_opening_balances",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791740780109,
+      "tag": "0033_user_read_only",
+      "breakpoints": true
     }
   ]
 }

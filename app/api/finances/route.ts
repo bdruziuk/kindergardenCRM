@@ -32,6 +32,7 @@ export async function POST(request: Request) {
   try {
     const { branchId, isOwner, userId } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
+      { write: true },
     );
     const parsed = transactionRequest.safeParse(await request.json());
     if (!parsed.success)
