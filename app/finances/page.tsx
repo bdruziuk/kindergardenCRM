@@ -251,10 +251,35 @@ export default function FinancesPage() {
   const paidForMonth = data.salaryRows.reduce((sum, row) => sum + row.paid, 0);
   const otherMonths = salaryPayouts.filter((item) => item.payrollMonth !== month);
   const otherMonthsTotal = otherMonths.reduce((sum, item) => sum + item.amount, 0);
-  const otherMonthsLabel = [...new Set(otherMonths.map((item) => item.payrollMonth))]
-    .sort()
-    .map(monthLabel)
-    .join(", ");
+
+  /** Аванс і зарплата окремо для кожного місяця роботи, від давнішого. */
+  const byWorkMonth = (items: { payrollMonth: string; kind: SalaryKind; amount: number }[]) =>
+    [...new Set(items.map((item) => item.payrollMonth))].sort().map((workMonth) => {
+      const sum = (kind: SalaryKind) =>
+        items
+          .filter((item) => item.payrollMonth === workMonth && item.kind === kind)
+          .reduce((total, item) => total + item.amount, 0);
+      return { workMonth, advance: sum("advance"), salary: sum("salary") };
+    });
+  /** «аванс 36 000 ₴ · зарплата 4 000 ₴» — лише те, що справді видавали. */
+  const splitLabel = (advance: number, salary: number) =>
+    [
+      advance > 0 ? `аванс ${money(advance)}` : "",
+      salary > 0 ? `зарплата ${money(salary)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ") || "ще не видавали";
+
+  // Видане за показаний місяць роботи — з рядків панелі, з тими самими видами.
+  const paidHere = data.salaryRows.flatMap((row) => row.payouts);
+  const paidAdvance = paidHere
+    .filter((item) => item.kind === "advance")
+    .reduce((sum, item) => sum + item.amount, 0);
+  const paidSalary = paidHere
+    .filter((item) => item.kind === "salary")
+    .reduce((sum, item) => sum + item.amount, 0);
+  const otherMonthsSplit = byWorkMonth(otherMonths);
+  const payoutsSplit = byWorkMonth(salaryPayouts);
 
 
   const { income, expense, salaryAccrued, salaryRemaining, balance } =
@@ -493,8 +518,15 @@ export default function FinancesPage() {
               {otherMonthsTotal > 0 && (
                 <p className="salary-elsewhere">
                   Ще видано цього місяця за інші місяці роботи:{" "}
-                  <b>{money(otherMonthsTotal)}</b> ({otherMonthsLabel}) —{" "}
-                  <a href="#salary-payouts">у «Виплатах зарплат»</a>
+                  <b>{money(otherMonthsTotal)}</b> —{" "}
+                  {otherMonthsSplit
+                    .map(
+                      (row) =>
+                        `за ${monthLabel(row.workMonth)}: ${splitLabel(row.advance, row.salary)}`,
+                    )
+                    .join("; ")}
+                  .{" "}
+                  <a href="#salary-payouts">Усі виплати</a>
                 </p>
               )}
             </div>
@@ -502,6 +534,8 @@ export default function FinancesPage() {
               <div>
                 <span>Видано</span>
                 <b className="green-text">{money(paidForMonth)}</b>
+                <small>{splitLabel(paidAdvance, paidSalary)}</small>
+                <small>за {monthLabel(month)}</small>
               </div>
               <div>
                 <span>Залишилось</span>
@@ -512,10 +546,12 @@ export default function FinancesPage() {
                 >
                   {money(salaryRemaining)}
                 </b>
+                <small>за {monthLabel(month)}</small>
               </div>
               <div>
                 <span>Нараховано</span>
                 <b>{money(salaryAccrued)}</b>
+                <small>за {monthLabel(month)}</small>
               </div>
             </div>
           </div>
@@ -613,6 +649,14 @@ export default function FinancesPage() {
               <div>
                 <span>Разом</span>
                 <b>{money(expense.salary)}</b>
+                {/* Що саме вийшло цього місяця: аванс і зарплата окремо для
+                    кожного місяця роботи, за який платили. */}
+                {payoutsSplit.map((row) => (
+                  <small key={row.workMonth}>
+                    за {monthLabel(row.workMonth)}:{" "}
+                    {splitLabel(row.advance, row.salary)}
+                  </small>
+                ))}
               </div>
             </div>
           </div>

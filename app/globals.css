@@ -902,3 +902,7 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .salary-panel .salary-elsewhere b{color:var(--ink)}
 .salary-panel .salary-elsewhere a{color:var(--warn-ink);font-weight:700}
 .salary-payouts{scroll-margin-top:calc(var(--actor-bar-h) + 12px)}
+/* Розклад «аванс · зарплата» й місяць роботи під сумами панелей зарплат. */
+.salary-totals{flex-wrap:wrap;row-gap:12px}
+.salary-totals small{font-size:10px;line-height:1.4;color:var(--muted);font-weight:500}
+@media(max-width:720px){.salary-totals{margin-top:12px;gap:14px 18px}}
