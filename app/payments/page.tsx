@@ -463,7 +463,13 @@ export default function PaymentsPage() {
                     <td>
                       <i className="avatar">{row.initials}</i>
                       <div>
-                        <b>{row.name}</b>
+                        <b>
+                          {row.name}
+                          {/* Вибула дитина тут лише через оплату за цей
+                              місяць — інакше два записи з тим самим ім'ям
+                              (скажімо, дублікат) не розрізнити. */}
+                          {row.left && <em className="left-mark">вибула</em>}
+                        </b>
                         <small>
                           {row.history.length
                             ? row.history.length + " частк. оплат"
@@ -552,7 +558,10 @@ export default function PaymentsPage() {
               <i>{selected.initials}</i>
               <div>
                 <p className="eyebrow">ОПЛАТИ ДИТИНИ</p>
-                <h2>{selected.name}</h2>
+                <h2>
+                  {selected.name}
+                  {selected.left && <em className="left-mark">вибула</em>}
+                </h2>
                 <span>
                   {selected.group} ·{" "}
                   {monthLabel(month)}

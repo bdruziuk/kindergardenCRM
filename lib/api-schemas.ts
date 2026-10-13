@@ -558,6 +558,9 @@ export type ChildPaymentsDto = {
    *  null: сторінка за цим і розрізняє, кому показувати поле з днями. */
   days: number | null;
   history: PaymentEntry[];
+  /** Дитина вибула — у місяці вона лише через оплату за нього. Відсутнє в
+   *  знімках, закритих до появи позначки. */
+  left?: boolean;
 };
 
 export type PaymentsSummary = {

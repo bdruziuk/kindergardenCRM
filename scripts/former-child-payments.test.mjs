@@ -42,7 +42,11 @@ test("Leaving does not remove partial payments, debt, or receipt history", async
   const before = await queries.childrenWithPayments(1, "2026-08");
   Object.assign(data.children[0], { status: "left", leftAt: "2026-08-20" });
   const after = await queries.childrenWithPayments(1, "2026-08");
-  assert.deepEqual(after, before);
+  // Змінюється лише позначка «вибула»; гроші, борг і квитанції — ні.
+  const withoutMark = (rows) => rows.map((row) => ({ ...row, left: undefined }));
+  assert.deepEqual(withoutMark(after), withoutMark(before));
+  assert.equal(before[0].left, false);
+  assert.equal(after[0].left, true);
   assert.equal(after.length, 1);
   assert.equal(after[0].paid, 600);
   assert.equal(after[0].balance, 400);

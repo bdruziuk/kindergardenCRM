@@ -141,6 +141,7 @@ export async function childrenWithPayments(
       dailyRate: child.dailyRate,
       days,
       history,
+      left: child.status === "left",
     };
   });
 }
