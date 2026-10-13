@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   groupStaff,
@@ -42,11 +42,34 @@ export async function GET(request: Request) {
     const closed = await loadClose(branchId, month);
     // Закритий місяць — зі знімка: ставки й склад колективу відтоді змінилися,
     // і перерахунок показав би не ту зарплату, яку тоді нарахували.
-    return Response.json(
-      closed
-        ? { ...(closed.snapshot.staff as object), closed: true, closedAt: closed.closedAt }
-        : { ...(await snapshot(branchId, month)), closed: false, closedAt: null },
+    if (!closed)
+      return Response.json({
+        ...(await snapshot(branchId, month)),
+        closed: false,
+        closedAt: null,
+      });
+
+    // Фото — не про гроші й не про табель, і знімок його не заморожує: беремо
+    // поточне з бази. Інакше в місяцях, закритих до появи фото (або до того,
+    // як його поставили), замість обличчя назавжди лишалися б ініціали.
+    const frozen = closed.snapshot.staff as { rows?: { id: number }[] };
+    const withPhoto = new Set(
+      (
+        await getDb()
+          .select({ id: staff.id })
+          .from(staff)
+          .where(and(eq(staff.branchId, branchId), isNotNull(staff.photo)))
+      ).map((row) => row.id),
     );
+    return Response.json({
+      ...frozen,
+      rows: (frozen.rows ?? []).map((row) => ({
+        ...row,
+        hasPhoto: withPhoto.has(row.id),
+      })),
+      closed: true,
+      closedAt: closed.closedAt,
+    });
   } catch (error) {
     return scopeFailure(error) ?? Response.json(
       { error: error instanceof Error ? error.message : "PostgreSQL error" },
