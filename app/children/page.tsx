@@ -756,7 +756,7 @@ export default function Page() {
             )}
             {/* Поки питаємо про видалення, «Зберегти» поруч лише плутав би. */}
             {!confirmDelete && <div className="modal-actions">
-              {scope?.isOwner && (
+              {scope?.canManageBranch && (
                 <button
                   className="delete-record"
                   onClick={() => setConfirmDelete(true)}

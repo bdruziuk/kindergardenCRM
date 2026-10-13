@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { load, schemas, tables, orm, fixture, database, ScopeError } from "./test-helpers.mjs";
 
-// Видалення дитини: лише власник, лише в межах своєї філії і лише поки в
+// Видалення дитини: власник або керуючий, лише в межах своєї філії і лише поки в
 // дитини немає оплат — інакше разом із нею зникли б гроші з каси.
 
-function setup({ isOwner = true } = {}) {
+function setup({ canManageBranch = true } = {}) {
   const data = fixture();
   const db = database(data);
   const { POST } = load("app/api/kindergarten/route.ts", {
@@ -16,7 +16,7 @@ function setup({ isOwner = true } = {}) {
     "@/lib/format": { ageLabel: () => "", initialsOf: () => "", moneyLabel: String },
     "@/lib/period": { currentMonth: () => "2026-10", monthStart: (month) => `${month}-01` },
     "@/lib/scope": {
-      ScopeError, resolveScope: async () => ({ branchId: 1, isOwner }),
+      ScopeError, resolveScope: async () => ({ branchId: 1, canManageBranch }),
       scopeFailure: (error) => error instanceof ScopeError ? Response.json({ error: error.message }, { status: error.status }) : null,
     },
   });
@@ -35,8 +35,8 @@ test("The owner deletes a child without payments", async () => {
   assert.ok(!(await response.json()).children.some((child) => child.id === 1));
 });
 
-test("A manager may not delete a child", async () => {
-  const { data, remove } = setup({ isOwner: false });
+test("A teacher may not delete a child", async () => {
+  const { data, remove } = setup({ canManageBranch: false });
   const response = await remove(1);
   assert.equal(response.status, 403);
   assert.ok(data.children.some((child) => child.id === 1));

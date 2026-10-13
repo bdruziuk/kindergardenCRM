@@ -213,7 +213,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { branchId: BRANCH_ID, isOwner } = await resolveScope(
+    const { branchId: BRANCH_ID, canManageBranch } = await resolveScope(
       new URL(request.url).searchParams.get("branch"),
       { write: true },
     );
@@ -294,8 +294,13 @@ export async function POST(request: Request) {
         if (kin.length) await tx.insert(relatives).values(kin);
       });
     } else if (body.kind === "delete_child") {
-      if (!isOwner)
-        throw new ScopeError("Видаляти дітей може лише власник", 403);
+      // Власник — у будь-якій філії, керуючий — у своїй: resolveScope до
+      // чужої його не пустить, а дитину нижче шукаємо саме в цій.
+      if (!canManageBranch)
+        throw new ScopeError(
+          "Видаляти дітей може власник або керуючий філії",
+          403,
+        );
       const childId = body.childId;
       await db.transaction(async (tx) => {
         // Рядок дитини блокуємо до перевірки оплат: нова оплата посилається на
