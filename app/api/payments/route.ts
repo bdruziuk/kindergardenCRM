@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { childMonthDays, children, paymentReceipts, payments } from "@/db/schema";
 import { firstIssue, paymentRequest } from "@/lib/api-schemas";
 import { currentMonth, monthStart } from "@/lib/period";
-import { assertMonthOpen, loadClose } from "@/lib/month-close";
+import { assertCashDateOpen, assertMonthOpen, loadClose } from "@/lib/month-close";
 import { childrenWithPayments, paymentsSummary } from "@/lib/queries";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 
@@ -99,6 +99,8 @@ export async function POST(request: Request) {
 
     if (body.kind === "add") {
       await assertChildInBranch(body.childId, branchId);
+      const paidAt = body.paidAt ?? new Date().toISOString().slice(0, 10);
+      await assertCashDateOpen(branchId, paidAt);
       const [created] = await db
         .insert(payments)
         .values({
@@ -107,7 +109,7 @@ export async function POST(request: Request) {
           purpose: body.purpose,
           amount: body.amount,
           method: body.method,
-          paidAt: body.paidAt ?? new Date().toISOString().slice(0, 10),
+          paidAt,
           note: body.note || null,
         })
         .returning({ id: payments.id });
@@ -179,7 +181,11 @@ export async function POST(request: Request) {
       }
     } else {
       const [payment] = await db
-        .select({ childId: payments.childId, billingMonth: payments.billingMonth })
+        .select({
+          childId: payments.childId,
+          billingMonth: payments.billingMonth,
+          paidAt: payments.paidAt,
+        })
         .from(payments)
         .where(eq(payments.id, body.paymentId));
       if (!payment)
@@ -187,6 +193,7 @@ export async function POST(request: Request) {
 
       await assertChildInBranch(payment.childId, branchId);
       await assertMonthOpen(branchId, payment.billingMonth.slice(0, 7));
+      await assertCashDateOpen(branchId, payment.paidAt);
       await db.delete(payments).where(eq(payments.id, body.paymentId));
     }
 

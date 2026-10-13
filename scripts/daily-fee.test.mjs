@@ -185,3 +185,32 @@ test("Ставка не переживає повернення на місяч�
   assert.equal(fallback.feeMode, "monthly");
   assert.equal(fallback.dailyRate, 0);
 });
+
+// Каса закритого місяця рахується за датою оплати: жовтнева плата з датою у
+// закритому вересні вже сидить у його знімку. Внести таку чи видалити її —
+// значить розвести знімок і живі дані, а жовтень порахував би ті гроші вдруге.
+test("Оплату з датою в закритому місяці не можна ні внести, ні видалити", async () => {
+  const { data, post } = setup({ closedMonth: "2026-09" });
+  data.payments.push({
+    id: 77, childId: 4, billingMonth: "2026-10-01", purpose: "tuition",
+    amount: 15000, method: "cash", paidAt: "2026-09-30",
+  });
+
+  const add = await request(post, {
+    month: "2026-10", kind: "add", childId: 4, amount: 15000,
+    method: "cash", paidAt: "2026-09-30",
+  });
+  assert.equal(add.status, 409);
+  assert.match(add.body.error, /Дата оплати/);
+
+  const remove = await request(post, { month: "2026-10", kind: "remove", paymentId: 77 });
+  assert.equal(remove.status, 409);
+  assert.ok(data.payments.some((row) => row.id === 77));
+
+  // Та сама оплата з жовтневою датою — звичайна справа відкритого місяця.
+  const ok = await request(post, {
+    month: "2026-10", kind: "add", childId: 4, amount: 15000,
+    method: "cash", paidAt: "2026-10-01",
+  });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+});

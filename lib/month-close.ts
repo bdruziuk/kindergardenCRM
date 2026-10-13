@@ -80,13 +80,28 @@ export async function loadClose(branchId: number, month: string) {
  * бо запит можна надіслати й повз неї, а мовчки прийнята зміна розійшлася б зі
  * знімком, який і далі показують.
  */
-export async function assertMonthOpen(branchId: number, month: string) {
+export async function assertMonthOpen(
+  branchId: number,
+  month: string,
+  message = "Місяць закрито — щоб змінювати, спершу відкрийте його",
+) {
   const closed = await loadClose(branchId, month);
-  if (closed)
-    throw new ScopeError(
-      "Місяць закрито — щоб змінювати, спершу відкрийте його",
-      409,
-    );
+  if (closed) throw new ScopeError(message, 409);
+}
+
+/**
+ * Гроші закритого місяця рахуються за датою оплати, а не за місяцем, за який
+ * платили: жовтнева плата, внесена 30 вересня, — у готівці вересня. Тож оплату
+ * з датою в закритому місяці не можна ні внести, ні видалити, навіть коли
+ * місяць нарахування відкритий, — інакше знімок рахує гроші, яких уже немає,
+ * а наступний місяць рахує їх удруге.
+ */
+export async function assertCashDateOpen(branchId: number, date: string) {
+  await assertMonthOpen(
+    branchId,
+    date.slice(0, 7),
+    "Дата оплати — у закритому місяці, його каса вже зафіксована. Оберіть дату у відкритому місяці або спершу відкрийте той місяць",
+  );
 }
 
 export async function closeMonth(

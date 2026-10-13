@@ -8,7 +8,7 @@ function setup(closedMonth, recordMonth = "2026-08") {
   const data = fixture();
   data.lessons[0].workDate = `${recordMonth}-02`;
   data.staffAttendance[0].workDate = `${recordMonth}-02`;
-  data.payments.push({ id: 1, childId: 1, billingMonth: `${recordMonth}-01`, amount: 1000 });
+  data.payments.push({ id: 1, childId: 1, billingMonth: `${recordMonth}-01`, paidAt: `${recordMonth}-02`, amount: 1000 });
   data.paymentReceipts.push({ id: 1, paymentId: 1, fileName: "old.pdf" });
   data.salaryPayments.push({ id: 1, staffId: 1, month: `${recordMonth}-01`, paidAt: "2026-09-03", amount: 1000 });
   data.transactions.push({ id: 1, branchId: 1, occurredAt: `${recordMonth}-02`, amount: 1000 });
@@ -82,18 +82,20 @@ for (const [route, action, dateField] of cases) {
     assert.deepEqual(data, before);
   });
 }
-// A parent payment belongs to the month it is billed for, whatever day the
-// money changed hands.
-for (const closed of [true, false]) test("payments: new payment uses billing month", async () => {
+// A parent payment belongs to the month it is billed for — but its money sits
+// in the cash of the day it was paid, so a closed month on either side refuses.
+for (const [label, month, paidAt, status] of [
+  ["closed billing month, open paid day", "2026-08", "2026-09-03", 409],
+  ["open billing month, closed paid day", "2026-09", "2026-08-03", 409],
+  ["open billing month, open paid day", "2026-09", "2026-09-03", 200],
+]) test(`payments: new payment, ${label}`, async () => {
   const { data, post } = setup("2026-08");
   const before = structuredClone(data);
   const result = await request(post, "payments", {
-    kind: "add", childId: 1, amount: 100, method: "cash",
-    month: closed ? "2026-08" : "2026-09",
-    paidAt: closed ? "2026-09-03" : "2026-08-03",
+    kind: "add", childId: 1, amount: 100, method: "cash", month, paidAt,
   });
-  assert.equal(result.status, closed ? 409 : 200, JSON.stringify(result.body));
-  if (closed) assert.deepEqual(data, before);
+  assert.equal(result.status, status, JSON.stringify(result.body));
+  if (status !== 200) assert.deepEqual(data, before);
   else assert.notDeepEqual(data, before);
 });
 

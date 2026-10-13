@@ -23,7 +23,7 @@ function setup() {
   const { POST } = load("app/api/payments/route.ts", {
     "drizzle-orm": orm, "@/db": db, "@/db/schema": withNote,
     "@/lib/api-schemas": schemas, "@/lib/period": period,
-    "@/lib/month-close": { assertMonthOpen: async () => {}, loadClose: async () => null },
+    "@/lib/month-close": { assertMonthOpen: async () => {}, assertCashDateOpen: async () => {}, loadClose: async () => null },
     "@/lib/queries": queries,
     "@/lib/scope": {
       ScopeError, resolveScope: async () => ({ branchId: 1 }),
