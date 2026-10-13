@@ -1,5 +1,11 @@
-import { MONTH, firstIssue, monthCloseRequest } from "@/lib/api-schemas";
+import {
+  MONTH,
+  firstIssue,
+  monthCloseRequest,
+  type MonthCloseCheck,
+} from "@/lib/api-schemas";
 import { closeMonth, loadClose, openMonth } from "@/lib/month-close";
+import { sumMoney } from "@/lib/money";
 import { currentMonth } from "@/lib/period";
 import { ScopeError, resolveScope, scopeFailure } from "@/lib/scope";
 import {
@@ -9,13 +15,48 @@ import {
   staffSnapshot,
 } from "@/lib/snapshots";
 
-/** Стан місяця для банера на сторінках. */
+/**
+ * Перевірка перед закриттям: хто з батьків ще винен, кому не довидали
+ * зарплату за цей місяць і що в касі. Рахується тими ж знімками, що закриття
+ * збереже, — тож людина бачить рівно те, що буде заморожено.
+ */
+async function closeCheck(branchId: number, month: string): Promise<MonthCloseCheck> {
+  const [payments, finances] = await Promise.all([
+    paymentsSnapshot(branchId, month),
+    financeSnapshot(branchId, month),
+  ]);
+  const unpaid = payments.rows
+    .filter((row) => row.balance > 0)
+    .map((row) => ({ id: row.id, name: row.name, group: row.group, balance: row.balance }))
+    .sort((a, b) => b.balance - a.balance);
+  const salary = finances.salaryRows
+    .filter((row) => row.remaining > 0)
+    .map((row) => ({ id: row.id, name: row.name, remaining: row.remaining }));
+  return {
+    month,
+    unpaid: {
+      count: unpaid.length,
+      total: sumMoney(unpaid, (row) => row.balance),
+      rows: unpaid,
+    },
+    salary: {
+      count: salary.length,
+      total: sumMoney(salary, (row) => row.remaining),
+      rows: salary,
+    },
+    methods: finances.methods,
+  };
+}
+
+/** Стан місяця для банера на сторінках; з `check=1` — перевірка перед закриттям. */
 export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
     const { branchId } = await resolveScope(params.get("branch"));
     const raw = params.get("month");
     const month = raw && MONTH.test(raw) ? raw : currentMonth();
+    if (params.get("check") === "1")
+      return Response.json(await closeCheck(branchId, month));
 
     const closed = await loadClose(branchId, month);
     return Response.json({

@@ -397,6 +397,29 @@ export const monthCloseRequest = z.object({
   action: z.enum(["close", "open"], { error: "Невідома дія" }),
 });
 
+/**
+ * Що варто побачити перед закриттям місяця: після нього нічого з цього вже не
+ * виправити, не відкривши місяць знову. Це попередження, а не заборона, — борг
+ * батьків чи решта зарплати цілком можуть законно лишитися на наступний місяць.
+ */
+export type MonthCloseCheck = {
+  month: string;
+  /** Діти, за якими лишився борг за місяць. */
+  unpaid: {
+    count: number;
+    total: number;
+    rows: { id: number; name: string; group: string; balance: number }[];
+  };
+  /** Нараховане за цей місяць роботи, але ще не видане. */
+  salary: {
+    count: number;
+    total: number;
+    rows: { id: number; name: string; remaining: number }[];
+  };
+  /** Каса за місяць по кожному способу оплати. */
+  methods: MethodTotals[];
+};
+
 /** Стан місяця — приходить у кожному знімку сторінки місяця. */
 export type MonthCloseState = {
   closed: boolean;

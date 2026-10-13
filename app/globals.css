@@ -591,6 +591,30 @@
 .month-lock.closed{border-color:var(--accent-line);background:var(--accent-wash)}
 .month-lock.closed span{color:var(--accent-ink)}
 .month-lock>i{font-style:normal;font-size:12px}
+/* --- перевірка перед закриттям місяця ------------------------------------ */
+.close-check{width:560px}
+.close-check h3{margin:0 0 10px;font-size:12px}
+.close-check-methods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.close-check-methods>div{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px}
+.close-check-methods>div>b{align-self:flex-start;padding:3px 8px;border-radius:7px;font-size:10px}
+.close-check-methods .cash>b{background:var(--cash-soft);color:var(--cash-ink)}
+.close-check-methods .iban>b{background:var(--iban-soft);color:var(--iban-ink)}
+.close-check-methods .card>b{background:var(--card-soft);color:var(--card-ink)}
+.close-check-methods span{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--muted)}
+.close-check-methods strong{color:var(--ink);white-space:nowrap}
+.close-check-methods .close-check-left{margin-top:2px;padding-top:7px;border-top:1px solid var(--line);color:var(--ink);font-weight:700}
+.close-check-warning{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding:12px 14px;border:1px solid var(--warn-ink);border-radius:12px;background:var(--warn-soft)}
+.close-check-warning>b{font-size:12px;color:var(--warn-ink)}
+.close-check-warning>span{font-size:10px;line-height:1.45;color:var(--muted)}
+.close-check-warning ul{margin:4px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.close-check-warning li{display:flex;justify-content:space-between;gap:10px;font-size:10px}
+.close-check-warning li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.close-check-warning li small{color:var(--muted)}
+.close-check-warning .more-names{color:var(--muted)}
+.close-check-ok{margin-top:10px;padding:10px 14px;border:1px solid var(--accent-line);border-radius:12px;background:var(--accent-wash);color:var(--accent-ink);font-size:11px;font-weight:700}
+.close-check .modal-actions .danger-confirm{border-color:var(--danger);background:var(--danger);color:#fff;font-weight:700}
+.close-check .modal-actions .danger-confirm:disabled{opacity:.6}
+@media(max-width:720px){.close-check-methods{grid-template-columns:1fr}.close-check .modal-actions button{flex:1}}
 .payments-month input[type="month"]{border:0;background:transparent;color:inherit;font:inherit;padding:6px;min-width:150px}.payments-month input[type="month"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.month .payments-month{margin:0}
 
 .form-grid .fee-mode{grid-column:1/-1;display:grid;grid-template-columns:16px 1fr;column-gap:10px;row-gap:3px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}

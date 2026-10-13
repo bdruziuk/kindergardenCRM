@@ -11,6 +11,7 @@ function setup({ canManageBranch }) {
   const { POST } = load("app/api/month-close/route.ts", {
     "@/lib/api-schemas": schemas,
     "@/lib/period": { currentMonth: () => "2026-10" },
+    "@/lib/money": { sumMoney: () => 0 },
     "@/lib/month-close": {
       closeMonth: async (branchId, month) => { calls.push(["close", month]); closed.add(month); },
       openMonth: async (branchId, month) => { calls.push(["open", month]); closed.delete(month); },
