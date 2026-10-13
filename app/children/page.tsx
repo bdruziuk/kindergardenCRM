@@ -256,7 +256,20 @@ export default function Page() {
             <div>
               <h2>
                 {view === "former" ? "Вибулі" : "Усі діти"}{" "}
-                <span>{shown.length}</span>
+                {view === "all" ? (
+                  // Вибулі в садочок не ходять — їх видно окремо, щоб
+                  // число поруч із «Усі діти» лишалося тими, хто є зараз.
+                  <>
+                    <span>{shown.filter((child) => !child.former).length}</span>
+                    {shown.some((child) => child.former) && (
+                      <small className="former-extra">
+                        + {shown.filter((child) => child.former).length} вибули
+                      </small>
+                    )}
+                  </>
+                ) : (
+                  <span>{shown.length}</span>
+                )}
               </h2>
               <p>
                 Філія «{branch}»

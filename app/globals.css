@@ -948,3 +948,4 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
    прогрес плати за садок вони не входять. */
 .group-chart-values .entrance-extra{font-weight:500;color:var(--muted)}
 .groups>div>small{grid-column:1/-1;font-size:9px;color:var(--muted)}
+.directory-head h2 .former-extra{margin-left:6px;font-size:10px;font-weight:600;color:var(--muted)}
