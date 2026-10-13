@@ -166,13 +166,21 @@ export default function Home() {
               </div>
             </div>
             <div className="groups">
-              {(data?.groupProgress ?? []).slice(0, 3).map((item) => (
+              {/* Усі групи, а не перші три: інакше відстаюча група могла
+                  просто не потрапити на екран. */}
+              {(data?.groupProgress ?? []).map((item) => (
                 <div key={item.name}>
                   <span>{item.name}</span>
                   <b>{item.progress}%</b>
                   <i>
                     <em style={{ width: item.progress + "%" }} />
                   </i>
+                  <small>
+                    {moneyLabel(item.paid)} оплачено
+                    {(item.entrance ?? 0) > 0
+                      ? ` (+ ${moneyLabel(item.entrance)} разові внески)`
+                      : ""}
+                  </small>
                 </div>
               ))}
             </div>

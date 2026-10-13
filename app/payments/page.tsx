@@ -223,10 +223,15 @@ export default function PaymentsPage() {
           0,
         );
         const paid = rows.reduce((sum, row) => sum + row.paid, 0);
+        const entrance = rows.reduce(
+          (sum, row) => sum + (row.entrancePaid ?? 0),
+          0,
+        );
         return {
           name: groupName,
           planned,
           paid,
+          entrance,
           balance: Math.round(rows.reduce((sum, row) => sum + Math.max(row.fee - row.paid, 0), 0) * 100) / 100,
           progress: planned
             ? Math.min(100, Math.round((paid / planned) * 100))
@@ -405,7 +410,17 @@ export default function PaymentsPage() {
                     <i style={{ width: item.progress + "%" }} />
                   </div>
                   <div className="group-chart-values">
-                    <b>{money(item.paid)} оплачено</b>
+                    <b>
+                      {money(item.paid)} оплачено
+                      {/* Разові внески не входять у прогрес плати за садок,
+                          але гроші це теж — показуємо поруч. */}
+                      {item.entrance > 0 && (
+                        <span className="entrance-extra">
+                          {" "}
+                          (+ {money(item.entrance)} разові внески)
+                        </span>
+                      )}
+                    </b>
                     <span>{money(item.balance)} залишилось</span>
                   </div>
                 </div>

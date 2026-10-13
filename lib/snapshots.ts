@@ -239,11 +239,14 @@ export async function dashboardSnapshot(branchId: number, month: string) {
   const cashIn = sumMoney(incoming, (row) => row.amount);
 
   // Progress per group, ordered by how much is still outstanding.
-  const byGroup = new Map<string, { planned: number; paid: number }>();
+  const byGroup = new Map<string, { planned: number; paid: number; entrance: number }>();
   for (const child of childRows) {
-    const entry = byGroup.get(child.group) ?? { planned: 0, paid: 0 };
+    const entry = byGroup.get(child.group) ?? { planned: 0, paid: 0, entrance: 0 };
     entry.planned += child.fee;
     entry.paid += child.paid;
+    // Разові внески — окремо: у прогрес плати за садок вони не входять, але
+    // показуються поруч, щоб було видно, скільки грошей група принесла всього.
+    entry.entrance += child.entrancePaid ?? 0;
     byGroup.set(child.group, entry);
   }
 
@@ -282,6 +285,7 @@ export async function dashboardSnapshot(branchId: number, month: string) {
         name,
         planned: entry.planned,
         paid: entry.paid,
+        entrance: entry.entrance,
         progress: entry.planned
           ? Math.round((entry.paid / entry.planned) * 100)
           : 0,

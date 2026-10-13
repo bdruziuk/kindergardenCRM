@@ -920,3 +920,7 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .password-reset-result code{flex:1 1 220px;min-width:0;padding:6px 8px;border:1px solid var(--accent-line);border-radius:7px;background:#fff;font-size:10px;word-break:break-all;user-select:all}
 .password-reset-result button{height:28px;padding:0 10px;border:1px solid var(--accent-line);border-radius:8px;background:#fff;font:inherit;font-weight:700;color:var(--accent-ink);cursor:pointer}
 .garden-row{flex-wrap:wrap}
+/* Разові внески поруч із «оплачено» в прогресі груп — дрібніше, бо в
+   прогрес плати за садок вони не входять. */
+.group-chart-values .entrance-extra{font-weight:500;color:var(--muted)}
+.groups>div>small{grid-column:1/-1;font-size:9px;color:var(--muted)}
