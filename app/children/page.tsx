@@ -145,6 +145,18 @@ export default function Page() {
     () => kidsList.filter((child) => child.former).length,
     [kidsList],
   );
+  /** Вибулі серед тих, кого пропускають група й пошук: цього місяця (вони
+   *  ще в чинному складі) і раніших, яких чинний склад ховає. */
+  const left = useMemo(() => {
+    const matching = kidsList.filter(
+      (child) =>
+        child.status === "left" &&
+        (group === "Усі групи" || child.groupName === group) &&
+        child.fullName.toLowerCase().includes(query.toLowerCase()),
+    );
+    const earlier = matching.filter((child) => child.former).length;
+    return { thisMonth: matching.length - earlier, earlier };
+  }, [group, query, kidsList]);
   return (
     <main className="shell">
       <Sidebar active="/children" />
@@ -256,19 +268,22 @@ export default function Page() {
             <div>
               <h2>
                 {view === "former" ? "Вибулі" : "Усі діти"}{" "}
-                {view === "all" ? (
-                  // Вибулі в садочок не ходять — їх видно окремо, щоб
-                  // число поруч із «Усі діти» лишалося тими, хто є зараз.
+                {view === "former" ? (
+                  <span>{shown.length}</span>
+                ) : (
+                  // Вибулі в садочок уже не ходять — їх видно окремо, щоб
+                  // число поруч із «Усі діти» було тими, хто є зараз.
                   <>
-                    <span>{shown.filter((child) => !child.former).length}</span>
-                    {shown.some((child) => child.former) && (
+                    <span>{shown.filter((child) => child.status !== "left").length}</span>
+                    {left.thisMonth > 0 && (
                       <small className="former-extra">
-                        + {shown.filter((child) => child.former).length} вибули
+                        + {left.thisMonth} вибули у цьому місяці
                       </small>
                     )}
+                    {left.earlier > 0 && (
+                      <small className="former-extra">+ {left.earlier} вибули</small>
+                    )}
                   </>
-                ) : (
-                  <span>{shown.length}</span>
                 )}
               </h2>
               <p>
