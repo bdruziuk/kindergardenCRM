@@ -1167,6 +1167,11 @@ export type ReportsSnapshot = {
     joined: number;
     left: number;
     paused: number;
+    /** Велика цифра: дітей у садочку на дату `headcountDate` — зараз
+     *  (`today`), на закриття місяця (`closed`) або на кінець періоду. */
+    headcount: number;
+    headcountAsOf: "today" | "closed" | "periodEnd";
+    headcountDate: string;
   };
   /** Salary handed over during the period, per person. `accrued` and
    *  `remaining` are filled in only for a monthly report — computing them for

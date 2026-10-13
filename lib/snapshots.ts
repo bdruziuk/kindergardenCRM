@@ -203,6 +203,9 @@ export async function dashboardSnapshot(branchId: number, month: string) {
     db
       .select({
         activeChildren: sql<number>`count(*) filter (where ${children.status} = 'active')::int`,
+        // Хто в садочку зараз: відвідує або на паузі. Знімок закриття фіксує
+        // саме це — звіт за закритий місяць показує його як «дітей на закриття».
+        inGarden: sql<number>`count(*) filter (where ${children.status} <> 'left')::int`,
         groupCount: sql<number>`(select count(*) from ${groups} where ${groups.branchId} = ${branchId})::int`,
       })
       .from(children)
@@ -250,6 +253,7 @@ export async function dashboardSnapshot(branchId: number, month: string) {
     income: { total: cashIn, other: otherIncome },
     children: {
       active: counts[0]?.activeChildren ?? 0,
+      inGarden: counts[0]?.inGarden ?? 0,
       groups: counts[0]?.groupCount ?? 0,
       awaiting: summary.partialCount + summary.unpaidCount,
     },

@@ -8,7 +8,11 @@ function setup({ closed = null, error = null } = {}) {
   const db = {
     select(selection) {
       // Aggregate SQL is outside this test: its existing result is supplied.
-      const rows = Object.hasOwn(selection, "paid") ? [{ id: 2, name: "New employee", role: "Teacher", paid: 5000 }] : [];
+      const rows = Object.hasOwn(selection, "paid")
+        ? [{ id: 2, name: "New employee", role: "Teacher", paid: 5000 }]
+        : Object.hasOwn(selection, "current")
+          ? [{ inPeriod: 104, joined: 3, left: 2, paused: 1, current: 97, atEnd: 99 }]
+          : [];
       const chain = {
         from: () => chain, innerJoin: () => chain, leftJoin: () => chain,
         where: () => chain, groupBy: () => chain, orderBy: () => chain,
@@ -77,4 +81,53 @@ test("Failure reading a close does not silently produce current figures", async 
   const { get, calls } = setup({ error: new Error("Close lookup unavailable") });
   assert.equal((await get()).status, 500);
   assert.deepEqual(calls.live, []);
+});
+
+// Велика цифра «дітей»: зараз — для періоду, що триває; на закриття — для
+// закритого місяця; на кінець — для минулого незакритого. Рух за період
+// лишається поруч.
+const thisMonth = new Date().toISOString().slice(0, 7);
+
+test("A closed month shows the children count frozen at closing", async () => {
+  const { get } = setup({ closed: {
+    closedAt: "2026-10-13T14:55:00.000Z",
+    snapshot: { staff: { rows: [] }, dashboard: { children: { active: 97, inGarden: 98 } } },
+  } });
+  const { children } = (await get("month=2026-09")).body;
+  assert.equal(children.headcount, 98);
+  assert.equal(children.headcountAsOf, "closed");
+  assert.equal(children.headcountDate, "2026-10-13");
+  assert.equal(children.inPeriod, 104);
+  assert.equal(children.joined, 3);
+});
+
+test("An older snapshot without the in-garden count falls back to active children", async () => {
+  const { get } = setup({ closed: {
+    closedAt: "2026-10-11T18:58:00.000Z",
+    snapshot: { staff: { rows: [] }, dashboard: { children: { active: 97 } } },
+  } });
+  assert.equal((await get("month=2026-08")).body.children.headcount, 97);
+});
+
+test("A month closed before the overview was frozen counts by dates at its end", async () => {
+  const { get } = setup({ closed: { closedAt: "2026-08-30T07:33:00.000Z", snapshot: { staff: { rows: [] } } } });
+  const { children } = (await get("month=2026-07")).body;
+  assert.equal(children.headcount, 99);
+  assert.equal(children.headcountAsOf, "periodEnd");
+  assert.equal(children.headcountDate, "2026-07-31");
+});
+
+test("The month in progress shows today's count", async () => {
+  const { get } = setup();
+  const { children } = (await get(`month=${thisMonth}`)).body;
+  assert.equal(children.headcount, 97);
+  assert.equal(children.headcountAsOf, "today");
+});
+
+test("A past open month shows the count at its end", async () => {
+  const { get } = setup();
+  const { children } = (await get("month=2026-08")).body;
+  assert.equal(children.headcount, 99);
+  assert.equal(children.headcountAsOf, "periodEnd");
+  assert.equal(children.headcountDate, "2026-08-31");
 });

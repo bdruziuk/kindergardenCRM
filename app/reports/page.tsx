@@ -5,7 +5,9 @@ import { Sidebar } from "@/components/Sidebar";
 import type { ReportsSnapshot } from "@/lib/api-schemas";
 import {
   WAITLIST_STATUS_LABELS,
+  dayLabel,
   moneyLabel,
+  monthGenitive,
   monthsLabel,
 } from "@/lib/format";
 
@@ -59,7 +61,15 @@ const EMPTY: ReportsSnapshot = {
   },
   categories: [],
   groups: [],
-  children: { inPeriod: 0, joined: 0, left: 0, paused: 0 },
+  children: {
+    inPeriod: 0,
+    joined: 0,
+    left: 0,
+    paused: 0,
+    headcount: 0,
+    headcountAsOf: "today",
+    headcountDate: "",
+  },
   staff: [],
   waitlist: { waiting: 0, invited: 0, enrolled: 0, declined: 0, total: 0 },
 };
@@ -226,15 +236,31 @@ export default function ReportsPage() {
           <article>
             <i>♧</i>
             <div>
+              {/* Велика цифра — скільки дітей у садочку на одну дату: зараз,
+                  на закриття місяця або на кінець періоду. Рух за період —
+                  дрібніше під нею. */}
               <span>
-                {period === "month"
-                  ? `Дітей у ${MONTHS_FULL[Number(month.slice(5)) - 1].toLowerCase()}`
-                  : `Дітей у ${year} році`}
+                {data.children.headcountAsOf === "today"
+                  ? "Дітей зараз"
+                  : data.children.headcountAsOf === "closed"
+                    ? "Дітей на закриття місяця"
+                    : period === "month"
+                      ? `Дітей на кінець ${monthGenitive(month)}`
+                      : `Дітей на кінець ${year} року`}
               </span>
-              <b>{data.children.inPeriod}</b>
+              <b>{data.children.headcount}</b>
               <small>
-                прийшли {data.children.joined} · вибули {data.children.left} ·
-                пауза зараз {data.children.paused}
+                {data.children.headcountDate
+                  ? `станом на ${dayLabel(data.children.headcountDate)}`
+                  : ""}
+              </small>
+              <small>
+                за {period === "month" ? "місяць" : "рік"}: прийшли{" "}
+                {data.children.joined} · вибули {data.children.left} · були в
+                садочку {data.children.inPeriod}
+                {data.children.paused
+                  ? ` · на паузі зараз ${data.children.paused}`
+                  : ""}
               </small>
             </div>
           </article>

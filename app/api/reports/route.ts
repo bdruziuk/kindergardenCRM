@@ -161,6 +161,12 @@ async function snapshot(
         joined: sql<number>`count(*) filter (where ${children.enrolledAt} >= ${from}::date and ${children.enrolledAt} < ${until})::int`,
         left: sql<number>`count(*) filter (where ${children.leftAt} >= ${from}::date and ${children.leftAt} < ${until})::int`,
         paused: sql<number>`count(*) filter (where ${children.status} = 'paused')::int`,
+        // Хто в садочку зараз — як на «Дітях та групах»: усі, крім вибулих.
+        current: sql<number>`count(*) filter (where ${children.status} <> 'left')::int`,
+        // Хто був у садочку на кінець періоду, за датами. «Вибула» без дати —
+        // уже не в садочку, як і на «Дітях та групах», а не «вічно присутня».
+        atEnd: sql<number>`count(*) filter (where (${children.enrolledAt} is null or ${children.enrolledAt} < ${until})
+            and (${children.status} <> 'left' or ${children.leftAt} >= ${until}))::int`,
       })
       .from(children)
       .where(eq(children.branchId, BRANCH_ID)),
@@ -237,6 +243,33 @@ async function snapshot(
       scoped.reduce((total, row) => total + (row[key] as number), 0) * 100,
     ) / 100;
 
+  // Велика цифра «дітей»: для закритого місяця — скільки було на момент
+  // закриття (зі знімка «Огляду»), для періоду, що триває, — скільки зараз,
+  // для минулого незакритого — на його останній день за датами. Скільки
+  // прийшло, вибуло й побувало за період — дрібніше під нею.
+  const counts = childCounts[0] ?? {
+    inPeriod: 0, joined: 0, left: 0, paused: 0, current: 0, atEnd: 0,
+  };
+  const frozenKids = (
+    closed?.snapshot.dashboard as
+      | { children?: { inGarden?: number; active?: number } }
+      | undefined
+  )?.children;
+  const today = new Date().toISOString().slice(0, 10);
+  const headcount: Pick<
+    ReportsSnapshot["children"],
+    "headcount" | "headcountAsOf" | "headcountDate"
+  > =
+    closed && frozenKids
+      ? {
+          headcount: frozenKids.inGarden ?? frozenKids.active ?? counts.atEnd,
+          headcountAsOf: "closed",
+          headcountDate: closed.closedAt.slice(0, 10),
+        }
+      : asOf >= today && from <= today
+        ? { headcount: counts.current, headcountAsOf: "today", headcountDate: today }
+        : { headcount: counts.atEnd, headcountAsOf: "periodEnd", headcountDate: asOf };
+
   const totalIncome = sum("income");
   const totalExpenses = sum("expenses");
   const salaryTotal = sum("salaryPaid");
@@ -289,11 +322,12 @@ async function snapshot(
     },
     categories,
     groups: groupRows.map((row) => ({ name: row.name, children: row.count })),
-    children: childCounts[0] ?? {
-      inPeriod: 0,
-      joined: 0,
-      left: 0,
-      paused: 0,
+    children: {
+      inPeriod: counts.inPeriod,
+      joined: counts.joined,
+      left: counts.left,
+      paused: counts.paused,
+      ...headcount,
     },
     // Закритий місяць зберігає і суми, і склад колективу: працівника могли
     // звільнити або перейменувати після закриття. Поточний список тут не підходить.
