@@ -949,3 +949,19 @@ body:has(.actor-bar) .overlay{top:var(--actor-bar-h)}
 .group-chart-values .entrance-extra{font-weight:500;color:var(--muted)}
 .groups>div>small{grid-column:1/-1;font-size:9px;color:var(--muted)}
 .directory-head h2 .former-extra{margin-left:6px;font-size:10px;font-weight:600;color:var(--muted)}
+/* --- зміна пароля в налаштуваннях ----------------------------------------- */
+.settings-grid .password-field{display:flex;flex-direction:column}
+.settings-grid .password-field>span{font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:#7d8a86}
+.settings-grid .password-done{color:var(--accent-ink);font-weight:700}
+.password-form{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--accent-line);border-radius:12px;background:var(--accent-wash)}
+.password-form>b{font-size:12px;color:var(--ink)}
+.password-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.password-inputs input{width:100%}
+.password-form .password-error{color:var(--danger-ink)}
+.password-form input[aria-invalid="true"]{border-color:var(--danger)}
+.password-form .modal-error{margin:0!important}
+.password-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:9px}
+.password-actions .password-mail{margin-right:auto;padding:0;border:0;background:none;font:inherit;font-size:10px;color:var(--accent-ink);text-decoration:underline;cursor:pointer}
+.password-actions .password-mail:disabled{opacity:.5;cursor:default}
+.password-actions .account-save{flex:none}
+@media(max-width:720px){.password-inputs{grid-template-columns:1fr}.password-actions .password-mail{flex:1 1 100%;text-align:left}.password-actions .account-save{flex:1}}

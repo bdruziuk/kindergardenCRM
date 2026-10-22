@@ -685,29 +685,17 @@ export default function SettingsPage() {
               <input value={me.email} disabled />
               <small>Логін для входу — змінити не можна</small>
             </label>
-            <label>
-              Пароль
-              <button
-                data-personal
-                type="button"
-                className="account-save ghost password-button"
-                disabled={saving === "password"}
-                onClick={() => send("password", {
-                  kind: "password_change_request",
-                })}
-              >
-                {saving === "password"
-                  ? "Надсилаємо…"
-                  : "Надіслати посилання на зміну"}
-              </button>
-              <small>
-                {data.passwordMail === "sent"
+            <PasswordChange
+              mailHint={
+                data.passwordMail === "sent"
                   ? `Посилання надіслано на ${me.email}. Діє дві години.`
                   : data.passwordMail === "logged"
                     ? "Пошта не налаштована — посилання лишилось у лозі сервера."
-                    : "Пароль змінюється за посиланням із листа, не тут"}
-              </small>
-            </label>
+                    : null
+              }
+              mailBusy={saving === "password"}
+              onMail={() => send("password", { kind: "password_change_request" })}
+            />
             <label>
               Садочок
               <input
@@ -1028,5 +1016,159 @@ export default function SettingsPage() {
         )}
       </section>
     </main>
+  );
+}
+
+/**
+ * Зміна пароля без листа: старий пароль, новий і його повтор. Старий потрібен,
+ * щоб пароль не міг змінити будь-хто, хто сів за чужий відкритий ноутбук.
+ * Хто старого не пам’ятає, отримує посилання на пошту, як і раніше.
+ */
+function PasswordChange({
+  mailHint,
+  mailBusy,
+  onMail,
+}: {
+  mailHint: string | null;
+  mailBusy: boolean;
+  onMail: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const mismatch = repeat.length > 0 && next !== repeat;
+  const tooShort = next.length > 0 && next.length < 8;
+  const ready = current.length > 0 && next.length >= 8 && next === repeat;
+
+  const reset = () => {
+    setCurrent("");
+    setNext("");
+    setRepeat("");
+    setError(null);
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "password_change",
+          currentPassword: current,
+          newPassword: next,
+        }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      reset();
+      setOpen(false);
+      setDone(true);
+    } catch {
+      setError("Немає зв’язку із сервером");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open)
+    return (
+      <div className="password-field">
+        <span>Пароль</span>
+        <button
+          data-personal
+          type="button"
+          className="account-save ghost password-button"
+          onClick={() => {
+            setOpen(true);
+            setDone(false);
+          }}
+        >
+          Змінити пароль
+        </button>
+        <small className={done ? "password-done" : undefined}>
+          {done ? "✓ Пароль змінено" : mailHint ?? "Потрібен старий пароль"}
+        </small>
+      </div>
+    );
+
+  return (
+    <form className="password-form wide-field" onSubmit={submit}>
+      <b>Зміна пароля</b>
+      <div className="password-inputs">
+        <label>
+          Старий пароль
+          <input
+            data-personal
+            type="password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(event) => setCurrent(event.target.value)}
+          />
+        </label>
+        <label>
+          Новий пароль
+          <input
+            data-personal
+            type="password"
+            autoComplete="new-password"
+            value={next}
+            onChange={(event) => setNext(event.target.value)}
+            aria-invalid={tooShort}
+          />
+          <small>{tooShort ? "Щонайменше 8 символів" : "Не менше 8 символів"}</small>
+        </label>
+        <label>
+          Повторіть новий пароль
+          <input
+            data-personal
+            type="password"
+            autoComplete="new-password"
+            value={repeat}
+            onChange={(event) => setRepeat(event.target.value)}
+            aria-invalid={mismatch}
+          />
+          {mismatch && <small className="password-error">Паролі не збігаються</small>}
+        </label>
+      </div>
+      {error && <p className="modal-error" role="alert">{error}</p>}
+      <div className="password-actions">
+        <button
+          data-personal
+          type="button"
+          className="password-mail"
+          disabled={mailBusy}
+          onClick={onMail}
+        >
+          {mailBusy ? "Надсилаємо…" : "Не пам’ятаю старий — надіслати посилання на пошту"}
+        </button>
+        <button
+          data-personal
+          type="button"
+          className="account-save ghost"
+          onClick={() => {
+            reset();
+            setOpen(false);
+          }}
+        >
+          Скасувати
+        </button>
+        <button data-personal type="submit" className="account-save" disabled={!ready || busy}>
+          {busy ? "Зберігаємо…" : "Змінити пароль"}
+        </button>
+      </div>
+      {mailHint && <small>{mailHint}</small>}
+    </form>
   );
 }

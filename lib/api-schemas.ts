@@ -891,6 +891,15 @@ export const settingsRequest = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("invite_revoke"), inviteId: id }),
   /** Зміна власного пароля — теж через лист, як і «забули пароль». */
   z.object({ kind: z.literal("password_change_request") }),
+  /** Зміна пароля без листа: старий пароль підтверджує, що це власник акаунта. */
+  z.object({
+    kind: z.literal("password_change"),
+    currentPassword: z.string().min(1, "Введіть старий пароль").max(200),
+    newPassword: z
+      .string()
+      .min(8, "Новий пароль має бути щонайменше 8 символів")
+      .max(200),
+  }),
   z.object({
     kind: z.literal("avatar_set"),
     dataUrl: imageDataUrl,

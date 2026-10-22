@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { getDb } from "@/db";
@@ -6,6 +7,7 @@ import {
   invites,
   jobTitles,
   kindergartens,
+  passwordResets,
   users,
 } from "@/db/schema";
 import {
@@ -287,7 +289,8 @@ export async function POST(request: Request) {
       body.kind === "personal_theme" ||
       body.kind === "avatar_set" ||
       body.kind === "avatar_clear" ||
-      body.kind === "password_change_request";
+      body.kind === "password_change_request" ||
+      body.kind === "password_change";
     if (!personal) assertWritable(me.readOnly);
 
     if (body.kind === "invite_create") {
@@ -507,6 +510,27 @@ export async function POST(request: Request) {
       });
 
       return Response.json(await snapshot(me, { passwordMail }));
+    } else if (body.kind === "password_change") {
+      // Без листа, але й не «від того, хто за клавіатурою»: старий пароль
+      // доводить, що це власник акаунта, а не хтось біля відкритого ноутбука.
+      const [self] = await db
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, me.id));
+      if (!self) throw new ScopeError("Користувача не знайдено", 401);
+      if (!(await bcrypt.compare(body.currentPassword, self.passwordHash)))
+        throw new ScopeError("Старий пароль невірний", 400);
+      if (body.currentPassword === body.newPassword)
+        throw new ScopeError("Новий пароль має відрізнятися від старого", 400);
+
+      const passwordHash = await bcrypt.hash(body.newPassword, 12);
+      await db.transaction(async (tx) => {
+        await tx.update(users).set({ passwordHash }).where(eq(users.id, me.id));
+        // Посилання на зміну пароля, надіслані раніше, після цього не діють.
+        await tx.delete(passwordResets).where(eq(passwordResets.userId, me.id));
+      });
+
+      return Response.json(await snapshot(me));
     } else if (body.kind === "kindergarten_rename") {
       if (!me.isOwner)
         throw new ScopeError("Назву садочка змінює лише власник", 403);
